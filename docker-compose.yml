@@ -1,0 +1,21 @@
+services:
+  frontend:
+    build: ./frontend
+    ports:
+      - "80:80"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+  backend:
+    build: ./backend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    environment:
+      - DB_HOST=localhost
+      - DB_USER=root
+      - DB_PASSWORD=root
+      - DB_NAME=safewalku

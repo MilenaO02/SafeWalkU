@@ -349,9 +349,3 @@ El contrato de la API fue desarrollado utilizando la especificación **OpenAPI 3
 ```
 openapi.yaml
 ```
-
----
-
-# Licencia
-
-Proyecto desarrollado con fines académicos para la asignatura **Programación de Middleware y Seguridad de Base de Datos** de la Universidad Internacional del Ecuador (UIDE).

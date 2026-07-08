@@ -331,11 +331,15 @@ screenshots/
 Incluyen evidencias de:
 
 - Respuesta **200 OK**
+![GET 200](screenshots/200-get-users.png)
 - Respuesta **201 Created**
+![POST 201](screenshots/201-create-report.png)
 - Respuesta **401 Unauthorized**
+![401](screenshots/401-no-token.png)
 - Respuesta **403 Forbidden**
+![403](screenshots/403-no-permission.png)
 - Respuesta **422 Unprocessable Entity**
-
+![422](screenshots/422-zod-validation.png)
 ---
 
 # Contrato OpenAPI

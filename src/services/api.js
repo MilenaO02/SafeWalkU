@@ -1,0 +1,39 @@
+const fallbackBaseUrl = import.meta.env.PROD ? '/api' : 'http://localhost:3000/api';
+const API_BASE_URL = (import.meta.env.VITE_API_URL || fallbackBaseUrl).replace(/\/$/, '');
+
+function buildUrl(path) {
+  return `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
+}
+
+async function request(path, options = {}) {
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(options.headers || {}),
+  };
+
+  const response = await fetch(buildUrl(path), {
+    ...options,
+    headers,
+  });
+
+  const contentType = response.headers.get('content-type') || '';
+  const data = contentType.includes('application/json') ? await response.json() : await response.text();
+
+  if (!response.ok) {
+    throw new Error(data?.message || 'Solicitud fallida');
+  }
+
+  return data;
+}
+
+export const login = (payload) => request('/auth/login', {
+  method: 'POST',
+  body: JSON.stringify(payload),
+});
+
+export const register = (payload) => request('/auth/register', {
+  method: 'POST',
+  body: JSON.stringify(payload),
+});

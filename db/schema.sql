@@ -143,6 +143,7 @@ CREATE TABLE `reporte` (
   `fecha_reporte` datetime DEFAULT CURRENT_TIMESTAMP,
   `nivel_riesgo` enum('BAJO','MEDIO','ALTO') NOT NULL,
   `estado` enum('PENDIENTE','VALIDADO','RECHAZADO','DUPLICADO') NOT NULL DEFAULT 'PENDIENTE',
+  `tipo_reporte` enum('INCIDENTE','SOS_PANICO') NOT NULL DEFAULT 'INCIDENTE',
   `id_usuario` int NOT NULL,
   `id_ubicacion` int NOT NULL,
   `id_administrador` int DEFAULT NULL,
@@ -244,6 +245,8 @@ CREATE TABLE `ubicacion` (
   `id_ubicacion` int NOT NULL AUTO_INCREMENT,
   `nombre` varchar(100) NOT NULL,
   `direccion` varchar(255) NOT NULL,
+  `ciudad` varchar(100) NOT NULL DEFAULT 'Loja',
+  `radio_metros` int NOT NULL DEFAULT 50,
   `tipo_zona` enum('UNIVERSIDAD','CALLE','PARQUE','BARRIO','PARADERO','LUGAR_SEGURO','SERVICIO_EMERGENCIA') NOT NULL,
   PRIMARY KEY (`id_ubicacion`)
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

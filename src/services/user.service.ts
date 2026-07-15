@@ -26,6 +26,12 @@ class UserService {
 
     }
 
+    async updateFotoPerfil(id: number, foto_perfil: string) {
+
+        return await repository.updateFotoPerfil(id, foto_perfil);
+
+    }
+
 }
 
 export default new UserService();

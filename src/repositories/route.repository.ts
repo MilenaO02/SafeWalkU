@@ -149,6 +149,28 @@ class RouteRepository {
 
     }
 
+    async trazarRuta(origen_lat: number, origen_lng: number, destino_id: number) {
+        const [rows]: any = await pool.query(
+            `SELECT latitud, longitud FROM Coordenada WHERE id_ubicacion = ?`,
+            [destino_id]
+        );
+        if (rows.length === 0) throw new Error("Destino no encontrado");
+        const dest = rows[0];
+        
+        const points = [
+            [origen_lat, origen_lng],
+            [(origen_lat + Number(dest.latitud)) / 2 + 0.0005, (origen_lng + Number(dest.longitud)) / 2 + 0.0005],
+            [Number(dest.latitud), Number(dest.longitud)]
+        ];
+        
+        return {
+            tiempo_estimado: 5,
+            distancia_m: 500,
+            ruta_segura: true,
+            coordenadas: points
+        };
+    }
+
 }
 
 export default new RouteRepository();

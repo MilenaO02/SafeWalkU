@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import swaggerUi from "swagger-ui-express";
+import path from "path";
 
 import swaggerSpec from "./docs/swagger";
 import routes from "./routes";
@@ -14,13 +15,21 @@ dotenv.config();
 
 const app = express();
 
-app.use(cors());
+const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:5173").split(",").map((origin) => origin.trim()).filter(Boolean);
+
+app.use(cors({
+    origin: allowedOrigins,
+    credentials: true
+}));
 
 app.use(express.json());
 
 app.use(logger);
 
 app.use(limiter);
+
+// Servir imágenes de perfil cargadas localmente
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 
 app.use(

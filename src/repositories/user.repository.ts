@@ -14,6 +14,8 @@ export interface Usuario {
 
     rol: "ESTUDIANTE" | "ADMINISTRADOR";
 
+    foto_perfil?: string | null;
+
 }
 
 class UserRepository {
@@ -74,7 +76,9 @@ class UserRepository {
 
             estado,
 
-            fecha_registro
+            fecha_registro,
+
+            foto_perfil
 
         FROM Usuario
 
@@ -203,6 +207,20 @@ class UserRepository {
     );
 
 }
+
+    async updateFotoPerfil(id: number, foto_perfil: string) {
+
+        await pool.query(
+
+            `UPDATE Usuario SET foto_perfil = ? WHERE id_usuario = ?`,
+
+            [foto_perfil, id]
+
+        );
+
+        return this.findById(id);
+
+    }
 
 }
 

@@ -10,6 +10,8 @@ import validate from "../middleware/validate";
 
 import { updateUserSchema } from "../schemas/user.schema";
 
+import upload from "../config/multer";
+
 const router = Router();
 
 /**
@@ -82,6 +84,22 @@ router.delete(
     auth,
     authorize("ADMINISTRADOR"),
     controller.delete
+);
+
+/**
+ * @swagger
+ * /users/{id}/foto:
+ *   put:
+ *     summary: Subir foto de perfil del usuario
+ *     tags: [Usuarios]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.put(
+    "/:id/foto",
+    auth,
+    upload.single("imagen"),
+    controller.uploadFoto
 );
 
 export default router;

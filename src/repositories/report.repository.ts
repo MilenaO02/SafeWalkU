@@ -204,6 +204,39 @@ class ReportRepository {
 
     }
 
+    async findRiskZonesByCity(ciudad: string) {
+        const [rows]: any = await pool.query(
+            `
+            SELECT 
+                r.id_reporte, r.descripcion, r.nivel_riesgo, r.fecha_reporte,
+                ub.nombre AS ubicacion_nombre, ub.direccion, ub.ciudad, ub.radio_metros,
+                c.latitud, c.longitud
+            FROM Reporte r
+            INNER JOIN Ubicacion ub ON r.id_ubicacion = ub.id_ubicacion
+            INNER JOIN Coordenada c ON c.id_ubicacion = ub.id_ubicacion
+            WHERE ub.ciudad = ? AND r.estado = 'VALIDADO' AND r.estado_registro = 'ACTIVO'
+            `,
+            [ciudad]
+        );
+        return rows;
+    }
+
+    async createSOS(report: any) {
+        const sql = `
+        INSERT INTO Reporte (descripcion, nivel_riesgo, estado, tipo_reporte, id_usuario, id_ubicacion)
+        VALUES (?, 'ALTO', 'PENDIENTE', 'SOS_PANICO', ?, ?)
+        `;
+        const [result]: any = await pool.query(sql, [report.descripcion, report.id_usuario, report.id_ubicacion]);
+        return result.insertId;
+    }
+
+    async cancelSOS(id: number) {
+        await pool.query(
+            `UPDATE Reporte SET estado = 'RECHAZADO' WHERE id_reporte = ? AND tipo_reporte = 'SOS_PANICO'`,
+            [id]
+        );
+    }
+
 }
 
 export default new ReportRepository();

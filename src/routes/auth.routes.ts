@@ -3,6 +3,7 @@ import { Router } from "express";
 import controller from "../controllers/auth.controller";
 
 import validate from "../middleware/validate";
+import validateDomain from "../middleware/validateDomain";
 
 import{
 
@@ -34,7 +35,7 @@ router.post(
 "/register",
 
 validate(registerSchema),
-
+validateDomain,
 controller.register
 
 );
@@ -52,7 +53,7 @@ router.post(
 "/login",
 
 validate(loginSchema),
-
+validateDomain,
 controller.login
 
 );

@@ -66,6 +66,10 @@ class RouteService {
 
     }
 
+    async trazarRuta(origen_lat: number, origen_lng: number, destino_id: number) {
+        return await routeRepository.trazarRuta(origen_lat, origen_lng, destino_id);
+    }
+
 }
 
 export default new RouteService();

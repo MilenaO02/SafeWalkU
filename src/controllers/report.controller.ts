@@ -147,6 +147,35 @@ class ReportController {
 
     }
 
+    async getRiskZones(req: Request, res: Response) {
+        try {
+            const ciudad = (req.query.ciudad as string) || 'Loja';
+            const zones = await reportService.findRiskZonesByCity(ciudad);
+            return res.status(200).json({ success: true, data: zones });
+        } catch (error: any) {
+            return res.status(500).json({ success: false, message: error.message });
+        }
+    }
+
+    async createSOS(req: Request, res: Response) {
+        try {
+            const report = await reportService.createSOS(req.body);
+            return res.status(201).json({ success: true, message: "SOS Activado", data: report });
+        } catch (error: any) {
+            return res.status(400).json({ success: false, message: error.message });
+        }
+    }
+
+    async cancelSOS(req: Request, res: Response) {
+        try {
+            const id = Number(req.params.id);
+            const result = await reportService.cancelSOS(id);
+            return res.status(200).json({ success: true, ...result });
+        } catch (error: any) {
+            return res.status(400).json({ success: false, message: error.message });
+        }
+    }
+
 }
 
 export default new ReportController();

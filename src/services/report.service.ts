@@ -64,6 +64,21 @@ class ReportService {
 
     }
 
+    async findRiskZonesByCity(ciudad: string) {
+        return await reportRepository.findRiskZonesByCity(ciudad);
+    }
+
+    async createSOS(data: any) {
+        return await reportRepository.createSOS(data);
+    }
+
+    async cancelSOS(id: number) {
+        const reporte = await reportRepository.findById(id);
+        if (!reporte) throw new Error("Reporte no encontrado");
+        await reportRepository.cancelSOS(id);
+        return { message: "Alarma SOS cancelada" };
+    }
+
 }
 
 export default new ReportService();

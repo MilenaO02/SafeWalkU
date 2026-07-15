@@ -171,4 +171,24 @@ router.delete(
     reportController.delete
 );
 
+router.get(
+    "/zonas/riesgo",
+    auth,
+    reportController.getRiskZones
+);
+
+router.post(
+    "/sos",
+    auth,
+    authorize("ESTUDIANTE", "ADMINISTRADOR"),
+    reportController.createSOS
+);
+
+router.put(
+    "/sos/:id/cancelar",
+    auth,
+    authorize("ESTUDIANTE", "ADMINISTRADOR"),
+    reportController.cancelSOS
+);
+
 export default router;

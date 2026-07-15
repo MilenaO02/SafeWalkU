@@ -24,6 +24,12 @@ const router = Router();
  */
 
 router.get(
+    "/trazar",
+    auth,
+    controller.trazarRuta
+);
+
+router.get(
 
     "/",
 

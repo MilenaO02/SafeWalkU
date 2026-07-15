@@ -147,6 +147,23 @@ class RouteController {
 
     }
 
+    async trazarRuta(req: Request, res: Response) {
+        try {
+            const origen_lat = Number(req.query.origen_lat);
+            const origen_lng = Number(req.query.origen_lng);
+            const destino_id = Number(req.query.destino_id);
+            
+            if (!origen_lat || !origen_lng || !destino_id) {
+                return res.status(400).json({ success: false, message: "Faltan parámetros de origen o destino" });
+            }
+            
+            const result = await routeService.trazarRuta(origen_lat, origen_lng, destino_id);
+            return res.status(200).json({ success: true, data: result });
+        } catch (error: any) {
+            return res.status(500).json({ success: false, message: error.message });
+        }
+    }
+
 }
 
 export default new RouteController();

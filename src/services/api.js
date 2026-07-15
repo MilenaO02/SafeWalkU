@@ -1,12 +1,8 @@
-const fallbackBaseUrl = import.meta.env.PROD ? '/api' : '/api';
-const API_BASE_URL = (import.meta.env.VITE_API_URL || fallbackBaseUrl).replace(/\/$/, '');
+const API_BASE_URL = '/api';
 
 function buildApiUrl(path) {
-  return `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
-}
-
-function buildUrl(path) {
-  return buildApiUrl(path);
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  return `${API_BASE_URL}${normalizedPath}`;
 }
 
 async function request(path, options = {}) {
@@ -17,7 +13,7 @@ async function request(path, options = {}) {
     ...(options.headers || {}),
   };
 
-  const response = await fetch(buildUrl(path), {
+  const response = await fetch(buildApiUrl(path), {
     ...options,
     headers,
   });

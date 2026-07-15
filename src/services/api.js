@@ -1,8 +1,12 @@
-const fallbackBaseUrl = import.meta.env.PROD ? '/api' : 'http://localhost:3000/api';
+const fallbackBaseUrl = import.meta.env.PROD ? '/api' : '/api';
 const API_BASE_URL = (import.meta.env.VITE_API_URL || fallbackBaseUrl).replace(/\/$/, '');
 
-function buildUrl(path) {
+function buildApiUrl(path) {
   return `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
+}
+
+function buildUrl(path) {
+  return buildApiUrl(path);
 }
 
 async function request(path, options = {}) {
@@ -37,3 +41,5 @@ export const register = (payload) => request('/auth/register', {
   method: 'POST',
   body: JSON.stringify(payload),
 });
+
+export { buildApiUrl, API_BASE_URL };

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useMapConfig } from '../layouts/MainLayout';
 import { useAuth } from '../context/AuthContext';
+import { buildApiUrl } from '../services/api';
 
 export default function SafeWalkSOS() {
   const { setMapConfig, defaultMapConfig } = useMapConfig();
@@ -57,7 +58,7 @@ export default function SafeWalkSOS() {
 
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      const res = await fetch('http://localhost:3000/api/reportes/sos', {
+      const res = await fetch(buildApiUrl('/reportes/sos'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -102,7 +103,7 @@ export default function SafeWalkSOS() {
     if (activeSosId) {
       try {
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        await fetch(`http://localhost:3000/api/reportes/sos/${activeSosId}/cancelar`, {
+        await fetch(buildApiUrl(`/reportes/sos/${activeSosId}/cancelar`), {
           method: 'PUT',
           headers: { Authorization: `Bearer ${token}` }
         });

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useMapConfig } from '../layouts/MainLayout';
 import { useAuth } from '../context/AuthContext';
+import { buildApiUrl } from '../services/api';
 
 export default function StudentProfile() {
   const { setMapConfig } = useMapConfig();
@@ -38,7 +39,7 @@ export default function StudentProfile() {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      await fetch('http://localhost:3000/api/users/me', {
+      await fetch(buildApiUrl('/users/me'), {
         method:  'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body:    JSON.stringify(editData),
@@ -60,7 +61,7 @@ export default function StudentProfile() {
       const userId = user?.id_usuario || 1;
       const formData = new FormData();
       formData.append('imagen', file);
-      const res = await fetch(`http://localhost:3000/api/users/${userId}/foto`, {
+      const res = await fetch(buildApiUrl(`/users/${userId}/foto`), {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}` },
         body: formData,

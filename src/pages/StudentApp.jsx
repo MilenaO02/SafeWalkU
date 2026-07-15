@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BuscadorPrincipal from '../components/BuscadorPrincipal';
 import { useMapConfig } from '../layouts/MainLayout';
+import { buildApiUrl } from '../services/api';
 
 export default function StudentApp() {
   const navigate = useNavigate();
@@ -34,7 +35,7 @@ export default function StudentApp() {
     const fetchZonas = async () => {
       try {
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        const res = await fetch('http://localhost:3000/api/reportes/zonas/riesgo?ciudad=Loja', {
+        const res = await fetch(buildApiUrl('/reportes/zonas/riesgo?ciudad=Loja'), {
             headers: { Authorization: `Bearer ${token}` }
         });
         const json = await res.json();
@@ -51,7 +52,7 @@ export default function StudentApp() {
       const lat = userPos ? userPos[0] : -4.0327;
       const lng = userPos ? userPos[1] : -79.2024;
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      const res = await fetch(`http://localhost:3000/api/rutas/trazar?origen_lat=${lat}&origen_lng=${lng}&destino_id=${destino.id_ubicacion}`, {
+      const res = await fetch(buildApiUrl(`/rutas/trazar?origen_lat=${lat}&origen_lng=${lng}&destino_id=${destino.id_ubicacion}`), {
         headers: { Authorization: `Bearer ${token}` }
       });
       const json = await res.json();

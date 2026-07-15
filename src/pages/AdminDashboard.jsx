@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { buildApiUrl } from '../services/api';
 
 export default function AdminDashboardContent() {
   const [metrics, setMetrics] = useState({
@@ -17,11 +18,11 @@ export default function AdminDashboardContent() {
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
         const headers = { Authorization: `Bearer ${token}` };
         
-        const resM = await fetch('http://localhost:3000/api/dashboard/metricas', { headers });
+        const resM = await fetch(buildApiUrl('/dashboard/metricas'), { headers });
         const jsonM = await resM.json();
         if (jsonM.success) setMetrics(jsonM.data);
         
-        const resR = await fetch('http://localhost:3000/api/reports', { headers });
+        const resR = await fetch(buildApiUrl('/reports'), { headers });
         const jsonR = await resR.json();
         if (jsonR.success) {
            const sos = jsonR.data.map(r => ({
@@ -44,7 +45,7 @@ export default function AdminDashboardContent() {
   const handleDispatch = async (id, user) => {
     try {
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        await fetch(`http://localhost:3000/api/reports/${id}`, {
+        await fetch(buildApiUrl(`/reports/${id}`), {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
             body: JSON.stringify({ estado: 'VALIDADO' })

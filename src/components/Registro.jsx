@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { buildApiUrl } from '../services/api';
 
 export default function Registro() {
   const navigate = useNavigate();
@@ -33,7 +34,7 @@ export default function Registro() {
 
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:3000/api/auth/register', {
+      const res = await fetch(buildApiUrl('/auth/register'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

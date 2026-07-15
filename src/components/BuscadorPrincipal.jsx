@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { buildApiUrl } from '../services/api';
 
 export default function BuscadorPrincipal({ onDestinoSelect, onTrazar }) {
   const [query, setQuery] = useState('');
@@ -10,7 +11,7 @@ export default function BuscadorPrincipal({ onDestinoSelect, onTrazar }) {
       if (query.length > 2) {
         try {
           const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-          const res = await fetch(`http://localhost:3000/api/ubicaciones/buscar?q=${query}`, {
+          const res = await fetch(buildApiUrl(`/ubicaciones/buscar?q=${query}`), {
             headers: { Authorization: `Bearer ${token}` }
           });
           const data = await res.json();

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMapConfig } from '../layouts/MainLayout';
+import { buildApiUrl } from '../services/api';
 
 export default function ResumenReporte() {
   const navigate = useNavigate();
@@ -51,7 +52,7 @@ export default function ResumenReporte() {
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
 
     try {
-      const response = await fetch('http://localhost:3000/api/reports', {
+      const response = await fetch(buildApiUrl('/reports'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

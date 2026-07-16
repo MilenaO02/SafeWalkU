@@ -5,7 +5,7 @@ import { useMapConfig } from '../layouts/MainLayout';
 const ReportarIncidente = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
-  const { setMapConfig } = useMapConfig();
+  const { setMapConfig, defaultMapConfig } = useMapConfig();
 
   // Estados locales para el formulario
   const [category, setCategory] = useState('');
@@ -33,7 +33,9 @@ const ReportarIncidente = () => {
         color: '#f59e0b'
       }
     });
-  }, [setMapConfig]);
+
+    return () => setMapConfig(defaultMapConfig);
+  }, [setMapConfig, defaultMapConfig]);
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];

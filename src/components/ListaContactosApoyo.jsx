@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { useMapConfig } from '../layouts/MainLayout';
 
 export default function ContactosEmergencia() {
-  const { setMapConfig } = useMapConfig();
+  const { setMapConfig, defaultMapConfig } = useMapConfig();
 
   const posicionUIDELoja = [-3.9822, -79.2015];
   const posicionUPC = [-3.9840, -79.2045];
@@ -23,7 +23,9 @@ export default function ContactosEmergencia() {
         color: '#3b82f6'
       }
     });
-  }, [setMapConfig]);
+    
+    return () => setMapConfig(defaultMapConfig);
+  }, [setMapConfig, defaultMapConfig]);
 
   const handleCall = (contacto, numero) => {
     alert(`Llamando a ${contacto} (${numero})... En caso de estar en un dispositivo móvil, se abrirá el dialer.`);

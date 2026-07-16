@@ -36,17 +36,14 @@ const getStoredSession = () => {
 };
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null);
+  // Initialize state synchronously so PrivateRoute and components have data on first render
+  const initialSession = getStoredSession();
+  const [user, setUser] = useState(initialSession.user ? { ...initialSession.user, rol: normalizeRole(initialSession.user.rol) } : null);
+  const [token, setToken] = useState(initialSession.token);
   const [toast, setToast] = useState(null);
 
-  useEffect(() => {
-    const { user: storedUser, token: storedToken } = getStoredSession();
-    if (storedUser) {
-      setUser({ ...storedUser, rol: normalizeRole(storedUser.rol) });
-      setToken(storedToken);
-    }
-  }, []);
+  // We no longer need the useEffect that overwrites state asynchronously
+
 
   const login = (userData, authToken, storagePreference = 'localStorage') => {
     const normalizedUser = { ...userData, rol: normalizeRole(userData?.rol) };
@@ -77,12 +74,21 @@ export const AuthProvider = ({ children }) => {
 
   const clearToast = () => setToast(null);
 
+  const updateUser = (updatedData) => {
+    const targetStorage = localStorage.getItem('user') ? localStorage : (sessionStorage.getItem('user') ? sessionStorage : null);
+    if (!targetStorage) return;
+    const currentUser = JSON.parse(targetStorage.getItem('user'));
+    const newUser = { ...currentUser, ...updatedData };
+    targetStorage.setItem('user', JSON.stringify(newUser));
+    setUser(newUser);
+  };
+
   const isAuthenticated = Boolean(token || user);
   const isAdmin = normalizeRole(user?.rol) === 'ADMINISTRADOR';
   const hasRole = (role) => normalizeRole(user?.rol) === normalizeRole(role);
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, toast, showToast, clearToast, isAuthenticated, isAdmin, hasRole }}>
+    <AuthContext.Provider value={{ user, token, login, logout, updateUser, toast, showToast, clearToast, isAuthenticated, isAdmin, hasRole }}>
       {children}
     </AuthContext.Provider>
   );

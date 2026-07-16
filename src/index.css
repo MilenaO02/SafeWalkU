@@ -20,8 +20,10 @@
   --spacing-mb-stack-lg: 1.5rem;
 }
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @layer base {
   body {
-    @apply font-sans antialiased bg-gray-50 text-gray-900;
+    @apply font-sans antialiased bg-slate-50 text-slate-900 transition-colors duration-500 dark:bg-[#3C3C40] dark:text-slate-200;
   }
 }

@@ -7,73 +7,68 @@ export default function SafeWalkSOS() {
   const { setMapConfig, defaultMapConfig } = useMapConfig();
   const [isAlertVisible, setIsAlertVisible] = useState(false);
   const [activeSosId, setActiveSosId] = useState(null);
+  const [posicionUsuario, setPosicionUsuario] = useState(null);
   const { user } = useAuth();
 
-  const posicionUsuario = [-3.9822, -79.2015]; // UIDE Loja Central
-
-  // Inicializar mapa mostrando la ubicación del estudiante en modo SOS
   useEffect(() => {
-    setMapConfig({
-      centro: posicionUsuario,
-      zoom: 17,
-      markers: [
-        { 
-          position: posicionUsuario, 
-          title: "Tu ubicación", 
-          desc: "Dispositivo móvil activo." 
-        }
-      ],
-      circle: {
-        center: posicionUsuario,
-        radius: 40,
-        color: '#330071'
+    let watchId;
+    if (navigator.geolocation) {
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => setPosicionUsuario([pos.coords.latitude, pos.coords.longitude]),
+        () => console.warn("GPS falló en SOS"),
+        { enableHighAccuracy: true, maximumAge: 0 }
+      );
+    }
+    return () => {
+      if (watchId) navigator.geolocation.clearWatch(watchId);
+      setMapConfig(defaultMapConfig);
+    };
+  }, [setMapConfig, defaultMapConfig]);
+
+  useEffect(() => {
+    if (posicionUsuario) {
+      if (isAlertVisible) {
+        setMapConfig({
+          centro: posicionUsuario,
+          zoom: 18,
+          markers: [{ position: posicionUsuario, title: "🚨 SOS ACTIVADO 🚨", desc: "Señal de auxilio en progreso. El personal de seguridad está en camino." }],
+          circle: { center: posicionUsuario, radius: 80, color: '#ef4444' }
+        });
+      } else {
+        setMapConfig({
+          centro: posicionUsuario,
+          zoom: 17,
+          markers: [{ position: posicionUsuario, title: "Tu ubicación", desc: "Dispositivo móvil activo." }],
+          circle: { center: posicionUsuario, radius: 40, color: '#330071' }
+        });
       }
-    });
-  }, [setMapConfig]);
+    }
+  }, [posicionUsuario, isAlertVisible, setMapConfig]);
 
   const handleSOS = async () => {
     setIsAlertVisible(true);
-    
-    // Cambiar configuración del mapa para denotar una alerta activa
-    setMapConfig({
-      centro: posicionUsuario,
-      zoom: 18,
-      markers: [
-        { 
-          position: posicionUsuario, 
-          title: "🚨 SOS ACTIVADO 🚨", 
-          desc: "Señal de auxilio en progreso. El personal de seguridad está en camino." 
-        }
-      ],
-      circle: {
-        center: posicionUsuario,
-        radius: 80,
-        color: '#ef4444' // Círculo rojo de alerta
-      }
-    });
-
-    if ("vibrate" in navigator) {
-      navigator.vibrate([200, 100, 200, 100, 200]);
-    }
+    if ("vibrate" in navigator) navigator.vibrate([200, 100, 200, 100, 200]);
 
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      const res = await fetch(buildApiUrl('/reportes/sos'), {
+      const payload = {
+        descripcion: "ALERTA SOS ACTIVADA DESDE DISPOSITIVO MÓVIL",
+        id_usuario: user?.id_usuario || 1,
+        id_ubicacion: 1
+      };
+      
+      if (posicionUsuario) {
+        payload.latitud = posicionUsuario[0];
+        payload.longitud = posicionUsuario[1];
+      }
+
+      const res = await fetch(buildApiUrl('/reports/sos'), {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          descripcion: "ALERTA SOS ACTIVADA DESDE DISPOSITIVO MÓVIL",
-          id_usuario: user?.id_usuario || 1,
-          id_ubicacion: 1
-        })
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload)
       });
       const data = await res.json();
-      if (data.success) {
-        setActiveSosId(data.data);
-      }
+      if (data.success) setActiveSosId(data.data);
     } catch (e) {
       console.error("Error al activar SOS:", e);
     }
@@ -81,29 +76,10 @@ export default function SafeWalkSOS() {
 
   const handleCancelSOS = async () => {
     setIsAlertVisible(false);
-    
-    // Revertir mapa a estado normal del estudiante
-    setMapConfig({
-      centro: posicionUsuario,
-      zoom: 17,
-      markers: [
-        { 
-          position: posicionUsuario, 
-          title: "Tu ubicación", 
-          desc: "Alerta cancelada. Ubicación segura." 
-        }
-      ],
-      circle: {
-        center: posicionUsuario,
-        radius: 40,
-        color: '#330071'
-      }
-    });
-
     if (activeSosId) {
       try {
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        await fetch(buildApiUrl(`/reportes/sos/${activeSosId}/cancelar`), {
+        await fetch(buildApiUrl(`/reports/sos/${activeSosId}/cancelar`), {
           method: 'PUT',
           headers: { Authorization: `Bearer ${token}` }
         });

@@ -42,10 +42,11 @@ deploy_to_aws:
     - ssh-keyscan $AWS_HOST >> ~/.ssh/known_hosts
     - chmod 644 ~/.ssh/known_hosts
   script:
-    - echo "Copiando archivos del proyecto al servidor AWS EC2..."
+    - echo "Empaquetando y copiando archivos al servidor AWS EC2..."
+    - tar -czf deploy.tar.gz .
     - ssh $AWS_USERNAME@$AWS_HOST "mkdir -p ~/safewalku2"
-    - scp -r . $AWS_USERNAME@$AWS_HOST:~/safewalku2
+    - scp deploy.tar.gz $AWS_USERNAME@$AWS_HOST:~/safewalku2/
     - echo "Construyendo y desplegando en AWS con Docker..."
-    - ssh $AWS_USERNAME@$AWS_HOST "cd ~/safewalku2 && docker build -t safewalkweb . && docker stop safewalkweb_container || true && docker rm safewalkweb_container || true && docker run -d --name safewalkweb_container -p 80:80 safewalkweb"
+    - ssh $AWS_USERNAME@$AWS_HOST "cd ~/safewalku2 && tar -xzf deploy.tar.gz && rm deploy.tar.gz && docker build -t safewalkweb . && docker stop safewalkweb_container || true && docker rm safewalkweb_container || true && docker run -d --name safewalkweb_container -p 80:80 safewalkweb"
   only:
     - main

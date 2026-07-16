@@ -30,9 +30,9 @@ test_code_quality:
 # Etapa 3: Despliegue Automático
 deploy_to_aws:
   stage: deploy
-  image: alpine:latest
+  image: debian:bullseye-slim
   before_script:
-    - 'command -v ssh-agent >/dev/null || ( apk add --update openssh )' 
+    - 'command -v ssh-agent >/dev/null || ( apt-get update -y && apt-get install -y openssh-client )' 
     - eval $(ssh-agent -s)
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh

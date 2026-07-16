@@ -46,7 +46,8 @@ deploy_to_aws:
     - tar -czf /tmp/deploy.tar.gz .
     - ssh $AWS_USERNAME@$AWS_HOST "mkdir -p ~/safewalku2"
     - scp /tmp/deploy.tar.gz $AWS_USERNAME@$AWS_HOST:~/safewalku2/deploy.tar.gz
-    - echo "Construyendo y desplegando en AWS con Docker..."
-    - ssh $AWS_USERNAME@$AWS_HOST "cd ~/safewalku2 && tar -xzf deploy.tar.gz && rm deploy.tar.gz && docker build -t safewalkweb . && docker stop safewalkweb_container || true && docker rm safewalkweb_container || true && docker run -d --name safewalkweb_container -p 80:80 safewalkweb"
+    - echo "Instalando Docker en AWS si no existe y desplegando..."
+    - ssh $AWS_USERNAME@$AWS_HOST "if ! command -v docker &> /dev/null; then curl -fsSL https://get.docker.com -o get-docker.sh && sudo sh get-docker.sh; fi"
+    - ssh $AWS_USERNAME@$AWS_HOST "cd ~/safewalku2 && tar -xzf deploy.tar.gz && rm deploy.tar.gz && sudo docker build -t safewalkweb . && sudo docker stop safewalkweb_container || true && sudo docker rm safewalkweb_container || true && sudo docker run -d --name safewalkweb_container -p 80:80 safewalkweb"
   only:
     - main

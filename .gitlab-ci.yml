@@ -3,7 +3,7 @@ stages:
   - test
   - deploy
 
-image: node:20-alpine
+image: node:20
 
 # Etapa 1: Construcción
 build_frontend:

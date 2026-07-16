@@ -46,8 +46,13 @@ deploy_to_aws:
     - tar -czf /tmp/deploy.tar.gz dist/ nginx.conf
     - ssh $AWS_USERNAME@$AWS_HOST "mkdir -p ~/safewalku2"
     - scp /tmp/deploy.tar.gz $AWS_USERNAME@$AWS_HOST:~/safewalku2/deploy.tar.gz
-    - echo "Instalando Docker en AWS si no existe y desplegando Nginx ligero..."
+    - echo "Instalando dependencias (Docker y Certbot) en AWS si no existen..."
     - ssh $AWS_USERNAME@$AWS_HOST "if ! command -v docker &> /dev/null; then curl -fsSL https://get.docker.com -o get-docker.sh && sudo sh get-docker.sh; fi"
-    - ssh $AWS_USERNAME@$AWS_HOST "cd ~/safewalku2 && tar -xzf deploy.tar.gz && rm deploy.tar.gz && sudo systemctl stop apache2 2>/dev/null || true && sudo systemctl stop nginx 2>/dev/null || true && sudo docker rm -f \$(sudo docker ps -q --filter 'publish=80') 2>/dev/null || true && sudo docker rm -f safewalkweb_container 2>/dev/null || true && sudo docker run -d --name safewalkweb_container -p 80:80 -v ~/safewalku2/dist:/usr/share/nginx/html -v ~/safewalku2/nginx.conf:/etc/nginx/conf.d/default.conf nginx:alpine"
+    - ssh $AWS_USERNAME@$AWS_HOST "if ! command -v certbot &> /dev/null; then sudo apt-get update -y && sudo apt-get install -y certbot; fi"
+    - echo "Generando Certificado SSL Seguro y Desplegando..."
+    - ssh $AWS_USERNAME@$AWS_HOST "cd ~/safewalku2 && tar -xzf deploy.tar.gz && rm deploy.tar.gz && sudo systemctl stop apache2 2>/dev/null || true && sudo systemctl stop nginx 2>/dev/null || true && sudo docker rm -f \$(sudo docker ps -q --filter 'publish=80') 2>/dev/null || true && sudo docker rm -f safewalkweb_container 2>/dev/null || true"
+    - ssh $AWS_USERNAME@$AWS_HOST "sudo certbot certonly --standalone -d $AWS_HOST.nip.io -m admin@uide.edu.ec --agree-tos -n || true"
+    - ssh $AWS_USERNAME@$AWS_HOST "sudo cp /etc/letsencrypt/live/$AWS_HOST.nip.io/fullchain.pem /tmp/cert.pem || true && sudo cp /etc/letsencrypt/live/$AWS_HOST.nip.io/privkey.pem /tmp/key.pem || true"
+    - ssh $AWS_USERNAME@$AWS_HOST "sudo docker run -d --name safewalkweb_container -p 80:80 -p 443:443 -v ~/safewalku2/dist:/usr/share/nginx/html -v ~/safewalku2/nginx.conf:/etc/nginx/conf.d/default.conf -v /tmp/cert.pem:/etc/nginx/cert.pem -v /tmp/key.pem:/etc/nginx/key.pem nginx:alpine"
   only:
     - main

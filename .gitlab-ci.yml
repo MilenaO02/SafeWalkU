@@ -43,7 +43,7 @@ deploy_to_aws:
     - chmod 644 ~/.ssh/known_hosts
   script:
     - echo "Empaquetando y copiando archivos al servidor AWS EC2..."
-    - tar -czf deploy.tar.gz .
+    - tar --exclude=deploy.tar.gz -czf deploy.tar.gz .
     - ssh $AWS_USERNAME@$AWS_HOST "mkdir -p ~/safewalku2"
     - scp deploy.tar.gz $AWS_USERNAME@$AWS_HOST:~/safewalku2/
     - echo "Construyendo y desplegando en AWS con Docker..."

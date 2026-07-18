@@ -14,6 +14,7 @@ build_frontend:
     - npm ci
     - echo "Construyendo frontend para producción..."
     - npm run build
+
   artifacts:
     name: "frontend-$CI_COMMIT_SHORT_SHA"
     paths:
@@ -27,6 +28,7 @@ test_frontend_quality:
     - cd frontend
     - npm ci
     - npm run lint
+
   allow_failure: false
 
 deploy_frontend:
@@ -40,42 +42,89 @@ deploy_frontend:
   before_script:
     - apt-get update -y
     - apt-get install -y openssh-client tar
+
     - eval "$(ssh-agent -s)"
+
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
+
     - |
       if [ -f "$AWS_SSH_KEY" ]; then
         cp "$AWS_SSH_KEY" ~/.ssh/id_rsa
       else
         printf '%s\n' "$AWS_SSH_KEY" | tr -d '\r' > ~/.ssh/id_rsa
       fi
+
     - chmod 600 ~/.ssh/id_rsa
     - ssh-add ~/.ssh/id_rsa
+
     - ssh-keyscan -H "$AWS_HOST" >> ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
 
   script:
+   
     - echo "Empaquetando frontend..."
-    - tar -czf /tmp/frontend.tar.gz frontend/dist frontend/nginx.conf
+
+    - >
+      tar -czf /tmp/frontend.tar.gz
+      frontend/dist
+      frontend/nginx.conf
 
     - echo "Preparando directorio en EC2..."
-    - ssh "$AWS_USERNAME@$AWS_HOST" "mkdir -p ~/safewalku/frontend"
 
-    - echo "Enviando frontend..."
-    - scp /tmp/frontend.tar.gz "$AWS_USERNAME@$AWS_HOST:~/safewalku/frontend.tar.gz"
-
-    - echo "Desplegando frontend..."
     - >
       ssh "$AWS_USERNAME@$AWS_HOST"
-      "cd ~/safewalku &&
+      "mkdir -p /home/$AWS_USERNAME/safewalku/frontend"
+
+    - echo "Enviando frontend a EC2..."
+
+    - >
+      scp /tmp/frontend.tar.gz
+      "$AWS_USERNAME@$AWS_HOST:/home/$AWS_USERNAME/safewalku/frontend.tar.gz"
+
+    - echo "Extrayendo nueva versión del frontend..."
+
+    - >
+      ssh "$AWS_USERNAME@$AWS_HOST"
+      "cd /home/$AWS_USERNAME/safewalku &&
       rm -rf frontend/dist &&
       tar -xzf frontend.tar.gz &&
       rm -f frontend.tar.gz"
 
-    - echo "Reiniciando contenedor del frontend..."
+    - echo "Liberando los puertos 80 y 443..."
+
     - >
       ssh "$AWS_USERNAME@$AWS_HOST"
-      "sudo docker rm -f safewalk-frontend 2>/dev/null || true;
-      sudo docker run -d
+      "sudo systemctl stop apache2 2>/dev/null || true;
+      sudo systemctl stop nginx 2>/dev/null || true;
+      sudo docker rm -f safewalk-frontend 2>/dev/null || true;
+      sudo docker rm -f safewalkweb_container 2>/dev/null || true"
+
+    - echo "Eliminando otros contenedores que ocupen el puerto 80..."
+
+    - >
+      ssh "$AWS_USERNAME@$AWS_HOST"
+      "CONTAINERS=\$(sudo docker ps -q --filter publish=80);
+      if [ -n \"\$CONTAINERS\" ];
+      then
+        sudo docker rm -f \$CONTAINERS;
+      fi"
+
+    - echo "Eliminando otros contenedores que ocupen el puerto 443..."
+
+    - >
+      ssh "$AWS_USERNAME@$AWS_HOST"
+      "CONTAINERS=\$(sudo docker ps -q --filter publish=443);
+      if [ -n \"\$CONTAINERS\" ];
+      then
+        sudo docker rm -f \$CONTAINERS;
+      fi"
+
+    - echo "Creando el nuevo contenedor del frontend..."
+
+    - >
+      ssh "$AWS_USERNAME@$AWS_HOST"
+      "sudo docker run -d
       --name safewalk-frontend
       --restart unless-stopped
       -p 80:80
@@ -84,6 +133,22 @@ deploy_frontend:
       -v /home/$AWS_USERNAME/safewalku/frontend/nginx.conf:/etc/nginx/conf.d/default.conf:ro
       -v /etc/letsencrypt:/etc/letsencrypt:ro
       nginx:alpine"
+
+    - echo "Verificando el contenedor del frontend..."
+
+    - >
+      ssh "$AWS_USERNAME@$AWS_HOST"
+      "sudo docker ps
+      --filter name=safewalk-frontend
+      --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'"
+
+    - echo "Comprobando respuesta HTTP del frontend..."
+
+    - >
+      ssh "$AWS_USERNAME@$AWS_HOST"
+      "sleep 5;
+      curl -I --fail http://localhost ||
+      curl -k -I --fail https://localhost"
 
     - echo "Frontend desplegado correctamente."
 

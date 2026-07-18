@@ -8,10 +8,12 @@ default:
 
 build_frontend:
   stage: build
+
   script:
     - echo "Instalando dependencias del frontend..."
     - cd frontend
     - npm ci
+
     - echo "Construyendo frontend para producción..."
     - npm run build
 
@@ -23,10 +25,13 @@ build_frontend:
 
 test_frontend_quality:
   stage: test
+
   script:
-    - echo "Ejecutando análisis de calidad del frontend..."
+    - echo "Instalando dependencias para ejecutar lint..."
     - cd frontend
     - npm ci
+
+    - echo "Ejecutando análisis de calidad del frontend..."
     - npm run lint
 
   allow_failure: false
@@ -41,7 +46,7 @@ deploy_frontend:
 
   before_script:
     - apt-get update -y
-    - apt-get install -y openssh-client tar
+    - apt-get install -y openssh-client tar curl
 
     - eval "$(ssh-agent -s)"
 
@@ -100,25 +105,30 @@ deploy_frontend:
       sudo docker rm -f safewalk-frontend 2>/dev/null || true;
       sudo docker rm -f safewalkweb_container 2>/dev/null || true"
 
-    - echo "Eliminando otros contenedores que ocupen el puerto 80..."
+    - echo "Eliminando contenedores que ocupen el puerto 80..."
 
     - >
       ssh "$AWS_USERNAME@$AWS_HOST"
       "CONTAINERS=\$(sudo docker ps -q --filter publish=80);
-      if [ -n \"\$CONTAINERS\" ];
-      then
+      if [ -n \"\$CONTAINERS\" ]; then
         sudo docker rm -f \$CONTAINERS;
       fi"
 
-    - echo "Eliminando otros contenedores que ocupen el puerto 443..."
+    - echo "Eliminando contenedores que ocupen el puerto 443..."
 
     - >
       ssh "$AWS_USERNAME@$AWS_HOST"
       "CONTAINERS=\$(sudo docker ps -q --filter publish=443);
-      if [ -n \"\$CONTAINERS\" ];
-      then
+      if [ -n \"\$CONTAINERS\" ]; then
         sudo docker rm -f \$CONTAINERS;
       fi"
+
+    - echo "Verificando certificados SSL..."
+
+    - >
+      ssh "$AWS_USERNAME@$AWS_HOST"
+      "sudo test -f /etc/letsencrypt/live/safewalku.online/fullchain.pem &&
+      sudo test -f /etc/letsencrypt/live/safewalku.online/privkey.pem"
 
     - echo "Creando el nuevo contenedor del frontend..."
 
@@ -134,21 +144,28 @@ deploy_frontend:
       -v /etc/letsencrypt:/etc/letsencrypt:ro
       nginx:alpine"
 
-    - echo "Verificando el contenedor del frontend..."
+    - echo "Esperando que Nginx inicie..."
+    - sleep 5
+
+    - echo "Verificando estado del contenedor..."
 
     - >
       ssh "$AWS_USERNAME@$AWS_HOST"
-      "sudo docker ps
+      "sudo docker ps -a
       --filter name=safewalk-frontend
       --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'"
 
-    - echo "Comprobando respuesta HTTP del frontend..."
+    - echo "Mostrando logs del contenedor..."
 
     - >
       ssh "$AWS_USERNAME@$AWS_HOST"
-      "sleep 5;
-      curl -I --fail http://localhost ||
-      curl -k -I --fail https://localhost"
+      "sudo docker logs safewalk-frontend --tail 30"
+
+    - echo "Comprobando HTTPS..."
+
+    - >
+      ssh "$AWS_USERNAME@$AWS_HOST"
+      "curl -k -I --fail https://localhost"
 
     - echo "Frontend desplegado correctamente."
 

@@ -1,0 +1,95 @@
+stages:
+  - build
+  - test
+  - deploy
+
+default:
+  image: node:20
+
+build_frontend:
+  stage: build
+  script:
+    - echo "Instalando dependencias del frontend..."
+    - cd frontend
+    - npm ci
+    - echo "Construyendo frontend para producción..."
+    - npm run build
+  artifacts:
+    name: "frontend-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - frontend/dist/
+    expire_in: 1 hour
+
+test_frontend_quality:
+  stage: test
+  script:
+    - echo "Ejecutando análisis de calidad del frontend..."
+    - cd frontend
+    - npm ci
+    - npm run lint
+  allow_failure: false
+
+deploy_frontend:
+  stage: deploy
+  image: debian:bullseye-slim
+
+  needs:
+    - job: build_frontend
+      artifacts: true
+
+  before_script:
+    - apt-get update -y
+    - apt-get install -y openssh-client tar
+    - eval "$(ssh-agent -s)"
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - |
+      if [ -f "$AWS_SSH_KEY" ]; then
+        cp "$AWS_SSH_KEY" ~/.ssh/id_rsa
+      else
+        printf '%s\n' "$AWS_SSH_KEY" | tr -d '\r' > ~/.ssh/id_rsa
+      fi
+    - chmod 600 ~/.ssh/id_rsa
+    - ssh-add ~/.ssh/id_rsa
+    - ssh-keyscan -H "$AWS_HOST" >> ~/.ssh/known_hosts
+
+  script:
+    - echo "Empaquetando frontend..."
+    - tar -czf /tmp/frontend.tar.gz frontend/dist frontend/nginx.conf
+
+    - echo "Preparando directorio en EC2..."
+    - ssh "$AWS_USERNAME@$AWS_HOST" "mkdir -p ~/safewalku/frontend"
+
+    - echo "Enviando frontend..."
+    - scp /tmp/frontend.tar.gz "$AWS_USERNAME@$AWS_HOST:~/safewalku/frontend.tar.gz"
+
+    - echo "Desplegando frontend..."
+    - >
+      ssh "$AWS_USERNAME@$AWS_HOST"
+      "cd ~/safewalku &&
+      rm -rf frontend/dist &&
+      tar -xzf frontend.tar.gz &&
+      rm -f frontend.tar.gz"
+
+    - echo "Reiniciando contenedor del frontend..."
+    - >
+      ssh "$AWS_USERNAME@$AWS_HOST"
+      "sudo docker rm -f safewalk-frontend 2>/dev/null || true;
+      sudo docker run -d
+      --name safewalk-frontend
+      --restart unless-stopped
+      -p 80:80
+      -p 443:443
+      -v /home/$AWS_USERNAME/safewalku/frontend/dist:/usr/share/nginx/html:ro
+      -v /home/$AWS_USERNAME/safewalku/frontend/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      -v /etc/letsencrypt:/etc/letsencrypt:ro
+      nginx:alpine"
+
+    - echo "Frontend desplegado correctamente."
+
+  environment:
+    name: frontend-production
+    url: https://safewalku.online
+
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'

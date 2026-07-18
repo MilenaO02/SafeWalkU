@@ -1,0 +1,54 @@
+Iniciando Auditoría Completa de Peores Casos...
+┌─────────┬────────────────────────────┬──────────────────────────────────────────┬────────┐
+│ (index) │ ruta                       │ caso                                     │ status │
+├─────────┼────────────────────────────┼──────────────────────────────────────────┼────────┤
+│ 0       │ 'GET /users'               │ 'Sin Token'                              │ 401    │
+│ 1       │ 'GET /users'               │ 'Admin: ID No Existe / Body vacío'       │ 200    │
+│ 2       │ 'GET /users/99999'         │ 'Sin Token'                              │ 401    │
+│ 3       │ 'GET /users/99999'         │ 'Admin: ID No Existe / Body vacío'       │ 'ERR'  │
+│ 4       │ 'PUT /users/99999'         │ 'Sin Token'                              │ 'ERR'  │
+│ 5       │ 'PUT /users/99999'         │ 'Rol Estudiante (Datos vacíos/Permisos)' │ 'ERR'  │
+│ 6       │ 'PUT /users/99999'         │ 'Admin: ID No Existe / Body vacío'       │ 'ERR'  │
+│ 7       │ 'DELETE /users/99999'      │ 'Sin Token'                              │ 'ERR'  │
+│ 8       │ 'DELETE /users/99999'      │ 'Rol Estudiante (Datos vacíos/Permisos)' │ 'ERR'  │
+│ 9       │ 'DELETE /users/99999'      │ 'Admin: ID No Existe / Body vacío'       │ 'ERR'  │
+│ 10      │ 'GET /reports'             │ 'Sin Token'                              │ 'ERR'  │
+│ 11      │ 'GET /reports'             │ 'Admin: ID No Existe / Body vacío'       │ 'ERR'  │
+│ 12      │ 'POST /reports'            │ 'Sin Token'                              │ 'ERR'  │
+│ 13      │ 'POST /reports'            │ 'Rol Estudiante (Datos vacíos/Permisos)' │ 'ERR'  │
+│ 14      │ 'POST /reports'            │ 'Admin: ID No Existe / Body vacío'       │ 'ERR'  │
+│ 15      │ 'GET /reports/99999'       │ 'Sin Token'                              │ 'ERR'  │
+│ 16      │ 'GET /reports/99999'       │ 'Admin: ID No Existe / Body vacío'       │ 'ERR'  │
+│ 17      │ 'PUT /reports/99999'       │ 'Sin Token'                              │ 'ERR'  │
+│ 18      │ 'PUT /reports/99999'       │ 'Rol Estudiante (Datos vacíos/Permisos)' │ 'ERR'  │
+│ 19      │ 'PUT /reports/99999'       │ 'Admin: ID No Existe / Body vacío'       │ 'ERR'  │
+│ 20      │ 'DELETE /reports/99999'    │ 'Sin Token'                              │ 'ERR'  │
+│ 21      │ 'DELETE /reports/99999'    │ 'Rol Estudiante (Datos vacíos/Permisos)' │ 'ERR'  │
+│ 22      │ 'DELETE /reports/99999'    │ 'Admin: ID No Existe / Body vacío'       │ 'ERR'  │
+│ 23      │ 'GET /routes'              │ 'Sin Token'                              │ 'ERR'  │
+│ 24      │ 'GET /routes'              │ 'Admin: ID No Existe / Body vacío'       │ 'ERR'  │
+│ 25      │ 'POST /routes'             │ 'Sin Token'                              │ 'ERR'  │
+│ 26      │ 'POST /routes'             │ 'Rol Estudiante (Datos vacíos/Permisos)' │ 'ERR'  │
+│ 27      │ 'POST /routes'             │ 'Admin: ID No Existe / Body vacío'       │ 'ERR'  │
+│ 28      │ 'GET /routes/99999'        │ 'Sin Token'                              │ 'ERR'  │
+│ 29      │ 'GET /routes/99999'        │ 'Admin: ID No Existe / Body vacío'       │ 'ERR'  │
+│ 30      │ 'PUT /routes/99999'        │ 'Sin Token'                              │ 'ERR'  │
+│ 31      │ 'PUT /routes/99999'        │ 'Rol Estudiante (Datos vacíos/Permisos)' │ 'ERR'  │
+│ 32      │ 'PUT /routes/99999'        │ 'Admin: ID No Existe / Body vacío'       │ 'ERR'  │
+│ 33      │ 'DELETE /routes/99999'     │ 'Sin Token'                              │ 'ERR'  │
+│ 34      │ 'DELETE /routes/99999'     │ 'Rol Estudiante (Datos vacíos/Permisos)' │ 'ERR'  │
+│ 35      │ 'DELETE /routes/99999'     │ 'Admin: ID No Existe / Body vacío'       │ 'ERR'  │
+│ 36      │ 'GET /evidencias'          │ 'Sin Token'                              │ 'ERR'  │
+│ 37      │ 'GET /evidencias'          │ 'Admin: ID No Existe / Body vacío'       │ 'ERR'  │
+│ 38      │ 'POST /evidencias'         │ 'Sin Token'                              │ 'ERR'  │
+│ 39      │ 'POST /evidencias'         │ 'Rol Estudiante (Datos vacíos/Permisos)' │ 'ERR'  │
+│ 40      │ 'POST /evidencias'         │ 'Admin: ID No Existe / Body vacío'       │ 'ERR'  │
+│ 41      │ 'GET /evidencias/99999'    │ 'Sin Token'                              │ 'ERR'  │
+│ 42      │ 'GET /evidencias/99999'    │ 'Admin: ID No Existe / Body vacío'       │ 'ERR'  │
+│ 43      │ 'PUT /evidencias/99999'    │ 'Sin Token'                              │ 'ERR'  │
+│ 44      │ 'PUT /evidencias/99999'    │ 'Rol Estudiante (Datos vacíos/Permisos)' │ 'ERR'  │
+│ 45      │ 'PUT /evidencias/99999'    │ 'Admin: ID No Existe / Body vacío'       │ 'ERR'  │
+│ 46      │ 'DELETE /evidencias/99999' │ 'Sin Token'                              │ 'ERR'  │
+│ 47      │ 'DELETE /evidencias/99999' │ 'Rol Estudiante (Datos vacíos/Permisos)' │ 'ERR'  │
+│ 48      │ 'DELETE /evidencias/99999' │ 'Admin: ID No Existe / Body vacío'       │ 'ERR'  │
+└─────────┴────────────────────────────┴──────────────────────────────────────────┴────────┘

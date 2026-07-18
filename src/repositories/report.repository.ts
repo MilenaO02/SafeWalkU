@@ -20,13 +20,13 @@ class ReportRepository {
 
                 ub.nombre AS ubicacion
 
-            FROM Reporte r
+            FROM reporte r
 
-            INNER JOIN Usuario u
+            INNER JOIN usuario u
 
                 ON r.id_usuario = u.id_usuario
 
-            INNER JOIN Ubicacion ub
+            INNER JOIN ubicacion ub
 
                 ON r.id_ubicacion = ub.id_ubicacion
 
@@ -57,13 +57,13 @@ class ReportRepository {
 
                 ub.nombre AS ubicacion
 
-            FROM Reporte r
+            FROM reporte r
 
-            INNER JOIN Usuario u
+            INNER JOIN usuario u
 
                 ON r.id_usuario=u.id_usuario
 
-            INNER JOIN Ubicacion ub
+            INNER JOIN ubicacion ub
 
                 ON r.id_ubicacion=ub.id_ubicacion
 
@@ -88,7 +88,7 @@ class ReportRepository {
         const sql =
 
         `
-        INSERT INTO Reporte
+        INSERT INTO reporte
         (
 
             descripcion,
@@ -148,7 +148,7 @@ class ReportRepository {
 
             `
 
-            UPDATE Reporte
+            UPDATE reporte
 
             SET
 
@@ -186,7 +186,7 @@ class ReportRepository {
 
             `
 
-            UPDATE Reporte
+            UPDATE reporte
 
             SET
 
@@ -211,9 +211,9 @@ class ReportRepository {
                 r.id_reporte, r.descripcion, r.nivel_riesgo, r.fecha_reporte,
                 ub.nombre AS ubicacion_nombre, ub.direccion, ub.ciudad, ub.radio_metros,
                 c.latitud, c.longitud
-            FROM Reporte r
-            INNER JOIN Ubicacion ub ON r.id_ubicacion = ub.id_ubicacion
-            INNER JOIN Coordenada c ON c.id_ubicacion = ub.id_ubicacion
+            FROM reporte r
+            INNER JOIN ubicacion ub ON r.id_ubicacion = ub.id_ubicacion
+            INNER JOIN coordenada c ON c.id_ubicacion = ub.id_ubicacion
             WHERE ub.ciudad = ? AND r.estado = 'VALIDADO' AND r.estado_registro = 'ACTIVO'
             `,
             [ciudad]
@@ -223,7 +223,7 @@ class ReportRepository {
 
     async createSOS(report: any) {
         const sql = `
-        INSERT INTO Reporte (descripcion, nivel_riesgo, estado, tipo_reporte, id_usuario, id_ubicacion)
+        INSERT INTO reporte (descripcion, nivel_riesgo, estado, tipo_reporte, id_usuario, id_ubicacion)
         VALUES (?, 'ALTO', 'PENDIENTE', 'SOS_PANICO', ?, ?)
         `;
         const [result]: any = await pool.query(sql, [report.descripcion, report.id_usuario, report.id_ubicacion]);
@@ -232,7 +232,7 @@ class ReportRepository {
 
     async cancelSOS(id: number) {
         await pool.query(
-            `UPDATE Reporte SET estado = 'RECHAZADO' WHERE id_reporte = ? AND tipo_reporte = 'SOS_PANICO'`,
+            `UPDATE reporte SET estado = 'RECHAZADO' WHERE id_reporte = ? AND tipo_reporte = 'SOS_PANICO'`,
             [id]
         );
     }

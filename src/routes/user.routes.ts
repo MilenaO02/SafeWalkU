@@ -55,6 +55,21 @@ router.get(
 
 /**
  * @swagger
+ * /users/me:
+ *   put:
+ *     summary: Actualizar mi propio perfil
+ *     tags: [Usuarios]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.put(
+    "/me",
+    auth,
+    controller.updateMe
+);
+
+/**
+ * @swagger
  * /users/{id}:
  *   put:
  *     summary: Actualizar usuario

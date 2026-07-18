@@ -9,7 +9,7 @@ class RouteRepository {
             `
             SELECT *
 
-            FROM Ruta
+            FROM ruta
 
             ORDER BY id_ruta DESC
             `
@@ -26,7 +26,7 @@ class RouteRepository {
             `
             SELECT *
 
-            FROM Ruta
+            FROM ruta
 
             WHERE id_ruta = ?
             `,
@@ -44,7 +44,7 @@ class RouteRepository {
         const [result]: any = await pool.query(
 
             `
-            INSERT INTO Ruta
+            INSERT INTO ruta
 
             (
 
@@ -96,7 +96,7 @@ class RouteRepository {
         await pool.query(
 
             `
-            UPDATE Ruta
+            UPDATE ruta
 
             SET
 
@@ -137,7 +137,7 @@ class RouteRepository {
 
             `
 
-            DELETE FROM Ruta
+            DELETE FROM ruta
 
             WHERE id_ruta=?
 
@@ -151,7 +151,7 @@ class RouteRepository {
 
     async trazarRuta(origen_lat: number, origen_lng: number, destino_id: number) {
         const [rows]: any = await pool.query(
-            `SELECT latitud, longitud FROM Coordenada WHERE id_ubicacion = ?`,
+            `SELECT latitud, longitud FROM coordenada WHERE id_ubicacion = ?`,
             [destino_id]
         );
         if (rows.length === 0) throw new Error("Destino no encontrado");

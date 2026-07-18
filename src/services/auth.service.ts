@@ -59,7 +59,7 @@ class AuthService {
         }
 
         const signOptions: jwt.SignOptions = {
-            expiresIn: "2h"
+            expiresIn: "30d"
         };
 
         const token = jwt.sign(

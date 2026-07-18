@@ -9,7 +9,7 @@ class EvidenceRepository {
             `
             SELECT *
 
-            FROM Evidencia
+            FROM evidencia
 
             ORDER BY id_evidencia DESC
             `
@@ -26,7 +26,7 @@ class EvidenceRepository {
             `
             SELECT *
 
-            FROM Evidencia
+            FROM evidencia
 
             WHERE id_evidencia=?
             `,
@@ -44,7 +44,7 @@ class EvidenceRepository {
         const [result]:any=await pool.query(
 
             `
-            INSERT INTO Evidencia
+            INSERT INTO evidencia
 
             (
 
@@ -90,7 +90,7 @@ class EvidenceRepository {
         await pool.query(
 
             `
-            UPDATE Evidencia
+            UPDATE evidencia
 
             SET
 
@@ -122,7 +122,7 @@ class EvidenceRepository {
         await pool.query(
 
             `
-            DELETE FROM Evidencia
+            DELETE FROM evidencia
 
             WHERE id_evidencia=?
             `,

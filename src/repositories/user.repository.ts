@@ -42,7 +42,7 @@ class UserRepository {
 
             fecha_registro
 
-        FROM Usuario
+        FROM usuario
 
         WHERE estado='ACTIVO'
 
@@ -80,7 +80,7 @@ class UserRepository {
 
             foto_perfil
 
-        FROM Usuario
+        FROM usuario
 
         WHERE id_usuario=?
 
@@ -100,7 +100,7 @@ class UserRepository {
 
         const [rows]: any = await pool.query(
 
-            "SELECT * FROM Usuario WHERE correo=?",
+            "SELECT * FROM usuario WHERE correo=?",
 
             [correo]
 
@@ -114,7 +114,7 @@ class UserRepository {
 
         const [result]: any = await pool.query(
 
-            `INSERT INTO Usuario
+            `INSERT INTO usuario
             (
                 nombre,
                 apellido,
@@ -156,7 +156,7 @@ class UserRepository {
     await pool.query(
 
         `
-        UPDATE Usuario
+        UPDATE usuario
         SET
             nombre = ?,
             apellido = ?,
@@ -194,7 +194,7 @@ class UserRepository {
 
         `
 
-        UPDATE Usuario
+        UPDATE usuario
 
         SET estado='INACTIVO'
 
@@ -212,7 +212,7 @@ class UserRepository {
 
         await pool.query(
 
-            `UPDATE Usuario SET foto_perfil = ? WHERE id_usuario = ?`,
+            `UPDATE usuario SET foto_perfil = ? WHERE id_usuario = ?`,
 
             [foto_perfil, id]
 

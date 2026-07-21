@@ -8,20 +8,15 @@ TARGET_DIR="/var/www/safewalku/dist"
 
 cd "$FRONTEND_DIR"
 
-echo "[1/4] Actualizando código fuente..."
-# git pull origin main
-
-echo "[2/4] Instalando dependencias limpia..."
-npm ci
-
-echo "[3/4] Compilando con Vite..."
-npm run build
-
-echo "[4/4] Copiando a producción $TARGET_DIR..."
-sudo mkdir -p /var/www/safewalku
+echo "[1/3] Copiando frontend precompilado a $TARGET_DIR..."
+sudo mkdir -p /var/www/safewalku/dist
 sudo cp -r dist/* /var/www/safewalku/dist/
 
-echo "Verificando Nginx..."
+echo "[2/3] Verificando permisos de lectura Nginx..."
+sudo chown -R www-data:www-data /var/www/safewalku
+sudo chmod -R 755 /var/www/safewalku
+
+echo "[3/3] Verificando Nginx..."
 sudo nginx -t
 sudo systemctl reload nginx
 

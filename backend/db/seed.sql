@@ -17,7 +17,8 @@ TRUNCATE TABLE ubicacion;
 TRUNCATE TABLE usuario;
 SET FOREIGN_KEY_CHECKS = 1;
 
-SET @PASSWORD_HASH = '$2b$10$2.eu4fNb14pX0VxtAxAZP.2YiYb3JGNi3QRt.6Fol/.v/AR3k.J4y';
+SET @PASSWORD_HASH = '$2b$10$jQg5JizVvOCStQEPW64RaO3i5/bpSRvz23VQqv/n4BMXiwpHLiQkC';
+
 
 INSERT INTO usuario (id_usuario, nombre, apellido, correo, contrasena, rol, estado) VALUES
 (1,'Edgar Anderson','Bustos Castillo','edgar.bustos1@uide.edu.ec',@PASSWORD_HASH,'ESTUDIANTE','ACTIVO'),

@@ -88,20 +88,6 @@ const Login = () => {
     }
   };
 
-  // Función para ingreso de prueba sin backend (Mock Login)
-  const handleMockLogin = () => {
-    const mockUser = {
-      id_usuario: 999,
-      nombre: 'Estudiante',
-      apellido: 'Prueba',
-      correo: 'prueba@uide.edu.ec',
-      rol: 'ESTUDIANTE',
-      foto_perfil: null,
-    };
-    saveSession(mockUser, 'mock-jwt-token-123', 'localStorage');
-    showToast('Sesión de prueba iniciada (Modo Local)');
-    navigate('/app');
-  };
 
   return (
     <div className="bg-[#f7f9fb] dark:bg-[#1A1A1C] min-h-screen flex items-center justify-center p-4 relative overflow-hidden font-sans w-full transition-colors duration-500">
@@ -242,16 +228,6 @@ const Login = () => {
             </div>
 
             {/* Botón de Login de Prueba (Mock) */}
-            <div className="pt-2">
-              <button 
-                className="w-full bg-slate-100 dark:bg-[#4A4A50] hover:bg-slate-200 dark:hover:bg-[#5A5A60] text-slate-700 dark:text-slate-300 font-bold text-sm py-3 px-6 rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 border border-slate-200 dark:border-[#5A5A60]" 
-                type="button"
-                onClick={handleMockLogin}
-              >
-                <span className="material-symbols-outlined text-[18px]">science</span>
-                <span>Ingreso Rápido de Prueba</span>
-              </button>
-            </div>
           </form>
 
           {/* Footer Section */}

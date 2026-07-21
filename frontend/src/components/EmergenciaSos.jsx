@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useMapConfig } from '../layouts/MainLayout';
-import { useAuth } from '../context/AuthContext';
-import { buildApiUrl } from '../services/api';
+import { request } from '../services/api';
 
 export default function SafeWalkSOS() {
   const { setMapConfig, defaultMapConfig } = useMapConfig();
   const [isAlertVisible, setIsAlertVisible] = useState(false);
   const [activeSosId, setActiveSosId] = useState(null);
   const [posicionUsuario, setPosicionUsuario] = useState(null);
-  const { user } = useAuth();
 
   useEffect(() => {
     let watchId;
@@ -50,10 +48,8 @@ export default function SafeWalkSOS() {
     if ("vibrate" in navigator) navigator.vibrate([200, 100, 200, 100, 200]);
 
     try {
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       const payload = {
         descripcion: "ALERTA SOS ACTIVADA DESDE DISPOSITIVO MÓVIL",
-        id_usuario: user?.id_usuario || 1,
         id_ubicacion: 1
       };
       
@@ -62,12 +58,10 @@ export default function SafeWalkSOS() {
         payload.longitud = posicionUsuario[1];
       }
 
-      const res = await fetch(buildApiUrl('/reports/sos'), {
+      const data = await request('/reports/sos', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(payload)
       });
-      const data = await res.json();
       if (data.success) setActiveSosId(data.data);
     } catch (e) {
       console.error("Error al activar SOS:", e);
@@ -78,10 +72,8 @@ export default function SafeWalkSOS() {
     setIsAlertVisible(false);
     if (activeSosId) {
       try {
-        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        await fetch(buildApiUrl(`/reports/sos/${activeSosId}/cancelar`), {
-          method: 'PUT',
-          headers: { Authorization: `Bearer ${token}` }
+        await request(`/reports/sos/${activeSosId}/cancelar`, {
+          method: 'PUT'
         });
         setActiveSosId(null);
       } catch (e) {

@@ -2,19 +2,20 @@ import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 
-import icon from 'leaflet/dist/images/marker-icon.png';
-import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+import markerIconPng from 'leaflet/dist/images/marker-icon.png?url';
+import markerShadowPng from 'leaflet/dist/images/marker-shadow.png?url';
 
 import { useAuth } from '../context/AuthContext';
 
 let DefaultIcon = L.icon({
-  iconUrl: icon,
-  shadowUrl: iconShadow,
+  iconUrl: markerIconPng,
+  shadowUrl: markerShadowPng,
   iconSize: [25, 41],
   iconAnchor: [12, 41],
   popupAnchor: [1, -34],
 });
 L.Marker.prototype.options.icon = DefaultIcon;
+
 function ManejadorMapa({ centro, zoom = 17 }) {
   const map = useMap();
 

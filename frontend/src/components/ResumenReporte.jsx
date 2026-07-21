@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMapConfig } from '../layouts/MainLayout';
-import { buildApiUrl } from '../services/api';
+import { request } from '../services/api';
 
 export default function ResumenReporte() {
   const navigate = useNavigate();
@@ -49,36 +49,23 @@ export default function ResumenReporte() {
   // Enviar el reporte a la base de datos Express (backend)
   const handleSendReport = async () => {
     setIsSubmitting(true);
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
 
     try {
-      const response = await fetch(buildApiUrl('/reports'), {
+      const data = await request('/reports', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': token ? `Bearer ${token}` : ''
-        },
         body: JSON.stringify({
-          descripcion: `[Categoría: ${report.categoria}] - ${report.descripcion}`,
-          nivel_riesgo: report.categoria === "Robo / Hurto" || report.categoria === "Acoso / Intimidación" ? "Alto" : "Medio",
-          estado: "Pendiente",
-          ubicacion: report.ubicacion
-        })
+          descripcion: `[Categoría: ${report.categoria}] - ${report.descripcion}` ,
+          nivel_riesgo: report.categoria === "Robo / Hurto" || report.categoria === "Acoso / Intimidación" ? "ALTO" : "MEDIO",
+          id_ubicacion: report.id_ubicacion,
+        }),
       });
 
-      if (!response.ok) {
-        throw new Error("Error al comunicarse con el servidor");
-      }
-
-      const data = await response.json();
       console.log("Reporte creado en backend:", data);
       setIsSent(true);
 
     } catch (error) {
-      console.warn("Backend offline o error al guardar. Mock-guardando reporte de forma local.", error);
-      
-      // Simular éxito local en caso de que el backend no esté iniciado o disponible
-      setIsSent(true);
+      console.error("Error creando reporte en backend:", error);
+      alert(error instanceof Error ? error.message : 'No se pudo enviar el reporte.');
     } finally {
       setIsSubmitting(false);
     }

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BuscadorPrincipal from '../components/BuscadorPrincipal';
 import { useMapConfig } from '../layouts/MainLayout';
-import { buildApiUrl } from '../services/api';
+import { request } from '../services/api';
 
 export default function StudentApp() {
   const navigate = useNavigate();
@@ -50,11 +50,7 @@ export default function StudentApp() {
   useEffect(() => {
     const fetchZonas = async () => {
       try {
-        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        const res = await fetch(buildApiUrl('/reports/zonas/riesgo?ciudad=Loja'), {
-            headers: { Authorization: `Bearer ${token}` }
-        });
-        const json = await res.json();
+        const json = await request('/reports/zonas/riesgo?ciudad=Loja');
         if (json.success && json.data) setZonasRiesgo(json.data);
       } catch (e) {
         console.error("Error cargando zonas de riesgo", e);
@@ -67,11 +63,7 @@ export default function StudentApp() {
     try {
       const lat = userPos ? userPos[0] : -4.0327;
       const lng = userPos ? userPos[1] : -79.2024;
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      const res = await fetch(buildApiUrl(`/rutas/trazar?origen_lat=${lat}&origen_lng=${lng}&destino_id=${destino.id_ubicacion}`), {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const json = await res.json();
+      const json = await request(`/rutas/trazar?origen_lat=${lat}&origen_lng=${lng}&destino_id=${destino.id_ubicacion}`);
       if (json.success) {
         setMapConfig(prev => ({
           ...prev,

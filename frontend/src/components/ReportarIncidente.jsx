@@ -57,6 +57,7 @@ const ReportarIncidente = () => {
       descripcion: description || "Sin descripción adicional.",
       fecha: new Date().toLocaleString('es-EC', { timeZone: 'America/Guayaquil' }),
       ubicacion: "Campus UIDE - Sector Biblioteca",
+      id_ubicacion: 4,
       coordenadas: posicionIncidente,
       evidencia: evidenceName || null
     };

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { buildApiUrl } from '../services/api';
+import { register } from '../services/api';
 
 export default function Registro() {
   const navigate = useNavigate();
@@ -34,27 +34,23 @@ export default function Registro() {
 
     setLoading(true);
     try {
-      const res = await fetch(buildApiUrl('/auth/register'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name:     formData.name,
-          email:    formData.email,
-          password: formData.password,
-        }),
-      });
+      const [firstName, ...lastNameParts] = formData.name.trim().split(' ');
+      const nombre = firstName || '';
+      const apellido = lastNameParts.join(' ') || 'Sin Apellido';
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.message || 'Error al registrar');
-      }
+      await register({
+        nombre,
+        apellido,
+        correo: formData.email.trim().toLowerCase(),
+        contrasena: formData.password,
+        rol: 'ESTUDIANTE'
+      });
 
       setSuccess(true);
       setTimeout(() => navigate('/'), 2000);
     } catch (err) {
-      console.warn('Backend offline – simulando registro exitoso.', err);
-      setSuccess(true);
-      setTimeout(() => navigate('/'), 2000);
+      const message = err instanceof Error ? err.message : 'Error al registrar';
+      setError(message);
     } finally {
       setLoading(false);
     }

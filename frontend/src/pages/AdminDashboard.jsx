@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { buildApiUrl } from '../services/api';
+import { request } from '../services/api';
 
 export default function AdminDashboardContent() {
   const [metrics, setMetrics] = useState({
@@ -15,15 +15,10 @@ export default function AdminDashboardContent() {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        const headers = { Authorization: `Bearer ${token}` };
-        
-        const resM = await fetch(buildApiUrl('/dashboard/metricas'), { headers });
-        const jsonM = await resM.json();
+        const jsonM = await request('/dashboard/metricas');
         if (jsonM.success) setMetrics(jsonM.data);
-        
-        const resR = await fetch(buildApiUrl('/reports'), { headers });
-        const jsonR = await resR.json();
+
+        const jsonR = await request('/reports');
         if (jsonR.success) {
            const sos = jsonR.data.map(r => ({
                id: r.id_reporte,
@@ -35,7 +30,7 @@ export default function AdminDashboardContent() {
            }));
            setPanicAlerts(sos);
         }
-      } catch(e) {
+      } catch (e) {
          console.error("Error cargando dashboard", e);
       }
     };
@@ -44,16 +39,14 @@ export default function AdminDashboardContent() {
 
   const handleDispatch = async (id, user) => {
     try {
-        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        await fetch(buildApiUrl(`/reports/${id}`), {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ estado: 'VALIDADO' })
-        });
-        setDispatchedIds((prev) => [...prev, id]);
-        alert(`✅ Patrulla despachada para: ${user}`);
+      await request(`/reports/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ estado: 'VALIDADO' })
+      });
+      setDispatchedIds((prev) => [...prev, id]);
+      alert(`✅ Patrulla despachada para: ${user}`);
     } catch (e) {
-        console.error("Error al despachar", e);
+      console.error("Error al despachar", e);
     }
   };
 

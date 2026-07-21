@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: safewalk-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-SafeWalkPass2026!}
+      MYSQL_DATABASE: ${DB_NAME:-safewalku}
+      MYSQL_USER: ${DB_USER:-safewalk_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-SafeWalkPass2026!}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./backend/db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./backend/db/seed.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
+    ports:
+      - "127.0.0.1:3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - safewalk-net
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: safewalk-backend
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: ${DB_USER:-safewalk_user}
+      DB_PASSWORD: ${DB_PASSWORD:-SafeWalkPass2026!}
+      DB_NAME: ${DB_NAME:-safewalku}
+      JWT_SECRET: ${JWT_SECRET:-safewalk_super_secret_jwt_key_2026_change_in_prod}
+      CORS_ORIGIN: "https://safewalku.online,https://www.safewalku.online"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - backend_uploads:/app/uploads
+    networks:
+      - safewalk-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: safewalk-frontend
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - backend
+    networks:
+      - safewalk-net
+
+volumes:
+  mysql_data:
+  backend_uploads:
+
+networks:
+  safewalk-net:
+    driver: bridge

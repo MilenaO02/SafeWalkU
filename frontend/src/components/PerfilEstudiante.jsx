@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useMapConfig } from '../layouts/MainLayout';
 import { useAuth } from '../context/AuthContext';
-import { buildApiUrl } from '../services/api';
+import { request } from '../services/api';
 
 export default function StudentProfile() {
   const { setMapConfig } = useMapConfig();
@@ -38,15 +38,10 @@ export default function StudentProfile() {
   const handleSave = async (e) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      const res = await fetch(buildApiUrl('/users/me'), {
-        method:  'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body:    JSON.stringify(editData),
+      await request('/users/me', {
+        method: 'PUT',
+        body: JSON.stringify(editData),
       });
-      if (!res.ok) {
-        throw new Error('Error en el servidor al guardar');
-      }
       const [nombre, ...apellidos] = editData.name.split(' ');
       updateUser({ nombre, apellido: apellidos.join(' '), correo: editData.email });
       setProfile({ ...editData });
@@ -66,16 +61,13 @@ export default function StudentProfile() {
     if (!file) return;
     setUploadingFoto(true);
     try {
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       const userId = user?.id_usuario || 1;
       const formData = new FormData();
       formData.append('imagen', file);
-      const res = await fetch(buildApiUrl(`/users/${userId}/foto`), {
+      const json = await request(`/users/${userId}/foto`, {
         method: 'PUT',
-        headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
-      const json = await res.json();
       if (json.success) {
         setProfile(prev => ({ ...prev, fotoPerfil: json.foto_url }));
         updateUser({ foto_perfil: json.foto_url });

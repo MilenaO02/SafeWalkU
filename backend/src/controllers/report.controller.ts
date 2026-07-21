@@ -65,16 +65,19 @@ class ReportController {
 
         try {
 
-            const report = await reportService.create(req.body);
+            // Asegurar que el id del usuario provenga del token y no del body
+            const user = (req as any).user;
+            const payload = {
+                ...req.body,
+                id_usuario: user?.id_usuario
+            };
+
+            const report = await reportService.create(payload);
 
             return res.status(201).json({
-
                 success: true,
-
                 message: "Reporte creado correctamente.",
-
                 data: report
-
             });
 
         } catch (error: any) {
@@ -159,7 +162,13 @@ class ReportController {
 
     async createSOS(req: Request, res: Response) {
         try {
-            const report = await reportService.createSOS(req.body);
+            const user = (req as any).user;
+            const payload = {
+                ...req.body,
+                id_usuario: user?.id_usuario
+            };
+
+            const report = await reportService.createSOS(payload);
             return res.status(201).json({ success: true, message: "SOS Activado", data: report });
         } catch (error: any) {
             return res.status(400).json({ success: false, message: error.message });

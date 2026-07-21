@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { buildApiUrl } from '../services/api';
+import { request } from '../services/api';
 
 export default function BuscadorPrincipal({ onDestinoSelect, onTrazar }) {
   const [query, setQuery] = useState('');
@@ -10,11 +10,7 @@ export default function BuscadorPrincipal({ onDestinoSelect, onTrazar }) {
     const delayDebounceFn = setTimeout(async () => {
       if (query.length > 2) {
         try {
-          const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-          const res = await fetch(buildApiUrl(`/ubicaciones/buscar?q=${query}`), {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          const data = await res.json();
+          const data = await request(`/ubicaciones/buscar?q=${encodeURIComponent(query)}`);
           if (Array.isArray(data)) setSugerencias(data);
         } catch (e) {
           console.error("Error buscando ubicaciones:", e);

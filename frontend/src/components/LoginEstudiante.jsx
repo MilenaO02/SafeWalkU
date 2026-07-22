@@ -136,7 +136,7 @@ const Login = () => {
             {/* Institutional Email Field */}
             <div className="space-y-1">
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider transition-colors duration-300" htmlFor="email">
-                Correo institucional
+                Correo personal
               </label>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 dark:text-slate-500 group-focus-within:text-purple-900 dark:group-focus-within:text-purple-400 transition-colors">

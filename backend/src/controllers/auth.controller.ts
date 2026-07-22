@@ -7,10 +7,11 @@ class AuthController {
             const resultado = await service.register(req.body);
             res.status(201).json({
                 success: true,
-                message: "Usuario registrado exitosamente",
-                data: resultado,
-                id: resultado.id,
-                correo: resultado.correo
+                message: "Usuario registrado correctamente",
+                data: {
+                    id_usuario: resultado.id,
+                    correo: resultado.correo
+                }
             });
         } catch (error: any) {
             const status = error.message?.includes("ya registrado") ? 409 : 400;
@@ -28,19 +29,20 @@ class AuthController {
             const contrasena = req.body.contrasena ?? req.body.password;
 
             const resultado = await service.login(correo, contrasena);
+
+            // token y usuario en la raíz para compatibilidad con el frontend
             res.status(200).json({
                 success: true,
-                message: "Inicio de sesión exitoso",
-                data: resultado,
+                message: "Inicio de sesión correcto",
                 token: resultado.token,
-                usuario: resultado.usuario
+                usuario: resultado.usuario,
+                data: resultado
             });
         } catch (error: any) {
-            const status = error.message?.includes("no encontrado") ? 404 : 401;
-            res.status(status).json({
+            // 401 para cualquier error de credenciales (no exponer si el usuario existe o no)
+            res.status(401).json({
                 success: false,
-                message: error.message || "Credenciales inválidas",
-                errors: [error.message]
+                message: error.message || "Credenciales incorrectas"
             });
         }
     }

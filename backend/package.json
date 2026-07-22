@@ -11,7 +11,7 @@
     "test": "npm run typecheck"
   },
   "keywords": [],
-  "author": "Milena Ordoñez - Alejandro Morocho",
+  "author": "Milena Ordoñez",
   "license": "ISC",
   "dependencies": {
     "@types/multer": "^2.2.0",

@@ -39,6 +39,9 @@ class AuthService {
         if (!usuario) {
             throw new Error("Usuario no encontrado");
         }
+        if (usuario.estado && usuario.estado !== "ACTIVO") {
+            throw new Error("La cuenta está inactiva. Contacta al administrador.");
+        }
         const ok = await bcrypt_1.default.compare(contrasena, usuario.contrasena);
         if (!ok) {
             throw new Error("Contraseña incorrecta");

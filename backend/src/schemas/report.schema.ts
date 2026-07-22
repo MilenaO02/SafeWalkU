@@ -13,15 +13,18 @@ export const createReportSchema = z.object({
         "ALTO"
     ]),
 
+    // id_usuario viene del token JWT en el controller, no del body del request
     id_usuario: z
         .number()
         .int()
-        .positive(),
+        .positive()
+        .optional(),
 
     id_ubicacion: z
         .number()
         .int()
         .positive()
+        .optional()
 
 });
 

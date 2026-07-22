@@ -3,7 +3,7 @@ module.exports = {
     {
       name: 'safewalk-backend',
       script: 'dist/server.js',
-      cwd: '/var/www/SafeWalkU',
+      cwd: '/var/www/SafeWalkU/backend',
       instances: 1,
       autorestart: true,
       watch: false,

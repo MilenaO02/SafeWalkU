@@ -12,14 +12,17 @@ exports.createReportSchema = zod_1.z.object({
         "MEDIO",
         "ALTO"
     ]),
+    // id_usuario viene del token JWT en el controller, no del body del request
     id_usuario: zod_1.z
         .number()
         .int()
-        .positive(),
+        .positive()
+        .optional(),
     id_ubicacion: zod_1.z
         .number()
         .int()
         .positive()
+        .optional()
 });
 exports.updateReportSchema = zod_1.z.object({
     descripcion: zod_1.z

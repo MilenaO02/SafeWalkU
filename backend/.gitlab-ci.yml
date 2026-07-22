@@ -28,7 +28,7 @@ build_backend:
 test_backend_typescript:
   stage: test
   script:
-    - echo "Validando el código TypeScript..."
+    - echo "Validando el codigo TypeScript..."
     - cd backend
     - npm ci
     - npm run typecheck
@@ -78,11 +78,10 @@ deploy_backend:
 
   script:
     - echo "Empaquetando backend..."
-    - >
-      tar -czf /tmp/backend.tar.gz
-      backend/dist
-      backend/package.json
-      backend/package-lock.json
+    - tar -czf /tmp/backend.tar.gz backend/dist backend/package.json backend/package-lock.json
+
+    - echo "Liberando espacio en EC2 antes del despliegue..."
+    - ssh "$AWS_USERNAME@$AWS_HOST" "npm cache clean --force 2>/dev/null || true; rm -rf ~/safewalku/backend/node_modules 2>/dev/null || true; sudo journalctl --vacuum-size=50M 2>/dev/null || true; sudo apt-get clean 2>/dev/null || true; df -h /"
 
     - echo "Preparando directorio en EC2..."
     - ssh "$AWS_USERNAME@$AWS_HOST" "mkdir -p ~/safewalku/backend"
@@ -91,30 +90,13 @@ deploy_backend:
     - scp /tmp/backend.tar.gz "$AWS_USERNAME@$AWS_HOST:~/safewalku/backend.tar.gz"
 
     - echo "Extrayendo backend..."
-    - >
-      ssh "$AWS_USERNAME@$AWS_HOST"
-      "cd ~/safewalku &&
-      rm -rf backend/dist &&
-      tar -xzf backend.tar.gz &&
-      rm -f backend.tar.gz"
+    - ssh "$AWS_USERNAME@$AWS_HOST" "cd ~/safewalku && rm -rf backend/dist && tar -xzf backend.tar.gz && rm -f backend.tar.gz"
 
-    - echo "Instalando dependencias de producción..."
-    - >
-      ssh "$AWS_USERNAME@$AWS_HOST"
-      "cd ~/safewalku/backend &&
-      npm ci --omit=dev"
+    - echo "Instalando dependencias de produccion..."
+    - ssh "$AWS_USERNAME@$AWS_HOST" "cd ~/safewalku/backend && npm ci --omit=dev"
 
     - echo "Reiniciando backend con PM2..."
-    - >
-      ssh "$AWS_USERNAME@$AWS_HOST"
-      "cd ~/safewalku/backend &&
-      if pm2 describe safewalk-backend >/dev/null 2>&1;
-      then
-        pm2 restart safewalk-backend --update-env;
-      else
-        pm2 start dist/server.js --name safewalk-backend;
-      fi &&
-      pm2 save"
+    - ssh "$AWS_USERNAME@$AWS_HOST" "cd ~/safewalku/backend && if pm2 describe safewalk-backend > /dev/null 2>&1; then pm2 restart safewalk-backend --update-env; else pm2 start dist/server.js --name safewalk-backend; fi && pm2 save"
 
     - echo "Verificando el proceso..."
     - ssh "$AWS_USERNAME@$AWS_HOST" "pm2 status safewalk-backend"
@@ -127,4 +109,3 @@ deploy_backend:
 
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
-    

@@ -1,5 +1,6 @@
 import dotenv from "dotenv";
 import mysql from "mysql2/promise";
+import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
@@ -7,6 +8,53 @@ import { resolve } from "node:path";
 // por encima del backend. En desarrollo se conserva backend/.env.
 dotenv.config({ path: resolve(process.cwd(), ".env") });
 dotenv.config({ path: resolve(process.cwd(), "../.env") });
+
+// Algunas instalaciones antiguas guardan los secretos solamente en PM2.
+// Recuperamos unicamente las variables de base de datos y nunca las mostramos.
+if (!process.env.DB_USER || !process.env.DB_PASSWORD) {
+    try {
+        const processes = JSON.parse(execFileSync("pm2", ["jlist"], {
+            encoding: "utf8",
+            stdio: ["ignore", "pipe", "ignore"]
+        }));
+        const backendProcess = processes.find((entry) => entry.name === "safewalk-backend");
+        const runtimeEnvironment = backendProcess?.pm2_env ?? {};
+        for (const name of ["DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME"]) {
+            if (!process.env[name] && runtimeEnvironment[name] !== undefined) {
+                process.env[name] = String(runtimeEnvironment[name]);
+            }
+        }
+    } catch {
+        // La validacion inferior produce un mensaje claro si tampoco existe PM2.
+    }
+}
+
+// Ultimo respaldo para la instalacion Docker original: obtiene las
+// credenciales del contenedor MySQL local sin escribirlas en la salida.
+if (!process.env.DB_USER || !process.env.DB_PASSWORD) {
+    try {
+        const containerId = execFileSync("sudo", [
+            "-n", "docker", "ps", "--filter", "name=mysql", "--format", "{{.ID}}"
+        ], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim().split(/\s+/)[0];
+        if (containerId) {
+            const details = JSON.parse(execFileSync("sudo", ["-n", "docker", "inspect", containerId], {
+                encoding: "utf8",
+                stdio: ["ignore", "pipe", "ignore"]
+            }));
+            const containerEnvironment = Object.fromEntries(
+                (details[0]?.Config?.Env ?? []).map((entry) => {
+                    const separator = entry.indexOf("=");
+                    return separator === -1 ? [entry, ""] : [entry.slice(0, separator), entry.slice(separator + 1)];
+                })
+            );
+            process.env.DB_USER ||= containerEnvironment.MYSQL_USER || "root";
+            process.env.DB_PASSWORD ||= containerEnvironment.MYSQL_PASSWORD || containerEnvironment.MYSQL_ROOT_PASSWORD;
+            process.env.DB_NAME ||= containerEnvironment.MYSQL_DATABASE || "safewalku";
+        }
+    } catch {
+        // La validacion inferior informa si no existe otra fuente de secretos.
+    }
+}
 
 const requiredVariables = ["DB_USER", "DB_PASSWORD"];
 const missingVariables = requiredVariables.filter((name) => !process.env[name]);

@@ -139,7 +139,17 @@ deploy_backend:
     - scp /tmp/backend.tar.gz safewalk-target:~/safewalku/backend.tar.gz
 
     - echo "Extrayendo backend..."
-    - ssh safewalk-target "cd ~/safewalku && rm -rf backend/dist backend/node_modules && tar -xzf backend.tar.gz && rm -f backend.tar.gz"
+    - |
+      ssh safewalk-target '
+        set -e
+        cd ~/safewalku
+        rm -rf backend/dist backend/node_modules
+        tar -xzf backend.tar.gz
+        rm -f backend.tar.gz
+        if [ ! -f backend/.env ] && [ -f .env ]; then
+          ln -s ../.env backend/.env
+        fi
+      '
 
     - echo "Dependencias de produccion preparadas por GitLab; se omite npm ci en EC2."
 

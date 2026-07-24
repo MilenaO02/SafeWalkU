@@ -1,14 +1,25 @@
-import "dotenv/config";
+import dotenv from "dotenv";
 import mysql from "mysql2/promise";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
+// En produccion el archivo de secretos vive en ~/safewalku/.env, un nivel
+// por encima del backend. En desarrollo se conserva backend/.env.
+dotenv.config({ path: resolve(process.cwd(), ".env") });
+dotenv.config({ path: resolve(process.cwd(), "../.env") });
+
+const requiredVariables = ["DB_USER", "DB_PASSWORD", "DB_NAME"];
+const missingVariables = requiredVariables.filter((name) => !process.env[name]);
+if (missingVariables.length > 0) {
+    throw new Error(`Faltan variables de base de datos: ${missingVariables.join(", ")}`);
+}
+
 const connection = await mysql.createConnection({
     host: process.env.DB_HOST || "127.0.0.1",
     port: Number(process.env.DB_PORT || 3306),
-    user: process.env.DB_USER || "root",
-    password: process.env.DB_PASSWORD || "",
-    database: process.env.DB_NAME || "safewalku",
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
     multipleStatements: true
 });
 

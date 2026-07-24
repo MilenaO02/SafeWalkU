@@ -1,104 +1,33 @@
-import React, { useState } from 'react';
-
-const ALL_ALERTS = [
-  { id: 1, type: 'SOS',     icon: 'emergency',     color: 'bg-red-50 border-red-200 text-red-700',      title: 'Botón de Pánico – María José Andrade',    detail: 'Facultad de Ingeniería',       time: 'Hace 2 min',  status: 'ACTIVA'   },
-  { id: 2, type: 'SOS',     icon: 'emergency',     color: 'bg-red-50 border-red-200 text-red-700',      title: 'Botón de Pánico – Carlos Ramírez',        detail: 'Parqueadero Norte',            time: 'Hace 11 min', status: 'ATENDIDA' },
-  { id: 3, type: 'REPORTE', icon: 'report_problem',color: 'bg-amber-50 border-amber-200 text-amber-700',title: 'Iluminación deficiente – Bellavista',      detail: 'Av. 6 de Diciembre',          time: 'Hace 1h',     status: 'PENDIENTE'},
-  { id: 4, type: 'REPORTE', icon: 'report_problem',color: 'bg-amber-50 border-amber-200 text-amber-700',title: 'Actividad sospechosa – Biblioteca',        detail: 'Sector Biblioteca Central',    time: 'Hace 2h',     status: 'REVISIÓN' },
-  { id: 5, type: 'SISTEMA', icon: 'info',           color: 'bg-blue-50 border-blue-200 text-blue-700',  title: 'Nuevo usuario registrado',                detail: 'martin@uide.edu.ec',          time: 'Hace 3h',     status: 'INFO'     },
-  { id: 6, type: 'SISTEMA', icon: 'update',         color: 'bg-slate-50 border-slate-200 text-slate-600',title: 'Actualización de zona de riesgo',         detail: 'La Concepción – Loja',        time: 'Hace 5h',     status: 'INFO'     },
-];
-
-const TABS = ['Todas', 'SOS', 'REPORTE', 'SISTEMA'];
-
-const STATUS_BADGE = {
-  ACTIVA:    'bg-red-100 text-red-700 border-red-200',
-  ATENDIDA:  'bg-green-100 text-green-700 border-green-200',
-  PENDIENTE: 'bg-amber-100 text-amber-700 border-amber-200',
-  REVISIÓN:  'bg-blue-100 text-blue-700 border-blue-200',
-  INFO:      'bg-slate-100 text-slate-600 border-slate-200',
-};
+import React, { useEffect, useMemo, useState } from 'react';
+import { request } from '../services/api';
 
 export default function NotificationHistory() {
-  const [activeTab, setActiveTab] = useState('Todas');
-  const [search,    setSearch]    = useState('');
+  const [reports, setReports] = useState([]);
+  const [filter, setFilter] = useState('TODOS');
+  const [search, setSearch] = useState('');
+  const [status, setStatus] = useState('loading');
+  const [error, setError] = useState(null);
 
-  const filtered = ALL_ALERTS.filter((a) => {
-    const matchTab    = activeTab === 'Todas' || a.type === activeTab;
-    const matchSearch = a.title.toLowerCase().includes(search.toLowerCase()) ||
-                        a.detail.toLowerCase().includes(search.toLowerCase());
-    return matchTab && matchSearch;
-  });
+  const load = async () => {
+    setStatus('loading'); setError(null);
+    try { const response = await request('/reports'); setReports(response.data || []); setStatus('ready'); }
+    catch (loadError) { setError(loadError.message); setStatus('error'); }
+  };
+  useEffect(() => { load(); }, []);
+  const filtered = useMemo(() => reports.filter((report) => {
+    const typeMatches = filter === 'TODOS' || report.tipo_reporte === filter;
+    const text = `${report.descripcion} ${report.nombre} ${report.apellido} ${report.ubicacion}`.toLowerCase();
+    return typeMatches && text.includes(search.trim().toLowerCase());
+  }), [reports, filter, search]);
 
-  return (
-    <div className="space-y-6">
-
-      {/* Encabezado */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-black text-purple-950 tracking-tight">Reportes y Alertas</h2>
-          <p className="text-sm text-slate-500 font-medium mt-0.5">Historial completo de notificaciones del campus.</p>
-        </div>
-
-        {/* Buscador */}
-        <div className="flex items-center bg-white border border-slate-200 rounded-xl px-3 py-2 gap-2 shadow-sm w-full sm:w-60">
-          <span className="material-symbols-outlined text-slate-400 text-[18px]">search</span>
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar alerta..."
-            className="bg-transparent text-xs font-medium text-slate-700 focus:outline-none w-full placeholder-slate-400"
-          />
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-1 p-1 bg-slate-100/80 rounded-2xl w-fit">
-        {TABS.map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              activeTab === tab
-                ? 'bg-white text-slate-900 shadow-sm'
-                : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            {tab}
-          </button>
-        ))}
-      </div>
-
-      {/* Lista */}
-      <div className="space-y-3">
-        {filtered.length === 0 && (
-          <div className="text-center py-12 text-slate-400 text-sm font-medium">
-            No hay notificaciones para este filtro.
-          </div>
-        )}
-        {filtered.map((a) => (
-          <div
-            key={a.id}
-            className={`flex items-center gap-4 p-4 rounded-2xl border transition-all hover:shadow-sm ${a.color}`}
-          >
-            <div className="w-10 h-10 rounded-xl bg-white/60 flex items-center justify-center shrink-0 shadow-sm border border-white/80">
-              <span className="material-symbols-outlined text-[20px]">{a.icon}</span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex justify-between items-start gap-2">
-                <h5 className="text-xs font-bold truncate">{a.title}</h5>
-                <span className="text-[9px] font-bold uppercase tracking-wider opacity-70 shrink-0">{a.time}</span>
-              </div>
-              <p className="text-[10px] font-medium mt-0.5 opacity-70">{a.detail}</p>
-            </div>
-            <span className={`px-2.5 py-1 rounded-lg text-[9px] font-extrabold uppercase tracking-wider border shrink-0 ${STATUS_BADGE[a.status]}`}>
-              {a.status}
-            </span>
-          </div>
-        ))}
-      </div>
-
-    </div>
-  );
+  return <div className="space-y-5">
+    <div><h2 className="text-xl md:text-2xl font-black text-purple-950">Reportes y alertas</h2><p className="mt-1 text-xs text-slate-500">Historial real registrado en SafeWalk U.</p></div>
+    <div className="flex flex-col gap-3 sm:flex-row"><input aria-label="Buscar reporte" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar reporte" className="min-h-11 flex-1 rounded-xl border border-slate-200 px-4 text-sm" /><select aria-label="Filtrar tipo" value={filter} onChange={(event) => setFilter(event.target.value)} className="min-h-11 rounded-xl border border-slate-200 px-4 text-sm"><option value="TODOS">Todos</option><option value="SOS_PANICO">SOS</option><option value="INCIDENTE">Incidentes</option></select></div>
+    {status === 'loading' && <p className="rounded-2xl bg-white p-5 text-sm text-slate-500">Cargando reportes…</p>}
+    {error && <div role="alert" className="flex items-center justify-between gap-3 rounded-2xl bg-red-50 p-4 text-sm text-red-700"><span>{error}</span><button onClick={load} className="min-h-11 rounded-xl border border-red-200 px-4 font-bold">Reintentar</button></div>}
+    {status === 'ready' && <div className="space-y-3">{filtered.map((report) => <article key={report.id_reporte} className={`rounded-2xl border p-4 ${report.tipo_reporte === 'SOS_PANICO' ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50'}`}>
+      <div className="flex flex-wrap items-start justify-between gap-2"><div><p className="text-xs font-black">{report.tipo_reporte === 'SOS_PANICO' ? 'Alerta SOS' : 'Reporte de incidente'}</p><p className="mt-1 text-[11px] opacity-70">{report.nombre} {report.apellido} · {report.ubicacion}</p></div><span className="rounded-lg border border-current/20 bg-white/60 px-2 py-1 text-[10px] font-black">{report.estado}</span></div>
+      <p className="mt-3 text-xs leading-relaxed">{report.descripcion}</p><time className="mt-2 block text-[10px] opacity-60">{new Date(report.fecha_reporte).toLocaleString()}</time>
+    </article>)}{!filtered.length && <p className="rounded-2xl bg-white p-6 text-center text-sm text-slate-500">No hay reportes para este filtro.</p>}</div>}
+  </div>;
 }

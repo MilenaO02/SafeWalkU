@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { login as loginRequest } from '../services/api';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth';
 
 import logoClaro from '../assets/icon_modoclaro.png';
 import logoOscuro from '../assets/icon_modooscuro.png';
@@ -161,9 +161,7 @@ const Login = () => {
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider transition-colors duration-300" htmlFor="password">
                   Contraseña
                 </label>
-                <a className="text-xs font-semibold text-purple-900 dark:text-purple-400 hover:underline transition-all" href="#">
-                  ¿Olvidaste tu contraseña?
-                </a>
+                <a className="text-xs font-semibold text-purple-900 dark:text-purple-400 hover:underline transition-all" href="mailto:soporte@uide.edu.ec?subject=Recuperación%20de%20cuenta%20SafeWalk%20U">Recuperar con Soporte TI</a>
               </div>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 dark:text-slate-500 group-focus-within:text-purple-900 dark:group-focus-within:text-purple-400 transition-colors">
@@ -227,7 +225,6 @@ const Login = () => {
               </button>
             </div>
 
-            {/* Botón de Login de Prueba (Mock) */}
           </form>
 
           {/* Footer Section */}
@@ -240,7 +237,7 @@ const Login = () => {
             </p>
             <p className="text-xs text-slate-400 dark:text-slate-500 font-medium">
               ¿Problemas para acceder?{' '}
-              <a className="text-slate-500 dark:text-slate-400 font-semibold hover:underline" href="#">Soporte TI</a>
+              <a className="text-slate-500 dark:text-slate-400 font-semibold hover:underline" href="mailto:soporte@uide.edu.ec?subject=Soporte%20SafeWalk%20U">Soporte TI</a>
             </p>
           </div>
         </div>

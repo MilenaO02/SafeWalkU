@@ -4,12 +4,12 @@ import dotenv from "dotenv";
 import swaggerUi from "swagger-ui-express";
 import path from "path";
 
-import swaggerSpec from "./docs/swagger";
-import routes from "./routes";
+import swaggerSpec from "./docs/swagger.js";
+import routes from "./routes/index.js";
 
-import limiter from "./middleware/rateLimiter";
-import logger from "./middleware/logger";
-import errorHandler from "./middleware/errorHandler";
+import limiter from "./middleware/rateLimiter.js";
+import logger from "./middleware/logger.js";
+import errorHandler from "./middleware/errorHandler.js";
 
 dotenv.config();
 
@@ -29,7 +29,7 @@ app.use(logger);
 app.use(limiter);
 
 // Servir imágenes de perfil cargadas localmente
-app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+app.use("/uploads", express.static(path.resolve(process.cwd(), "uploads")));
 
 
 app.use(

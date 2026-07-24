@@ -6,6 +6,9 @@ export default defineConfig({
   plugins: [
     react()
   ],
+  build: {
+    target: ['es2020', 'chrome90', 'firefox88', 'safari15'],
+  },
   server: {
     port: 5173,
     host: true,

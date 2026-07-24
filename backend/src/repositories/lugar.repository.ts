@@ -1,4 +1,4 @@
-import pool from "../config/database";
+import pool from "../config/database.js";
 
 class LugarRepository {
     async findAll() {

@@ -30,6 +30,9 @@ async function request(path, options = {}) {
     const data = isJson ? await response.json() : await response.text();
 
     if (!response.ok) {
+      if (response.status === 401 && path !== '/auth/login') {
+        window.dispatchEvent(new CustomEvent('safewalk:unauthorized'));
+      }
       if (!isJson) {
         throw new Error(`El servidor respondió con un error de red o HTML (${response.status}). Por favor intente más tarde.`);
       }

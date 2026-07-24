@@ -1,8 +1,9 @@
 import { Router } from "express";
-import controller from "../controllers/servicio.controller";
+import controller from "../controllers/servicio.controller.js";
+import auth from "../middleware/auth.js";
 
 const router = Router();
 
-router.get("/", controller.getAll);
+router.get("/", auth, controller.getAll);
 
 export default router;

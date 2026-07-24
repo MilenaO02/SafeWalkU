@@ -1,75 +1,111 @@
-import routeRepository from "../repositories/route.repository";
+import routeRepository from "../repositories/route.repository.js";
+import pedestrianRoutingService from "./pedestrian-routing.service.js";
+
+function distanceMeters(a: [number, number], b: [number, number]) {
+    const radians = (degrees: number) => degrees * Math.PI / 180;
+    const earthRadius = 6371000;
+    const deltaLat = radians(b[0] - a[0]);
+    const deltaLng = radians(b[1] - a[1]);
+    const value = Math.sin(deltaLat / 2) ** 2
+        + Math.cos(radians(a[0])) * Math.cos(radians(b[0])) * Math.sin(deltaLng / 2) ** 2;
+    return 2 * earthRadius * Math.asin(Math.sqrt(value));
+}
 
 class RouteService {
-
-    async findAll() {
-
-        return await routeRepository.findAll();
-
+    findAll() {
+        return routeRepository.findAll();
     }
 
     async findById(id: number) {
-
+        if (!Number.isInteger(id) || id < 1) throw new Error("ID de ruta invÃ¡lido");
         const route = await routeRepository.findById(id);
-
-        if (!route) {
-
-            throw new Error("Ruta no encontrada");
-
-        }
-
+        if (!route) throw new Error("Ruta no encontrada");
         return route;
-
     }
 
     async create(data: any) {
-
-        return await routeRepository.create(data);
-
+        const id = await routeRepository.create(data);
+        return this.findById(id);
     }
 
     async update(id: number, data: any) {
-
-        const route = await routeRepository.findById(id);
-
-        if (!route) {
-
-            throw new Error("Ruta no encontrada");
-
-        }
-
+        await this.findById(id);
         await routeRepository.update(id, data);
-
-        return await routeRepository.findById(id);
-
+        return this.findById(id);
     }
 
     async delete(id: number) {
+        await this.findById(id);
+        await routeRepository.delete(id);
+        return { success: true, message: "Ruta eliminada correctamente" };
+    }
 
-        const route = await routeRepository.findById(id);
+    async trazarRuta(originLat: number, originLng: number, destinationId: number) {
+        const destination = await routeRepository.findDestination(destinationId);
+        if (!destination) throw new Error("Destino no encontrado");
 
-        if (!route) {
+        const recommended = await routeRepository.findRecommendedByDestination(destinationId);
+        const manualTrace: [number, number][] = recommended?.trazado?.map((point: any) => [
+            Number(point.latitud), Number(point.longitud)
+        ]) ?? [];
+        const catalogPoints: [number, number][] = recommended?.puntos?.map((point: any) => [
+            Number(point.latitud), Number(point.longitud)
+        ]) ?? [];
+        const fallbackCoordinates: [number, number][] = manualTrace.length >= 2
+            ? manualTrace
+            : catalogPoints.length >= 2
+                ? catalogPoints
+                : [[originLat, originLng], [Number(destination.latitud), Number(destination.longitud)]];
+        const fallbackDistance = fallbackCoordinates.slice(1).reduce(
+            (total, point, index) => total + distanceMeters(fallbackCoordinates[index], point),
+            0
+        );
 
-            throw new Error("Ruta no encontrada");
-
+        let pedestrianRoute = null;
+        let routingError = false;
+        try {
+            pedestrianRoute = await pedestrianRoutingService.calculate(
+                [originLat, originLng],
+                [Number(destination.latitud), Number(destination.longitud)]
+            );
+        } catch (error) {
+            routingError = true;
+            console.warn("No fue posible calcular la ruta peatonal externa:", error instanceof Error ? error.message : error);
         }
 
-        await routeRepository.delete(id);
+        const coordinates = pedestrianRoute?.coordinates ?? fallbackCoordinates;
+        const source = pedestrianRoute
+            ? "OPENROUTESERVICE"
+            : manualTrace.length >= 2
+                ? "TRAZADO_MANUAL"
+                : "REFERENCIAL";
 
         return {
-
-            success: true,
-
-            message: "Ruta eliminada correctamente"
-
+            id_ruta: recommended?.id_ruta ?? null,
+            nombre_ruta: recommended?.nombre_ruta ?? "Trayecto referencial al destino",
+            nivel_seguridad: recommended?.nivel_seguridad ?? null,
+            tiempo_estimado: pedestrianRoute?.durationMinutes
+                ?? recommended?.tiempo_estimado
+                ?? Math.max(1, Math.ceil(fallbackDistance / 80)),
+            distancia_m: pedestrianRoute?.distanceMeters ?? Math.round(fallbackDistance),
+            ruta_catalogada: Boolean(recommended),
+            trazado_manual: manualTrace.length >= 2,
+            trazado_peatonal: Boolean(pedestrianRoute),
+            fuente_trazado: source,
+            instrucciones: pedestrianRoute?.instructions ?? [],
+            origen_usuario: [originLat, originLng],
+            coordenadas: coordinates,
+            aviso: pedestrianRoute
+                ? recommended
+                    ? "Trayecto peatonal calculado hacia un destino seguro registrado. Revisa las condiciones actuales del entorno."
+                    : "Trayecto peatonal calculado por calles y senderos; el proveedor no garantiza por si solo la seguridad del recorrido."
+                : routingError
+                    ? "El calculo peatonal no respondio; se muestra el respaldo disponible. Intenta nuevamente antes de iniciar."
+                    : pedestrianRoutingService.isConfigured()
+                        ? "No se obtuvo una ruta peatonal; se muestra el respaldo disponible."
+                        : "Configura OpenRouteService para seguir calles y senderos; mientras tanto se muestra el trazado manual o referencial."
         };
-
     }
-
-    async trazarRuta(origen_lat: number, origen_lng: number, destino_id: number) {
-        return await routeRepository.trazarRuta(origen_lat, origen_lng, destino_id);
-    }
-
 }
 
 export default new RouteService();

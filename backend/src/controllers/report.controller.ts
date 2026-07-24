@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import reportService from "../services/report.service";
+import reportService from "../services/report.service.js";
 
 class ReportController {
 
@@ -7,7 +7,7 @@ class ReportController {
 
         try {
 
-            const reports = await reportService.findAll();
+            const reports = await reportService.findAll(req.user!);
 
             return res.status(200).json({
 
@@ -37,7 +37,7 @@ class ReportController {
 
             const id = Number(req.params.id);
 
-            const report = await reportService.findById(id);
+            const report = await reportService.findAccessibleById(id, req.user!);
 
             return res.status(200).json({
 
@@ -65,14 +65,7 @@ class ReportController {
 
         try {
 
-            // Asegurar que el id del usuario provenga del token y no del body
-            const user = (req as any).user;
-            const payload = {
-                ...req.body,
-                id_usuario: user?.id_usuario
-            };
-
-            const report = await reportService.create(payload);
+            const report = await reportService.create(req.body, req.user!.id_usuario);
 
             return res.status(201).json({
                 success: true,
@@ -100,7 +93,7 @@ class ReportController {
 
             const id = Number(req.params.id);
 
-            const report = await reportService.update(id, req.body);
+            const report = await reportService.update(id, req.body, req.user!.id_usuario);
 
             return res.status(200).json({
 
@@ -162,13 +155,7 @@ class ReportController {
 
     async createSOS(req: Request, res: Response) {
         try {
-            const user = (req as any).user;
-            const payload = {
-                ...req.body,
-                id_usuario: user?.id_usuario
-            };
-
-            const report = await reportService.createSOS(payload);
+            const report = await reportService.createSOS(req.body, req.user!.id_usuario);
             return res.status(201).json({ success: true, message: "SOS Activado", data: report });
         } catch (error: any) {
             return res.status(400).json({ success: false, message: error.message });
@@ -178,7 +165,16 @@ class ReportController {
     async cancelSOS(req: Request, res: Response) {
         try {
             const id = Number(req.params.id);
-            const result = await reportService.cancelSOS(id);
+            const result = await reportService.cancelSOS(id, req.user!);
+            return res.status(200).json({ success: true, ...result });
+        } catch (error: any) {
+            return res.status(400).json({ success: false, message: error.message });
+        }
+    }
+
+    async resolveSOS(req: Request, res: Response) {
+        try {
+            const result = await reportService.resolveSOS(Number(req.params.id), req.user!.id_usuario);
             return res.status(200).json({ success: true, ...result });
         } catch (error: any) {
             return res.status(400).json({ success: false, message: error.message });

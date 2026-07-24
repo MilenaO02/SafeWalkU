@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthProvider } from './context/AuthContext';
+import { useAuth } from './context/auth';
 
 // Layouts
 import AuthLayout from './layouts/AuthLayout.jsx';
@@ -26,6 +27,8 @@ import AdminDashboard from './pages/AdminDashboard.jsx';
 import GestionUsuarios from './components/GestionUsuarios.jsx';
 import HistorialNotificaciones from './components/HistorialNotificaciones.jsx';
 import AdminSettings from './components/AdminSettings.jsx';
+import EditorRutas from './components/EditorRutas.jsx';
+import EditorUbicaciones from './components/EditorUbicaciones.jsx';
 
 function ToastHost() {
   const { toast, clearToast } = useAuth();
@@ -48,6 +51,24 @@ function ToastHost() {
       {toast.message}
     </div>
   );
+}
+
+function NetworkStatus() {
+  const [online, setOnline] = React.useState(() => navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setOnline(true);
+    const handleOffline = () => setOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  if (online) return null;
+  return <div role="status" className="fixed left-1/2 top-3 z-[200] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-xl bg-amber-600 px-4 py-3 text-center text-xs font-bold text-white shadow-xl">Sin conexión. Conserva esta página abierta y vuelve a intentar cuando se restablezca la red.</div>;
 }
 
 function AppRoutes() {
@@ -74,12 +95,15 @@ function AppRoutes() {
             <Route path="/admin/usuarios" element={<PrivateRoute requiredRole="ADMINISTRADOR"><GestionUsuarios /></PrivateRoute>} />
             <Route path="/admin/notificaciones" element={<PrivateRoute requiredRole="ADMINISTRADOR"><HistorialNotificaciones /></PrivateRoute>} />
             <Route path="/admin/configuracion" element={<PrivateRoute requiredRole="ADMINISTRADOR"><AdminSettings /></PrivateRoute>} />
+            <Route path="/admin/rutas" element={<PrivateRoute requiredRole="ADMINISTRADOR"><EditorRutas /></PrivateRoute>} />
+            <Route path="/admin/ubicaciones" element={<PrivateRoute requiredRole="ADMINISTRADOR"><EditorUbicaciones /></PrivateRoute>} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>
       <ToastHost />
+      <NetworkStatus />
     </>
   );
 }

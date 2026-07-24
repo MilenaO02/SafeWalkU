@@ -1,11 +1,14 @@
 import { Router } from "express";
-import controller from "../controllers/contacto.controller";
-import authMiddleware from "../middleware/auth";
+import controller from "../controllers/contacto.controller.js";
+import auth from "../middleware/auth.js";
+import validate from "../middleware/validate.js";
+import { createContactSchema, updateContactSchema } from "../schemas/contacto.schema.js";
 
 const router = Router();
 
-router.get("/user/:userId?", authMiddleware, controller.getMyContacts);
-router.post("/", authMiddleware, controller.create);
-router.delete("/:id", authMiddleware, controller.delete);
+router.get("/", auth, controller.getMine);
+router.post("/", auth, validate(createContactSchema), controller.create);
+router.put("/:id", auth, validate(updateContactSchema), controller.update);
+router.delete("/:id", auth, controller.delete);
 
 export default router;

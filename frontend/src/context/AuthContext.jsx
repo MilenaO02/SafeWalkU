@@ -1,6 +1,5 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
-
-const AuthContext = createContext();
+import React, { useState, useEffect } from 'react';
+import { AuthContext } from './auth';
 
 const normalizeRole = (role) => {
   const value = role?.toString().toUpperCase() ?? '';
@@ -74,6 +73,15 @@ export const AuthProvider = ({ children }) => {
 
   const clearToast = () => setToast(null);
 
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      logout();
+      showToast('Tu sesión expiró. Inicia sesión nuevamente.', 'error');
+    };
+    window.addEventListener('safewalk:unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('safewalk:unauthorized', handleUnauthorized);
+  }, []);
+
   const updateUser = (updatedData) => {
     const targetStorage = localStorage.getItem('user') ? localStorage : (sessionStorage.getItem('user') ? sessionStorage : null);
     if (!targetStorage) return;
@@ -83,7 +91,7 @@ export const AuthProvider = ({ children }) => {
     setUser(newUser);
   };
 
-  const isAuthenticated = Boolean(token || user);
+  const isAuthenticated = Boolean(token && user);
   const isAdmin = normalizeRole(user?.rol) === 'ADMINISTRADOR';
   const hasRole = (role) => normalizeRole(user?.rol) === normalizeRole(role);
 
@@ -94,4 +102,3 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-export const useAuth = () => useContext(AuthContext);

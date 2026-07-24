@@ -1,10 +1,10 @@
 import { Router } from "express";
 
-import controller from "../controllers/route.controller";
+import controller from "../controllers/route.controller.js";
 
-import auth from "../middleware/auth";
-import authorize from "../middleware/authorize";
-import validate from "../middleware/validate";
+import auth from "../middleware/auth.js";
+import authorize from "../middleware/authorize.js";
+import validate from "../middleware/validate.js";
 
 import {
 
@@ -12,7 +12,7 @@ import {
 
     updateRouteSchema
 
-} from "../schemas/route.schema";
+} from "../schemas/route.schema.js";
 
 const router = Router();
 

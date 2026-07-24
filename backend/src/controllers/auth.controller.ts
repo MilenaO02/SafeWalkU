@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import service from "../services/auth.service";
+import service from "../services/auth.service.js";
 
 class AuthController {
     async register(req: Request, res: Response) {
@@ -39,10 +39,9 @@ class AuthController {
                 data: resultado
             });
         } catch (error: any) {
-            // 401 para cualquier error de credenciales (no exponer si el usuario existe o no)
             res.status(401).json({
                 success: false,
-                message: error.message || "Credenciales incorrectas"
+                message: "Credenciales incorrectas"
             });
         }
     }

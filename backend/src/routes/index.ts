@@ -1,16 +1,16 @@
 import { Router } from "express";
 
-import healthRoutes from "./health.routes";
-import authRoutes from "./auth.routes";
-import userRoutes from "./user.routes";
-import reportRoutes from "./report.routes";
-import evidenciaRoutes from "./evidencia.routes";
-import routeRoutes from "./route.routes";
-import ubicacionRoutes from "./ubicacion.routes";
-import dashboardRoutes from "./dashboard.routes";
-import contactoRoutes from "./contacto.routes";
-import servicioRoutes from "./servicio.routes";
-import lugarRoutes from "./lugar.routes";
+import healthRoutes from "./health.routes.js";
+import authRoutes from "./auth.routes.js";
+import userRoutes from "./user.routes.js";
+import reportRoutes from "./report.routes.js";
+import evidenciaRoutes from "./evidencia.routes.js";
+import routeRoutes from "./route.routes.js";
+import ubicacionRoutes from "./ubicacion.routes.js";
+import dashboardRoutes from "./dashboard.routes.js";
+import contactoRoutes from "./contacto.routes.js";
+import servicioRoutes from "./servicio.routes.js";
+import lugarRoutes from "./lugar.routes.js";
 
 const router = Router();
 

@@ -1,17 +1,19 @@
 import { Router } from "express";
-import reportController from "../controllers/report.controller";
+import reportController from "../controllers/report.controller.js";
 
-import auth from "../middleware/auth";
-import authorize from "../middleware/authorize";
-import validate from "../middleware/validate";
+import auth from "../middleware/auth.js";
+import authorize from "../middleware/authorize.js";
+import validate from "../middleware/validate.js";
 
 import {
 
     createReportSchema,
 
-    updateReportSchema
+    updateReportSchema,
 
-} from "../schemas/report.schema";
+    createSosSchema
+
+} from "../schemas/report.schema.js";
 const router = Router();
 
 /**
@@ -60,6 +62,34 @@ router.get(
  *         description: Reporte no encontrado
  */
 router.get(
+    "/zonas/riesgo",
+    auth,
+    reportController.getRiskZones
+);
+
+router.post(
+    "/sos",
+    auth,
+    authorize("ESTUDIANTE", "ADMINISTRADOR"),
+    validate(createSosSchema),
+    reportController.createSOS
+);
+
+router.put(
+    "/sos/:id/cancelar",
+    auth,
+    authorize("ESTUDIANTE", "ADMINISTRADOR"),
+    reportController.cancelSOS
+);
+
+router.put(
+    "/sos/:id/atender",
+    auth,
+    authorize("ADMINISTRADOR"),
+    reportController.resolveSOS
+);
+
+router.get(
     "/:id",
     auth,
     reportController.getById
@@ -100,6 +130,7 @@ router.post(
     "/",
     auth,
     authorize("ESTUDIANTE", "ADMINISTRADOR"),
+    validate(createReportSchema),
     reportController.create
 );
 
@@ -143,6 +174,7 @@ router.put(
     "/:id",
     auth,
     authorize("ADMINISTRADOR"),
+    validate(updateReportSchema),
     reportController.update
 );
 
@@ -169,26 +201,6 @@ router.delete(
     auth,
     authorize("ADMINISTRADOR"),
     reportController.delete
-);
-
-router.get(
-    "/zonas/riesgo",
-    auth,
-    reportController.getRiskZones
-);
-
-router.post(
-    "/sos",
-    auth,
-    authorize("ESTUDIANTE", "ADMINISTRADOR"),
-    reportController.createSOS
-);
-
-router.put(
-    "/sos/:id/cancelar",
-    auth,
-    authorize("ESTUDIANTE", "ADMINISTRADOR"),
-    reportController.cancelSOS
 );
 
 export default router;

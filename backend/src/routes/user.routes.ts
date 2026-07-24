@@ -1,16 +1,17 @@
 import { Router } from "express";
 
-import controller from "../controllers/user.controller";
+import controller from "../controllers/user.controller.js";
 
-import auth from "../middleware/auth";
+import auth from "../middleware/auth.js";
 
-import authorize from "../middleware/authorize";
+import authorize from "../middleware/authorize.js";
 
-import validate from "../middleware/validate";
+import validate from "../middleware/validate.js";
 
-import { updateUserSchema } from "../schemas/user.schema";
+import { updateOwnProfileSchema, updateUserSchema } from "../schemas/user.schema.js";
+import authorizeSelfOrAdmin from "../middleware/authorizeSelfOrAdmin.js";
 
-import upload from "../config/multer";
+import upload from "../config/multer.js";
 
 const router = Router();
 
@@ -35,6 +36,12 @@ router.get(
     auth,
     authorize("ADMINISTRADOR"),
     controller.getAll
+);
+
+router.get(
+    "/me",
+    auth,
+    controller.getMe
 );
 
 /**
@@ -65,6 +72,7 @@ router.get(
 router.put(
     "/me",
     auth,
+    validate(updateOwnProfileSchema),
     controller.updateMe
 );
 
@@ -113,6 +121,7 @@ router.delete(
 router.put(
     "/:id/foto",
     auth,
+    authorizeSelfOrAdmin,
     upload.single("imagen"),
     controller.uploadFoto
 );

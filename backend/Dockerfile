@@ -20,9 +20,11 @@ RUN apk add --no-cache curl
 COPY package*.json ./
 RUN npm ci --only=production
 
-# Copy compiled code and assets from builder
+# Copy compiled code and create the writable upload mount point.
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/uploads ./uploads
+COPY --from=builder /app/scripts ./scripts
+COPY --from=builder /app/db/migrations ./db/migrations
+RUN mkdir -p uploads && chown -R node:node /app
 
 # Run as non-root user
 USER node
@@ -32,4 +34,4 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD curl -f http://localhost:3000/api/health || exit 1
 
-CMD ["node", "dist/server.js"]
+CMD ["sh", "-c", "npm run migrate:routes && node dist/server.js"]

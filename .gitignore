@@ -11,10 +11,13 @@ frontend/.env
 frontend/.env.*
 backend/.env
 backend/.env.*
+.env
+.env.*
 
 # Permitir archivos de ejemplo
 !frontend/.env.example
 !backend/.env.example
+!.env.example
 
 # Logs
 *.log
@@ -23,6 +26,7 @@ npm-debug.log*
 # Archivos subidos durante la ejecución
 backend/uploads/*
 !backend/uploads/.gitkeep
+backups/
 
 # Editor y sistema
 .vscode/

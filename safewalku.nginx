@@ -1,86 +1,45 @@
-# Configuración Nginx de Producción para SafeWalk U (/etc/nginx/sites-available/safewalku)
-
-# Redirección HTTP -> HTTPS
+# /etc/nginx/sites-available/safewalku
+# Docker publica toda la aplicacion solamente en 127.0.0.1:8080.
 server {
     listen 80;
     listen [::]:80;
     server_name safewalku.online www.safewalku.online;
 
-    # Permitir desafío Certbot para SSL
-    location /.well-known/acme-challenge/ {
-        root /var/www/safewalku/dist;
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+        default_type text/plain;
     }
 
     location / {
-        return 301 https://$host$request_uri;
+        return 301 https://safewalku.online$request_uri;
     }
 }
 
-# Servidor HTTPS Principal
 server {
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
     server_name safewalku.online www.safewalku.online;
 
-    # Certificados SSL Let's Encrypt / Certbot
     ssl_certificate /etc/letsencrypt/live/safewalku.online/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/safewalku.online/privkey.pem;
-
     ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers HIGH:!aNULL:!MD5;
-    ssl_prefer_server_ciphers on;
-    ssl_session_cache shared:SSL:10m;
-    ssl_session_timeout 1d;
 
-    # Seguridad HTTP Headers
-    add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header X-XSS-Protection "1; mode=block" always;
+    client_max_body_size 10M;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 
-    # Límite de carga (para imágenes de perfil y evidencias)
-    client_max_body_size 10M;
-
-    # Frontend Estático
-    root /var/www/safewalku/dist;
-    index index.html;
-
     location / {
-        try_files $uri $uri/ /index.html;
-    }
-
-    # Proxy Inverso Backend Express API (/api/ -> http://127.0.0.1:3000/api/)
-    location /api/ {
-        proxy_pass http://127.0.0.1:3000/api/;
+        proxy_pass http://127.0.0.1:8080;
         proxy_http_version 1.1;
-
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-
-        proxy_connect_timeout 60s;
-        proxy_send_timeout 60s;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_connect_timeout 15s;
         proxy_read_timeout 60s;
-    }
-
-    # Archivos estáticos subidos localmente (Uploads)
-    location /uploads/ {
-        alias /var/www/SafeWalkU/uploads/;
-        expires 30d;
-        add_header Cache-Control "public, no-transform";
-    }
-
-    # Caché optimizado para Assets de Frontend
-    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|webp|woff|woff2|ttf)$ {
-        expires 30d;
-        add_header Cache-Control "public, immutable";
-        try_files $uri =404;
-    }
-
-    # Desactivar caché para index.html para asegurar actualizaciones en vivo
-    location = /index.html {
-        add_header Cache-Control "no-store, no-cache, must-revalidate";
     }
 
     access_log /var/log/nginx/safewalku_access.log;

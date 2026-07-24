@@ -3,7 +3,7 @@ module.exports = {
     {
       name: 'safewalk-backend',
       script: 'dist/server.js',
-      cwd: '/var/www/SafeWalkU/backend',
+      cwd: '/var/www/safewalku/backend',
       instances: 1,
       autorestart: true,
       watch: false,
@@ -13,8 +13,8 @@ module.exports = {
         PORT: 3000
       },
       time: true,
-      error_file: '/var/www/SafeWalkU/logs/pm2-error.log',
-      out_file: '/var/www/SafeWalkU/logs/pm2-out.log'
+      error_file: '/var/www/safewalku/backend/logs/pm2-error.log',
+      out_file: '/var/www/safewalku/backend/logs/pm2-out.log'
     }
   ]
 };

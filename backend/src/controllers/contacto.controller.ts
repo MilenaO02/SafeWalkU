@@ -1,41 +1,41 @@
 import { Request, Response } from "express";
-import repository from "../repositories/contacto.repository";
+import contactoService from "../services/contacto.service.js";
 
 class ContactoController {
-    async getMyContacts(req: Request, res: Response) {
+    async getMine(req: Request, res: Response) {
         try {
-            const id_usuario = (req as any).user?.id_usuario || Number(req.params.userId);
-            if (!id_usuario) {
-                return res.status(400).json({ success: false, message: "ID de usuario no proporcionado" });
-            }
-            const contactos = await repository.findByUserId(id_usuario);
-            res.json({ success: true, data: contactos });
+            return res.json({ success: true, data: await contactoService.getMine(req.user!.id_usuario) });
         } catch (error: any) {
-            res.status(500).json({ success: false, message: error.message || "Error al obtener contactos" });
+            return res.status(500).json({ success: false, message: error.message });
         }
     }
 
     async create(req: Request, res: Response) {
         try {
-            const id_usuario = (req as any).user?.id_usuario || req.body.id_usuario;
-            const { nombre, telefono, parentesco } = req.body;
-            if (!nombre || !telefono || !parentesco || !id_usuario) {
-                return res.status(400).json({ success: false, message: "Faltan datos obligatorios" });
-            }
-            const id = await repository.create({ nombre, telefono, parentesco, id_usuario });
-            res.status(201).json({ success: true, message: "Contacto registrado", data: { id_contacto: id, nombre, telefono, parentesco } });
+            const contact = await contactoService.create(req.body, req.user!.id_usuario);
+            return res.status(201).json({ success: true, message: "Contacto registrado", data: contact });
         } catch (error: any) {
-            res.status(400).json({ success: false, message: error.message || "Error al registrar contacto" });
+            return res.status(400).json({ success: false, message: error.message });
+        }
+    }
+
+    async update(req: Request, res: Response) {
+        try {
+            const contact = await contactoService.update(Number(req.params.id), req.body, req.user!.id_usuario);
+            return res.json({ success: true, message: "Contacto actualizado", data: contact });
+        } catch (error: any) {
+            const status = error.message.includes("ajeno") ? 403 : 404;
+            return res.status(status).json({ success: false, message: error.message });
         }
     }
 
     async delete(req: Request, res: Response) {
         try {
-            const id = Number(req.params.id);
-            await repository.delete(id);
-            res.json({ success: true, message: "Contacto eliminado exitosamente" });
+            await contactoService.delete(Number(req.params.id), req.user!.id_usuario);
+            return res.json({ success: true, message: "Contacto eliminado exitosamente" });
         } catch (error: any) {
-            res.status(400).json({ success: false, message: error.message || "Error al eliminar contacto" });
+            const status = error.message.includes("ajeno") ? 403 : 404;
+            return res.status(status).json({ success: false, message: error.message });
         }
     }
 }

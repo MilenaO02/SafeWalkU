@@ -1,4 +1,4 @@
-import repository from "../repositories/user.repository";
+import repository from "../repositories/user.repository.js";
 
 class UserService {
 
@@ -15,6 +15,13 @@ class UserService {
     }
 
     async update(id: number, data: any) {
+
+        if (data.correo) {
+            const existing = await repository.findByEmail(data.correo);
+            if (existing && existing.id_usuario !== id) {
+                throw new Error("Correo ya registrado");
+            }
+        }
 
         return await repository.update(id, data);
 

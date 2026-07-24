@@ -1,10 +1,10 @@
 import { Request, Response } from "express";
-import repository from "../repositories/lugar.repository";
+import lugarService from "../services/lugar.service.js";
 
 class LugarController {
     async getAll(req: Request, res: Response) {
         try {
-            const lugares = await repository.findAll();
+            const lugares = await lugarService.getAll();
             res.json({ success: true, data: lugares });
         } catch (error: any) {
             res.status(500).json({ success: false, message: error.message || "Error al obtener lugares seguros" });

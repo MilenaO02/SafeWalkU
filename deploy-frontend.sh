@@ -1,23 +1,28 @@
 #!/usr/bin/env bash
-set -e
+set -Eeuo pipefail
 
-echo "=== Desplegando Frontend SafeWalk U ==="
-CDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-FRONTEND_DIR="$CDIR/frontend"
+echo "=== Desplegando frontend SafeWalk U ==="
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+FRONTEND_DIR="$SCRIPT_DIR/frontend"
 TARGET_DIR="/var/www/safewalku/dist"
-
 cd "$FRONTEND_DIR"
 
-echo "[1/3] Copiando frontend precompilado a $TARGET_DIR..."
-sudo mkdir -p /var/www/safewalku/dist
-sudo cp -r dist/* /var/www/safewalku/dist/
+echo "[1/4] Instalando dependencias y compilando..."
+npm ci
+npm run lint
+npm run build
 
-echo "[2/3] Verificando permisos de lectura Nginx..."
+echo "[2/4] Publicando archivos compilados..."
+sudo mkdir -p "$TARGET_DIR"
+sudo rsync -a --delete dist/ "$TARGET_DIR/"
+
+echo "[3/4] Configurando permisos de lectura..."
 sudo chown -R www-data:www-data /var/www/safewalku
-sudo chmod -R 755 /var/www/safewalku
+sudo find /var/www/safewalku -type d -exec chmod 755 {} \;
+sudo find /var/www/safewalku -type f -exec chmod 644 {} \;
 
-echo "[3/3] Verificando Nginx..."
+echo "[4/4] Validando y recargando Nginx..."
 sudo nginx -t
 sudo systemctl reload nginx
 
-echo "=== Despliegue de Frontend Completado Exitosamente ==="
+echo "=== Despliegue de frontend completado ==="

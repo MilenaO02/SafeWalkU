@@ -1,10 +1,10 @@
 import { Request, Response } from "express";
-import repository from "../repositories/servicio.repository";
+import servicioService from "../services/servicio.service.js";
 
 class ServicioController {
     async getAll(req: Request, res: Response) {
         try {
-            const servicios = await repository.findAll();
+            const servicios = await servicioService.getAll();
             res.json({ success: true, data: servicios });
         } catch (error: any) {
             res.status(500).json({ success: false, message: error.message || "Error al obtener servicios de emergencia" });

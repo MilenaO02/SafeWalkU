@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
-import routeService from "../services/route.service";
+import routeService from "../services/route.service.js";
+import { traceRouteQuerySchema } from "../schemas/route.schema.js";
 
 class RouteController {
 
@@ -65,7 +66,7 @@ class RouteController {
 
         try {
 
-            const id = await routeService.create(req.body);
+            const route = await routeService.create(req.body);
 
             return res.status(201).json({
 
@@ -73,7 +74,7 @@ class RouteController {
 
                 message: "Ruta creada correctamente",
 
-                id
+                data: route
 
             });
 
@@ -149,18 +150,24 @@ class RouteController {
 
     async trazarRuta(req: Request, res: Response) {
         try {
-            const origen_lat = Number(req.query.origen_lat);
-            const origen_lng = Number(req.query.origen_lng);
-            const destino_id = Number(req.query.destino_id);
-            
-            if (!origen_lat || !origen_lng || !destino_id) {
-                return res.status(400).json({ success: false, message: "Faltan parámetros de origen o destino" });
+            const parsed = traceRouteQuerySchema.safeParse(req.query);
+            if (!parsed.success) {
+                return res.status(422).json({
+                    success: false,
+                    message: "Parámetros geográficos inválidos",
+                    errors: parsed.error.issues
+                });
             }
-            
-            const result = await routeService.trazarRuta(origen_lat, origen_lng, destino_id);
+
+            const result = await routeService.trazarRuta(
+                parsed.data.origen_lat,
+                parsed.data.origen_lng,
+                parsed.data.destino_id
+            );
             return res.status(200).json({ success: true, data: result });
         } catch (error: any) {
-            return res.status(500).json({ success: false, message: error.message });
+            const status = error.message === "Destino no encontrado" ? 404 : 500;
+            return res.status(status).json({ success: false, message: error.message });
         }
     }
 

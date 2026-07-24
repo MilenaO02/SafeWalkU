@@ -1,170 +1,57 @@
-import React, { useState, useEffect } from 'react';
-import { useMapConfig } from '../layouts/MainLayout';
+import React, { useEffect, useState } from 'react';
+import { useMapConfig } from '../context/map';
 import { request } from '../services/api';
 
 export default function SafeWalkSOS() {
   const { setMapConfig, defaultMapConfig } = useMapConfig();
-  const [isAlertVisible, setIsAlertVisible] = useState(false);
-  const [activeSosId, setActiveSosId] = useState(null);
-  const [posicionUsuario, setPosicionUsuario] = useState(null);
+  const [contacts, setContacts] = useState([]);
+  const [locations, setLocations] = useState([]);
+  const [locationId, setLocationId] = useState('');
+  const [activeId, setActiveId] = useState(null);
+  const [status, setStatus] = useState('loading');
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    let watchId;
-    if (navigator.geolocation) {
-      watchId = navigator.geolocation.watchPosition(
-        (pos) => setPosicionUsuario([pos.coords.latitude, pos.coords.longitude]),
-        () => console.warn("GPS falló en SOS"),
-        { enableHighAccuracy: true, maximumAge: 0 }
-      );
-    }
-    return () => {
-      if (watchId) navigator.geolocation.clearWatch(watchId);
-      setMapConfig(defaultMapConfig);
-    };
+    let active = true;
+    Promise.all([request('/contacts'), request('/ubicaciones')]).then(([contactResponse, locationResponse]) => {
+      if (!active) return;
+      setContacts(contactResponse.data || []); setLocations(locationResponse.data || []); setStatus('ready');
+    }).catch((loadError) => { if (active) { setError(loadError.message); setStatus('error'); } });
+    return () => { active = false; setMapConfig(defaultMapConfig); };
   }, [setMapConfig, defaultMapConfig]);
 
-  useEffect(() => {
-    if (posicionUsuario) {
-      if (isAlertVisible) {
-        setMapConfig({
-          centro: posicionUsuario,
-          zoom: 18,
-          markers: [{ position: posicionUsuario, title: "🚨 SOS ACTIVADO 🚨", desc: "Señal de auxilio en progreso. El personal de seguridad está en camino." }],
-          circle: { center: posicionUsuario, radius: 80, color: '#ef4444' }
-        });
-      } else {
-        setMapConfig({
-          centro: posicionUsuario,
-          zoom: 17,
-          markers: [{ position: posicionUsuario, title: "Tu ubicación", desc: "Dispositivo móvil activo." }],
-          circle: { center: posicionUsuario, radius: 40, color: '#330071' }
-        });
-      }
+  const changeLocation = (value) => {
+    setLocationId(value);
+    const location = locations.find((item) => String(item.id_ubicacion) === value);
+    if (location && Number.isFinite(Number(location.latitud)) && Number.isFinite(Number(location.longitud))) {
+      const point = [Number(location.latitud), Number(location.longitud)];
+      setMapConfig({ centro: point, zoom: 18, markers: [{ position: point, title: location.nombre, desc: 'Ubicación seleccionada para la alerta' }], circle: { center: point, radius: 60, color: '#ef4444' } });
     }
-  }, [posicionUsuario, isAlertVisible, setMapConfig]);
+  };
 
-  const handleSOS = async () => {
-    setIsAlertVisible(true);
-    if ("vibrate" in navigator) navigator.vibrate([200, 100, 200, 100, 200]);
-
+  const activate = async () => {
+    if (!locationId) { setError('Selecciona tu ubicación aproximada antes de activar el SOS.'); return; }
+    if (!window.confirm('¿Activar la alerta SOS? La acción quedará registrada.')) return;
+    setStatus('submitting'); setError(null);
     try {
-      const payload = {
-        descripcion: "ALERTA SOS ACTIVADA DESDE DISPOSITIVO MÓVIL",
-        id_ubicacion: 1
-      };
-      
-      if (posicionUsuario) {
-        payload.latitud = posicionUsuario[0];
-        payload.longitud = posicionUsuario[1];
-      }
-
-      const data = await request('/reports/sos', {
-        method: 'POST',
-        body: JSON.stringify(payload)
-      });
-      if (data.success) setActiveSosId(data.data);
-    } catch (e) {
-      console.error("Error al activar SOS:", e);
-    }
+      const response = await request('/reports/sos', { method: 'POST', body: JSON.stringify({ descripcion: 'Alerta SOS activada desde la web móvil', id_ubicacion: Number(locationId) }) });
+      setActiveId(response.data.id_reporte); setStatus('active');
+      if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
+    } catch (actionError) { setError(actionError.message); setStatus('ready'); }
   };
 
-  const handleCancelSOS = async () => {
-    setIsAlertVisible(false);
-    if (activeSosId) {
-      try {
-        await request(`/reports/sos/${activeSosId}/cancelar`, {
-          method: 'PUT'
-        });
-        setActiveSosId(null);
-      } catch (e) {
-        console.error("Error al cancelar SOS:", e);
-      }
-    }
+  const cancel = async () => {
+    if (!activeId) return;
+    setStatus('submitting');
+    try { await request(`/reports/sos/${activeId}/cancelar`, { method: 'PUT' }); setActiveId(null); setStatus('ready'); }
+    catch (actionError) { setError(actionError.message); setStatus('active'); }
   };
 
-  const handleCall = (contacto) => {
-    alert(`Iniciando llamada de auxilio a: ${contacto}...`);
-  };
-
-  return (
-    <div className="space-y-6">
-      
-      {/* Encabezado */}
-      <div className="text-center bg-slate-50 p-4 rounded-2xl border border-slate-100 shadow-inner">
-        <h1 className="text-lg font-black text-red-600 tracking-tight flex items-center justify-center gap-1.5 uppercase">
-          <span className="material-symbols-outlined text-[22px] font-bold animate-pulse">emergency</span>
-          Botón SOS de Pánico
-        </h1>
-        <p className="text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-wider">
-          Acciona una señal de socorro a la central UIDE
-        </p>
-      </div>
-
-      {/* Botón SOS de Pánico */}
-      <div className="flex flex-col items-center justify-center py-4">
-        <button 
-          onClick={handleSOS}
-          className="group relative flex items-center justify-center w-52 h-52 rounded-full bg-red-600 transition-all hover:bg-red-700 active:scale-95 cursor-pointer shadow-xl border-4 border-white ring-8 ring-red-150"
-        >
-          <div className="absolute inset-0 rounded-full border-4 border-white/20 group-hover:border-white/40 transition-colors animate-ping duration-1000" />
-          <div className="flex flex-col items-center text-white">
-            <span className="material-symbols-outlined text-5xl mb-2" style={{ fontVariationSettings: "'FILL' 1" }}>warning</span>
-            <span className="text-3xl tracking-tighter uppercase font-extrabold">🚨 AUXILIO</span>
-          </div>
-        </button>
-        <p className="mt-4 text-[10px] text-slate-400 font-bold uppercase tracking-widest text-center">
-          Mantén presionado o presiona una vez
-        </p>
-      </div>
-
-      {/* Lista de Contactos de Confianza */}
-      <section className="space-y-3">
-        <h3 className="text-[11px] font-bold text-slate-400 tracking-wider uppercase">Contactos de Confianza</h3>
-        
-        <div className="space-y-2">
-          {[
-            { name: "Mamá (Familia)", phone: "099 111 2222", img: "https://lh3.googleusercontent.com/aida-public/AB6AXuDC9uUxppCVoGKLz45qiYVOvqpTpnKC-sCO0zcciKvGESz1P6GwA7BGncBUsT5YvoAFBuSGxOZstTUHT8FjVCiM4FXMrVmXsHvPIMWugsqbXEHozjuVSKPM0Jdne-tOmqZTesk4pP-1K0HFrzxICdUq_4MEUlt5Gdhocbme2trjMb6Fg4JFcQ7wJaLtzcBoboLaxnP8-7NMkzfwxtqvZxw-4vCFc2lDZoc3etHvVgpaSKl91KOb-L0PfID4RmMnzO19SU0YCDTRPnA" },
-            { name: "Papá (Familia)", phone: "098 333 4444", img: "https://lh3.googleusercontent.com/aida-public/AB6AXuBj9GspCs1dZIM-zJWvN01quuczuLBXR1-_uEQ6mVXdZmj-nMVgtxOB1DntCglNch7pv5cQtXdguW7q41OxIP0aWCZ4B7JP40A5T-a6Lqp0Wc8dbvXUL1uNDO43I_UbdzflaGp19wcZUVLknMnGiQVUFHs6fRBYL6RsP16rh8Hqp7UxDHXxOEIbqR9iKG2qJHoK8Vfdp4_mx9d3_liPI_ZMJPgmPG9ydWNTIShtminmq0A42-nhfMaPFCpJCp_NuTi2PxDY-5XBUTk" }
-          ].map((contact, i) => (
-            <div 
-              key={i} 
-              onClick={() => handleCall(contact.name)}
-              className="flex items-center justify-between p-3 bg-white hover:bg-slate-50 border border-slate-200 rounded-2xl transition-all cursor-pointer group shadow-sm"
-            >
-              <div className="flex items-center gap-3">
-                <img src={contact.img} alt={contact.name} className="w-10 h-10 rounded-xl object-cover border border-purple-100 shadow-sm" />
-                <div>
-                  <p className="text-xs font-bold text-slate-800">{contact.name}</p>
-                  <p className="text-[10px] font-semibold text-slate-400">{contact.phone}</p>
-                </div>
-              </div>
-              <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-purple-900 group-hover:bg-purple-900 group-hover:text-white transition-all shadow-sm">
-                <span className="material-symbols-outlined text-[16px]">call</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* MODAL DE EMERGENCIA ACTIVO (Overlay sobre el sidebar) */}
-      {isAlertVisible && (
-        <div className="absolute inset-0 z-50 bg-red-650/95 flex flex-col items-center justify-center text-white p-6 text-center rounded-tr-3xl animate-[fadeIn_0.2s_ease-out]">
-          <div className="animate-bounce mb-6">
-            <span className="material-symbols-outlined text-7xl font-bold bg-white/10 p-4 rounded-3xl border border-white/20">broadcast_on_personal</span>
-          </div>
-          <h2 className="text-2xl font-black mb-2 uppercase tracking-wide">SEÑAL ENVIADA</h2>
-          <p className="text-xs text-red-100 mb-8 max-w-xs leading-relaxed font-semibold">
-            Tus familiares han sido alertados y la central de seguridad de la UIDE ha recibido tus coordenadas en tiempo real.
-          </p>
-          <button 
-            onClick={handleCancelSOS}
-            className="bg-white text-red-650 px-8 py-3.5 rounded-xl shadow-xl active:scale-95 transition-all text-xs uppercase tracking-wider font-extrabold cursor-pointer hover:bg-red-50"
-          >
-            CANCELAR SEÑAL
-          </button>
-        </div>
-      )}
-
-    </div>
-  );
+  return <div className="space-y-5 text-center">
+    <div><h1 className="text-xl font-black uppercase text-red-600">Botón SOS</h1><p className="mt-1 text-xs text-slate-500">Registra una alerta en SafeWalk U. Ante peligro inmediato, llama también al ECU 911.</p></div>
+    <label className="block text-left text-xs font-bold">Ubicación aproximada<select value={locationId} disabled={status === 'loading' || status === 'active'} onChange={(event) => changeLocation(event.target.value)} className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 bg-white px-4"><option value="">Selecciona un punto cercano</option>{locations.map((location) => <option key={location.id_ubicacion} value={location.id_ubicacion}>{location.nombre}</option>)}</select></label>
+    {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-xs font-semibold text-red-700">{error}</p>}
+    {!activeId ? <button disabled={status === 'loading' || status === 'submitting'} onClick={activate} className="mx-auto flex h-44 w-44 items-center justify-center rounded-full border-4 border-white bg-red-600 text-2xl font-black text-white shadow-xl ring-8 ring-red-100 disabled:opacity-50">{status === 'submitting' ? 'Enviando…' : 'AUXILIO'}</button> : <div className="rounded-3xl bg-red-600 p-6 text-white"><h2 className="text-xl font-black">ALERTA REGISTRADA</h2><p className="mt-2 text-xs">La alerta está pendiente de atención en el sistema.</p><button disabled={status === 'submitting'} onClick={cancel} className="mt-5 min-h-11 rounded-xl bg-white px-6 text-xs font-black text-red-700">Cancelar alerta</button></div>}
+    <section className="space-y-2 text-left"><h2 className="text-xs font-black uppercase text-slate-500">Contactos personales</h2>{contacts.map((contact) => <a key={contact.id_contacto} href={`tel:${String(contact.telefono).replace(/[^+\d]/g, '')}`} className="flex min-h-11 items-center justify-between rounded-xl border border-slate-200 bg-white px-4 text-xs font-bold"><span>{contact.nombre} · {contact.parentesco}</span><span className="material-symbols-outlined">call</span></a>)}{status !== 'loading' && !contacts.length && <p className="rounded-xl bg-slate-50 p-4 text-xs text-slate-500">No tienes contactos registrados. Puedes usar la sección Apoyo.</p>}</section>
+  </div>;
 }

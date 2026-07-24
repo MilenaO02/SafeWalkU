@@ -1,14 +1,14 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, useLocation, useNavigate, Link } from 'react-router-dom';
 import MapaInteractivo from '../components/MapaInteractivo';
 
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth';
+import { MapContext } from '../context/map';
 import logoClaro from '../assets/icon_modoclaro.png';
 import logoOscuro from '../assets/icon_modooscuro.png';
+import { request } from '../services/api';
 
 // Contexto para sincronizar el Mapa Interactivo en las vistas del estudiante
-export const MapContext = createContext();
-export const useMapConfig = () => useContext(MapContext);
 
 // Configuración por defecto para el mapa (UIDE Loja — coordenadas exactas)
 const defaultMapConfig = {
@@ -31,6 +31,7 @@ export default function MainLayout() {
   const { user, logout, showToast } = useAuth();
 
   const [mapConfig, setMapConfig] = useState(defaultMapConfig);
+  const [campusPoint, setCampusPoint] = useState(defaultMapConfig.centro);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   useEffect(() => {
@@ -40,6 +41,17 @@ export default function MainLayout() {
       document.documentElement.classList.remove('dark');
     }
   }, [isDarkMode]);
+
+  useEffect(() => {
+    if (isAdminRoute) return;
+    request('/ubicaciones').then((response) => {
+      const campus = (response.data || []).find((item) => item.tipo_zona === 'UNIVERSIDAD' && Number.isFinite(Number(item.latitud)) && Number.isFinite(Number(item.longitud)));
+      if (!campus) return;
+      const point = [Number(campus.latitud), Number(campus.longitud)];
+      setCampusPoint(point);
+      setMapConfig((current) => ({ ...current, centro: point, markers: [{ position: point, title: campus.nombre, desc: campus.direccion }] }));
+    }).catch(() => {});
+  }, [isAdminRoute]);
 
   const toggleDarkMode = () => setIsDarkMode(!isDarkMode);
 
@@ -64,6 +76,10 @@ export default function MainLayout() {
           return 'Historial de Notificaciones y Alertas';
         case '/admin/configuracion':
           return 'Ajustes del Sistema';
+        case '/admin/rutas':
+          return 'Editor de Rutas Seguras';
+        case '/admin/ubicaciones':
+          return 'Coordenadas de Ubicaciones';
         default:
           return 'Dashboard de Seguridad';
       }
@@ -73,7 +89,7 @@ export default function MainLayout() {
       <div className="flex min-h-screen bg-slate-50 text-slate-800 antialiased font-sans">
         
         {/* Barra lateral de Administración */}
-        <aside className="fixed left-0 top-0 h-full w-64 bg-white border-r border-slate-200 flex flex-col py-6 z-30 shadow-sm transition-all duration-300">
+        <aside className="fixed left-0 top-0 hidden h-full w-64 bg-white border-r border-slate-200 md:flex flex-col py-6 z-30 shadow-sm transition-all duration-300">
           <div className="px-6 mb-8 flex items-center justify-center">
             <img 
               src={logoClaro} 
@@ -105,11 +121,25 @@ export default function MainLayout() {
               <span>Reportes / SOS</span>
             </Link>
             <Link
+              to="/admin/rutas"
+              className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all text-sm ${location.pathname === '/admin/rutas' ? activeClass : inactiveClass}`}
+            >
+              <span className="material-symbols-outlined text-[20px]">route</span>
+              <span>Rutas seguras</span>
+            </Link>
+            <Link
               to="/admin/configuracion"
               className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all text-sm ${location.pathname === '/admin/configuracion' ? activeClass : inactiveClass}`}
             >
               <span className="material-symbols-outlined text-[20px]">settings</span>
               <span>Configuración</span>
+            </Link>
+            <Link
+              to="/admin/ubicaciones"
+              className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all text-sm ${location.pathname === '/admin/ubicaciones' ? activeClass : inactiveClass}`}
+            >
+              <span className="material-symbols-outlined text-[20px]">location_on</span>
+              <span>Ubicaciones</span>
             </Link>
           </nav>
 
@@ -125,15 +155,14 @@ export default function MainLayout() {
         </aside>
 
         {/* Contenedor de contenido de Administración */}
-        <div className="ml-64 flex-1 flex flex-col min-h-screen">
+        <div className="md:ml-64 flex-1 flex flex-col min-h-screen min-w-0">
           {/* Header Superior Administrativo */}
-          <header className="flex justify-between items-center w-full px-8 h-16 bg-white border-b border-slate-200 shadow-sm sticky top-0 z-20">
-            <h2 className="text-xl font-bold text-purple-950 tracking-tight">
+          <header className="flex justify-between items-center w-full px-4 md:px-8 min-h-16 bg-white border-b border-slate-200 shadow-sm sticky top-0 z-20">
+            <h2 className="text-base md:text-xl font-bold text-purple-950 tracking-tight">
               {getAdminTitle()}
             </h2>
             <div className="flex items-center gap-4">
-              <span className="material-symbols-outlined text-slate-500 cursor-pointer hover:bg-slate-100 p-2 rounded-full transition-colors">notifications</span>
-              <span className="material-symbols-outlined text-slate-500 cursor-pointer hover:bg-slate-100 p-2 rounded-full transition-colors">help</span>
+              <button onClick={handleLogout} aria-label="Cerrar sesión" className="md:hidden material-symbols-outlined text-red-600 p-2">logout</button>
               <div className="w-8 h-8 rounded-full bg-purple-900 flex items-center justify-center text-white text-xs font-black shadow-md">
                 {user ? `${user.nombre?.charAt(0) || ''}${user.apellido?.charAt(0) || ''}` || 'US' : 'AD'}
               </div>
@@ -141,9 +170,19 @@ export default function MainLayout() {
           </header>
 
           {/* Área principal del Dashboard */}
-          <main className="flex-1 p-8 overflow-y-auto">
+          <main className="flex-1 p-4 md:p-8 overflow-y-auto pb-24 md:pb-8">
             <Outlet />
           </main>
+          <nav className="fixed bottom-0 left-0 right-0 z-30 grid grid-cols-6 border-t border-slate-200 bg-white px-1 pb-[calc(8px+env(safe-area-inset-bottom))] pt-2 md:hidden">
+            {[
+              ['/admin', 'dashboard', 'Inicio'],
+              ['/admin/usuarios', 'group', 'Usuarios'],
+              ['/admin/notificaciones', 'report_problem', 'Alertas'],
+              ['/admin/rutas', 'route', 'Rutas'],
+              ['/admin/ubicaciones', 'location_on', 'Lugares'],
+              ['/admin/configuracion', 'settings', 'Ajustes']
+            ].map(([path, icon, label]) => <Link key={path} to={path} className={`flex min-h-11 flex-col items-center justify-center rounded-xl text-[10px] font-bold ${location.pathname === path ? 'bg-purple-50 text-purple-900' : 'text-slate-500'}`}><span className="material-symbols-outlined text-[20px]">{icon}</span>{label}</Link>)}
+          </nav>
         </div>
       </div>
     );
@@ -161,7 +200,7 @@ export default function MainLayout() {
   };
 
   const handleCenterUni = () => {
-    setMapConfig(prev => ({ ...prev, centro: defaultMapConfig.centro, zoom: 17 }));
+    setMapConfig(prev => ({ ...prev, centro: campusPoint, zoom: 17 }));
   };
 
   const studentLinks = [

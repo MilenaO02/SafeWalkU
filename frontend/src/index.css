@@ -1,5 +1,5 @@
 @import "tailwindcss";
-@import "leaflet/dist/leaflet.css";
+@import "./leaflet-safe.css";
 @theme {
   /* Mapeo de colores de Stitch al estilo institucional UIDE */
   --color-primary: #4a208c;
@@ -25,5 +25,27 @@
 @layer base {
   body {
     @apply font-sans antialiased bg-slate-50 text-slate-900 transition-colors duration-500 dark:bg-[#3C3C40] dark:text-slate-200;
+  }
+
+  :focus-visible {
+    outline: 3px solid #7c3aed;
+    outline-offset: 2px;
+  }
+
+  button:disabled,
+  input:disabled,
+  select:disabled {
+    cursor: not-allowed;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

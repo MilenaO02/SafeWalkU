@@ -46,7 +46,8 @@ CREATE TABLE `ubicacion` (
   `radio_metros` INT NOT NULL DEFAULT 50,
   `tipo_zona` ENUM('UNIVERSIDAD','CALLE','PARQUE','BARRIO','PARADERO','LUGAR_SEGURO','SERVICIO_EMERGENCIA') NOT NULL,
   PRIMARY KEY (`id_ubicacion`),
-  KEY `idx_ubicacion_ciudad` (`ciudad`)
+  KEY `idx_ubicacion_ciudad` (`ciudad`),
+  CONSTRAINT `chk_ubicacion_radio` CHECK (`radio_metros` > 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- 4. Tabla: coordenada
@@ -55,10 +56,14 @@ CREATE TABLE `coordenada` (
   `id_coordenada` INT NOT NULL AUTO_INCREMENT,
   `latitud` DECIMAL(10,8) NOT NULL,
   `longitud` DECIMAL(11,8) NOT NULL,
+  `verificada` TINYINT(1) NOT NULL DEFAULT 0,
+  `fuente` VARCHAR(100) DEFAULT NULL,
   `id_ubicacion` INT NOT NULL,
   PRIMARY KEY (`id_coordenada`),
   UNIQUE KEY `idx_coordenada_ubicacion` (`id_ubicacion`),
-  CONSTRAINT `fk_coordenada_ubicacion` FOREIGN KEY (`id_ubicacion`) REFERENCES `ubicacion` (`id_ubicacion`) ON DELETE CASCADE
+  CONSTRAINT `fk_coordenada_ubicacion` FOREIGN KEY (`id_ubicacion`) REFERENCES `ubicacion` (`id_ubicacion`) ON DELETE CASCADE,
+  CONSTRAINT `chk_coordenada_latitud` CHECK (`latitud` BETWEEN -90 AND 90),
+  CONSTRAINT `chk_coordenada_longitud` CHECK (`longitud` BETWEEN -180 AND 180)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- 5. Tabla: reporte
@@ -68,7 +73,7 @@ CREATE TABLE `reporte` (
   `descripcion` TEXT NOT NULL,
   `fecha_reporte` DATETIME DEFAULT CURRENT_TIMESTAMP,
   `nivel_riesgo` ENUM('BAJO','MEDIO','ALTO') NOT NULL,
-  `estado` ENUM('PENDIENTE','VALIDADO','RECHAZADO','DUPLICADO') NOT NULL DEFAULT 'PENDIENTE',
+  `estado` ENUM('PENDIENTE','VALIDADO','RECHAZADO','DUPLICADO','CANCELADO') NOT NULL DEFAULT 'PENDIENTE',
   `tipo_reporte` ENUM('INCIDENTE','SOS_PANICO') NOT NULL DEFAULT 'INCIDENTE',
   `id_usuario` INT NOT NULL,
   `id_ubicacion` INT NOT NULL,
@@ -105,6 +110,7 @@ CREATE TABLE `contactoemergencia` (
   `id_usuario` INT NOT NULL,
   PRIMARY KEY (`id_contacto`),
   KEY `idx_contacto_usuario` (`id_usuario`),
+  UNIQUE KEY `idx_contacto_usuario_pair` (`id_contacto`, `id_usuario`),
   CONSTRAINT `fk_contacto_usuario` FOREIGN KEY (`id_usuario`) REFERENCES `usuario` (`id_usuario`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
@@ -145,8 +151,12 @@ CREATE TABLE `compartirubicacion` (
   PRIMARY KEY (`id_compartir`),
   KEY `idx_compartir_usuario` (`id_usuario`),
   KEY `idx_compartir_contacto` (`id_contacto`),
-  CONSTRAINT `fk_compartir_usuario` FOREIGN KEY (`id_usuario`) REFERENCES `usuario` (`id_usuario`),
-  CONSTRAINT `fk_compartir_contacto` FOREIGN KEY (`id_contacto`) REFERENCES `contactoemergencia` (`id_contacto`)
+  CONSTRAINT `fk_compartir_contacto_usuario` FOREIGN KEY (`id_contacto`, `id_usuario`) REFERENCES `contactoemergencia` (`id_contacto`, `id_usuario`) ON DELETE CASCADE,
+  CONSTRAINT `chk_compartir_fechas` CHECK (`fecha_fin` IS NULL OR `fecha_fin` >= `fecha_inicio`),
+  CONSTRAINT `chk_compartir_estado_fin` CHECK (
+    (`estado` = 'ACTIVO' AND `fecha_fin` IS NULL)
+    OR (`estado` = 'FINALIZADO' AND `fecha_fin` IS NOT NULL)
+  )
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- 11. Tabla: ruta
@@ -157,7 +167,8 @@ CREATE TABLE `ruta` (
   `descripcion` VARCHAR(255) DEFAULT NULL,
   `nivel_seguridad` ENUM('BAJO','MEDIO','ALTO') NOT NULL,
   `tiempo_estimado` INT NOT NULL,
-  PRIMARY KEY (`id_ruta`)
+  PRIMARY KEY (`id_ruta`),
+  CONSTRAINT `chk_ruta_tiempo` CHECK (`tiempo_estimado` > 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- 12. Tabla: ruta_ubicacion
@@ -170,11 +181,32 @@ CREATE TABLE `ruta_ubicacion` (
   PRIMARY KEY (`id_ruta_ubicacion`),
   KEY `idx_rutaub_ruta` (`id_ruta`),
   KEY `idx_rutaub_ubicacion` (`id_ubicacion`),
+  UNIQUE KEY `idx_ruta_orden` (`id_ruta`, `orden_punto`),
   CONSTRAINT `fk_rutaub_ruta` FOREIGN KEY (`id_ruta`) REFERENCES `ruta` (`id_ruta`) ON DELETE CASCADE,
-  CONSTRAINT `fk_rutaub_ubicacion` FOREIGN KEY (`id_ubicacion`) REFERENCES `ubicacion` (`id_ubicacion`) ON DELETE CASCADE
+  CONSTRAINT `fk_rutaub_ubicacion` FOREIGN KEY (`id_ubicacion`) REFERENCES `ubicacion` (`id_ubicacion`) ON DELETE CASCADE,
+  CONSTRAINT `chk_ruta_orden` CHECK (`orden_punto` > 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- 13. Tabla: rutafavorita
+DROP TABLE IF EXISTS `ruta_punto`;
+CREATE TABLE `ruta_punto` (
+  `id_ruta_punto` INT NOT NULL AUTO_INCREMENT,
+  `id_ruta` INT NOT NULL,
+  `orden_punto` INT NOT NULL,
+  `latitud` DECIMAL(10,8) NOT NULL,
+  `longitud` DECIMAL(11,8) NOT NULL,
+  `tipo` ENUM('INICIO','INTERMEDIO','CRUCE','APOYO','DESTINO') NOT NULL DEFAULT 'INTERMEDIO',
+  `observacion` VARCHAR(255) DEFAULT NULL,
+  PRIMARY KEY (`id_ruta_punto`),
+  UNIQUE KEY `idx_rutapunto_orden` (`id_ruta`, `orden_punto`),
+  KEY `idx_rutapunto_ruta` (`id_ruta`),
+  CONSTRAINT `fk_rutapunto_ruta` FOREIGN KEY (`id_ruta`) REFERENCES `ruta` (`id_ruta`) ON DELETE CASCADE,
+  CONSTRAINT `chk_rutapunto_orden` CHECK (`orden_punto` > 0),
+  CONSTRAINT `chk_rutapunto_latitud` CHECK (`latitud` BETWEEN -90 AND 90),
+  CONSTRAINT `chk_rutapunto_longitud` CHECK (`longitud` BETWEEN -180 AND 180)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- 14. Tabla: rutafavorita
 DROP TABLE IF EXISTS `rutafavorita`;
 CREATE TABLE `rutafavorita` (
   `id_favorita` INT NOT NULL AUTO_INCREMENT,
@@ -184,6 +216,7 @@ CREATE TABLE `rutafavorita` (
   PRIMARY KEY (`id_favorita`),
   KEY `idx_favorita_usuario` (`id_usuario`),
   KEY `idx_favorita_ruta` (`id_ruta`),
+  UNIQUE KEY `idx_favorita_usuario_ruta` (`id_usuario`, `id_ruta`),
   CONSTRAINT `fk_favorita_usuario` FOREIGN KEY (`id_usuario`) REFERENCES `usuario` (`id_usuario`) ON DELETE CASCADE,
   CONSTRAINT `fk_favorita_ruta` FOREIGN KEY (`id_ruta`) REFERENCES `ruta` (`id_ruta`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

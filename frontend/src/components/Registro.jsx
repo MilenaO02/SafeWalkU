@@ -27,8 +27,8 @@ export default function Registro() {
       setError('Las contraseñas no coinciden.');
       return;
     }
-    if (formData.password.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres.');
+    if (formData.password.length < 8 || !/[a-z]/.test(formData.password) || !/[A-Z]/.test(formData.password) || !/[0-9]/.test(formData.password)) {
+      setError('La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un número.');
       return;
     }
 
@@ -42,8 +42,7 @@ export default function Registro() {
         nombre,
         apellido,
         correo: formData.email.trim().toLowerCase(),
-        contrasena: formData.password,
-        rol: 'ESTUDIANTE'
+        contrasena: formData.password
       });
 
       setSuccess(true);
@@ -153,7 +152,7 @@ export default function Registro() {
                   required
                   value={formData.password}
                   onChange={handleChange}
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder="8+ caracteres, mayúscula, minúscula y número"
                   className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-900 transition-all font-medium text-slate-800"
                 />
               </div>

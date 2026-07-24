@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import dashboardService from "../services/dashboard.service";
+import dashboardService from "../services/dashboard.service.js";
 
 class DashboardController {
     async getMetrics(req: Request, res: Response) {

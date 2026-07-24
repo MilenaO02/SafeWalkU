@@ -1,7 +1,8 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import repository from "../repositories/user.repository";
-import { isValidUideEmail } from "../middleware/validateDomain";
+import repository from "../repositories/user.repository.js";
+import { isValidUideEmail } from "../middleware/validateDomain.js";
+import { getJwtSecret } from "../config/security.js";
 
 class AuthService {
     async register(data: any) {
@@ -17,14 +18,13 @@ class AuthService {
             throw new Error("Correo ya registrado");
         }
 
-        const password = await bcrypt.hash(data.contrasena ?? data.password, 10);
-        const rol = (data.rol ?? "ESTUDIANTE").toString().toUpperCase();
+        const password = await bcrypt.hash(data.contrasena, 12);
 
         const id = await repository.create({
             ...data,
             correo,
             contrasena: password,
-            rol
+            rol: "ESTUDIANTE"
         });
 
         return {
@@ -42,28 +42,20 @@ class AuthService {
 
         const usuario = await repository.findByEmail(normalizedCorreo);
 
-        if (!usuario) {
-            throw new Error("Usuario no encontrado");
+        // Ejecutar bcrypt incluso si el correo no existe reduce diferencias de tiempo
+        // que podrían utilizarse para enumerar cuentas registradas.
+        const dummyHash = "$2b$12$0gY3X44P2MOw19C3at5yQe1mILPz9EAbg8QzydqH7/dMU42trqt7G";
+        const ok = await bcrypt.compare(contrasena, usuario?.contrasena ?? dummyHash);
+
+        if (!usuario || !ok || usuario.estado !== "ACTIVO") {
+            throw new Error("Credenciales incorrectas");
         }
 
-        if (usuario.estado && usuario.estado !== "ACTIVO") {
-            throw new Error("La cuenta está inactiva. Contacta al administrador.");
-        }
-
-        const ok = await bcrypt.compare(contrasena, usuario.contrasena);
-
-        if (!ok) {
-            throw new Error("Contraseña incorrecta");
-        }
-
-        const jwtSecret = process.env.JWT_SECRET;
-
-        if (!jwtSecret) {
-            throw new Error("Configuración de JWT incompleta");
-        }
+        const jwtSecret = getJwtSecret();
 
         const signOptions: jwt.SignOptions = {
-            expiresIn: "30d"
+            algorithm: "HS256",
+            expiresIn: (process.env.JWT_EXPIRES || "2h") as jwt.SignOptions["expiresIn"]
         };
 
         const token = jwt.sign(

@@ -1,50 +1,68 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BuscadorPrincipal from '../components/BuscadorPrincipal';
-import { useMapConfig } from '../layouts/MainLayout';
+import { useMapConfig } from '../context/map';
 import { request } from '../services/api';
 
 export default function StudentApp() {
   const navigate = useNavigate();
-  const { mapConfig, setMapConfig, defaultMapConfig } = useMapConfig();
+  const { setMapConfig } = useMapConfig();
   const [zonasRiesgo, setZonasRiesgo] = useState([]);
   const [userPos, setUserPos] = useState(null);
+  const [geoStatus, setGeoStatus] = useState('idle');
+  const [geoError, setGeoError] = useState(null);
+  const [manualLocation, setManualLocation] = useState({ lat: '', lng: '' });
+  const [routeSummary, setRouteSummary] = useState(null);
+  const [routeStatus, setRouteStatus] = useState('idle');
+  const watchIdRef = useRef(null);
 
-  // GPS tracking
   useEffect(() => {
-    let watchId;
-    let initialCenterSet = false;
-
-    const startWatching = () => {
-      watchId = navigator.geolocation.watchPosition(
-        (pos) => {
-          const newPos = [pos.coords.latitude, pos.coords.longitude];
-          setUserPos(newPos);
-          setMapConfig((prev) => {
-            const newConfig = {
-              ...prev
-            };
-            
-            // Centrar el mapa en la ubicación del usuario la primera vez
-            if (!initialCenterSet) {
-              newConfig.centro = newPos;
-              newConfig.zoom = 16;
-              initialCenterSet = true;
-            }
-            
-            return newConfig;
-          });
-        },
-        (err) => console.warn("GPS no disponible:", err),
-        { enableHighAccuracy: true }
-      );
+    return () => {
+      if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
     };
+  }, []);
 
-    // Solicitar permiso e iniciar seguimiento inmediatamente
-    startWatching();
-    
-    return () => { if (watchId) navigator.geolocation.clearWatch(watchId); };
-  }, [setMapConfig]);
+  const requestGps = () => {
+    if (!navigator.geolocation) {
+      setGeoStatus('unavailable');
+      setGeoError('Este navegador no ofrece geolocalización. Ingresa las coordenadas manualmente.');
+      return;
+    }
+    setGeoStatus('requesting');
+    setGeoError(null);
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      (position) => {
+        const next = [position.coords.latitude, position.coords.longitude];
+        setUserPos(next);
+        setGeoStatus('gps');
+        setMapConfig((previous) => ({ ...previous, centro: next, zoom: 16 }));
+      },
+      (error) => {
+        setGeoStatus('denied');
+        setGeoError(error.code === error.PERMISSION_DENIED
+          ? 'Permiso de ubicación rechazado. Puedes ingresar las coordenadas manualmente.'
+          : 'No fue posible obtener una ubicación precisa. Intenta nuevamente o usa el modo manual.');
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
+    );
+  };
+
+  const applyManualLocation = () => {
+    const lat = Number(manualLocation.lat);
+    const lng = Number(manualLocation.lng);
+    if (!Number.isFinite(lat) || lat < -90 || lat > 90 || !Number.isFinite(lng) || lng < -180 || lng > 180) {
+      setGeoError('Ingresa una latitud entre -90 y 90 y una longitud entre -180 y 180.');
+      return;
+    }
+    if (watchIdRef.current !== null && navigator.geolocation) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+    setUserPos([lat, lng]);
+    setGeoStatus('manual');
+    setGeoError(null);
+    setMapConfig((previous) => ({ ...previous, centro: [lat, lng], zoom: 16 }));
+  };
 
   // Fetch zonas de riesgo
   useEffect(() => {
@@ -53,31 +71,40 @@ export default function StudentApp() {
         const json = await request('/reports/zonas/riesgo?ciudad=Loja');
         if (json.success && json.data) setZonasRiesgo(json.data);
       } catch (e) {
-        console.error("Error cargando zonas de riesgo", e);
+        setGeoError(e instanceof Error ? e.message : 'No fue posible cargar las zonas de riesgo.');
       }
     };
     fetchZonas();
   }, []);
 
   const handleTrazarRuta = async (destino) => {
+    if (!userPos) {
+      setGeoError('Selecciona tu ubicación mediante GPS o coordenadas manuales antes de trazar.');
+      return;
+    }
     try {
-      const lat = userPos ? userPos[0] : -4.0327;
-      const lng = userPos ? userPos[1] : -79.2024;
-      const json = await request(`/rutas/trazar?origen_lat=${lat}&origen_lng=${lng}&destino_id=${destino.id_ubicacion}`);
+      setRouteStatus('loading');
+      setGeoError(null);
+      const [lat, lng] = userPos;
+      const json = await request(`/routes/trazar?origen_lat=${lat}&origen_lng=${lng}&destino_id=${destino.id_ubicacion}`);
       if (json.success) {
+        setRouteSummary(json.data);
         setMapConfig(prev => ({
           ...prev,
           polyline: json.data.coordenadas,
-          centro: json.data.coordenadas[1] || lat,
+          centro: json.data.coordenadas[Math.floor(json.data.coordenadas.length / 2)] || [lat, lng],
           zoom: 16,
           markers: [
-            ...prev.markers.filter(m => m.title !== destino.nombre),
+            ...prev.markers.filter(m => m.title !== destino.nombre && m.title !== 'Tu ubicación'),
+            { position: [lat, lng], title: 'Tu ubicación', desc: 'Punto desde el que solicitaste la ruta' },
             { position: [Number(destino.latitud), Number(destino.longitud)], title: destino.nombre, desc: destino.direccion }
           ]
         }));
       }
     } catch (e) {
-      console.error("Error al trazar la ruta", e);
+      setGeoError(e instanceof Error ? e.message : 'No fue posible trazar la ruta.');
+    } finally {
+      setRouteStatus('idle');
     }
   };
 
@@ -86,7 +113,63 @@ export default function StudentApp() {
       
       {/* Buscador de Destinos */}
       <div className="bg-slate-50 dark:bg-[#2B2B2F] p-5 rounded-2xl border border-slate-100 dark:border-[#4A4A50] shadow-inner transition-colors duration-500">
-        <BuscadorPrincipal onTrazar={handleTrazarRuta} />
+        <BuscadorPrincipal
+          onTrazar={handleTrazarRuta}
+          tracing={routeStatus === 'loading'}
+          originLabel={userPos
+            ? `${geoStatus === 'manual' ? 'Ubicación manual' : 'Ubicación GPS'}: ${userPos[0].toFixed(5)}, ${userPos[1].toFixed(5)}`
+            : 'Ubicación pendiente'}
+        />
+        {routeSummary && <div className={`mt-3 rounded-xl p-3 text-xs ${routeSummary.trazado_peatonal ? 'bg-green-50 text-green-800' : 'bg-amber-50 text-amber-800'}`}>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="font-black">{routeSummary.nombre_ruta} · {routeSummary.distancia_m} m · {routeSummary.tiempo_estimado} min a pie</p>
+            <span className="rounded-full bg-white/70 px-2 py-1 text-[9px] font-black">
+              {routeSummary.fuente_trazado === 'OPENROUTESERVICE' ? 'RUTA PEATONAL' : routeSummary.fuente_trazado === 'TRAZADO_MANUAL' ? 'RUTA VERIFICADA' : 'REFERENCIAL'}
+            </span>
+          </div>
+          <p className="mt-1">{routeSummary.aviso}</p>
+          {routeSummary.instrucciones?.length > 0 && <details className="mt-2">
+            <summary className="cursor-pointer font-bold">Ver indicaciones ({routeSummary.instrucciones.length})</summary>
+            <ol className="mt-2 max-h-40 list-decimal space-y-1 overflow-y-auto pl-5">
+              {routeSummary.instrucciones.map((step, index) => <li key={`${step.instruction}-${index}`}>{step.instruction} {step.distance_m > 0 ? `(${step.distance_m} m)` : ''}</li>)}
+            </ol>
+          </details>}
+        </div>}
+        <div className="mt-4 rounded-2xl border border-purple-100 dark:border-[#4A4A50] bg-white dark:bg-[#242428] p-4 space-y-3">
+          <p className="text-xs text-slate-600 dark:text-slate-300">
+            Tu ubicación se usa para calcular el trayecto mientras esta página está abierta. No se rastrea en segundo plano.
+          </p>
+          <button
+            type="button"
+            onClick={requestGps}
+            disabled={geoStatus === 'requesting'}
+            className="min-h-11 w-full rounded-xl bg-purple-900 px-4 py-2 text-xs font-bold text-white disabled:opacity-60"
+          >
+            {geoStatus === 'requesting' ? 'Solicitando ubicación…' : 'Usar mi ubicación GPS'}
+          </button>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <input
+              inputMode="decimal"
+              aria-label="Latitud manual"
+              placeholder="Latitud"
+              value={manualLocation.lat}
+              onChange={(event) => setManualLocation((current) => ({ ...current, lat: event.target.value }))}
+              className="min-h-11 rounded-xl border border-slate-200 px-3 text-xs dark:bg-[#2B2B2F]"
+            />
+            <input
+              inputMode="decimal"
+              aria-label="Longitud manual"
+              placeholder="Longitud"
+              value={manualLocation.lng}
+              onChange={(event) => setManualLocation((current) => ({ ...current, lng: event.target.value }))}
+              className="min-h-11 rounded-xl border border-slate-200 px-3 text-xs dark:bg-[#2B2B2F]"
+            />
+            <button type="button" onClick={applyManualLocation} className="min-h-11 rounded-xl border border-purple-300 px-3 text-xs font-bold text-purple-900 dark:text-purple-300">
+              Usar manual
+            </button>
+          </div>
+          {geoError && <p role="alert" className="text-xs font-semibold text-amber-700 dark:text-amber-300">{geoError}</p>}
+        </div>
       </div>
 
       {/* Herramientas de Acompañamiento */}
@@ -130,7 +213,7 @@ export default function StudentApp() {
               </div>
               <div>
                 <h3 className="font-bold text-xs text-red-650 dark:text-red-400 tracking-wide">SOS Emergencia</h3>
-                <p className="text-[10px] leading-tight text-slate-500 dark:text-[#A0A0A5] mt-0.5">Alerta al centro UIDE y familiares.</p>
+                <p className="text-[10px] leading-tight text-slate-500 dark:text-[#A0A0A5] mt-0.5">Registra una alerta de emergencia para su seguimiento.</p>
               </div>
             </div>
             <span className="material-symbols-outlined text-slate-400 dark:text-[#A0A0A5] group-hover:translate-x-1 transition-transform">chevron_right</span>
@@ -157,7 +240,7 @@ export default function StudentApp() {
                     zoom: 18,
                     circle: { center: [Number(zona.latitud), Number(zona.longitud)], radius: zona.radio_metros, color: '#ef4444' }
                 }));
-                navigate('/detalle-zona');
+                navigate('/detalle-zona', { state: { zona } });
               }}
               className="p-3.5 bg-white dark:bg-[#2B2B2F] border border-slate-200 dark:border-[#4A4A50] rounded-2xl flex gap-3 items-start shadow-sm hover:shadow-md cursor-pointer hover:border-purple-300 dark:hover:border-[#5C5C60] transition-all"
             >

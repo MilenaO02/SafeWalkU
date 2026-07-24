@@ -1,8 +1,15 @@
 import { Request, Response } from "express";
 
-import service from "../services/user.service";
+import service from "../services/user.service.js";
+import fs from "fs";
+import { hasValidImageSignature } from "../config/multer.js";
 
 class UserController {
+
+    async getMe(req: Request, res: Response) {
+        const usuario = await service.getById(req.user!.id_usuario);
+        return res.json({ success: true, data: usuario });
+    }
 
     async getAll(req: Request, res: Response) {
 
@@ -54,26 +61,13 @@ class UserController {
 
     async updateMe(req: Request, res: Response) {
         try {
-            const id = (req as any).user.id_usuario;
-            const updateData: any = {};
-            
-            if (req.body.name) {
-                const parts = req.body.name.split(' ');
-                updateData.nombre = parts[0];
-                updateData.apellido = parts.slice(1).join(' ');
-            }
-            if (req.body.email) {
-                updateData.correo = req.body.email;
-            }
-            if (req.body.nombre) updateData.nombre = req.body.nombre;
-            if (req.body.apellido) updateData.apellido = req.body.apellido;
-            if (req.body.correo) updateData.correo = req.body.correo;
+            const id = req.user!.id_usuario;
+            const usuario = await service.update(id, req.body);
 
-            await service.update(id, updateData);
-
-            res.json({ success: true, message: "Perfil actualizado correctamente" });
+            res.json({ success: true, message: "Perfil actualizado correctamente", data: usuario });
         } catch (error: any) {
-            res.status(500).json({ success: false, message: error.message });
+            const status = error.message === "Correo ya registrado" ? 409 : 400;
+            res.status(status).json({ success: false, message: error.message });
         }
     }
 
@@ -103,6 +97,11 @@ class UserController {
 
             if (!req.file) {
                 return res.status(400).json({ success: false, message: "No se recibió ningún archivo." });
+            }
+
+            if (!await hasValidImageSignature(req.file.path, req.file.mimetype)) {
+                await fs.promises.unlink(req.file.path);
+                return res.status(400).json({ success: false, message: "El contenido del archivo no corresponde a una imagen válida." });
             }
             
             // Usar ruta relativa para evitar errores de Mixed Content en HTTPS

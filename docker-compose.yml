@@ -1,23 +1,18 @@
-version: '3.8'
-
 services:
   mysql:
     image: mysql:8.0
-    container_name: safewalk-db
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-SafeWalkPass2026!}
-      MYSQL_DATABASE: ${DB_NAME:-safewalku}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Configure MYSQL_ROOT_PASSWORD en .env}
+      MYSQL_DATABASE: safewalku
       MYSQL_USER: ${DB_USER:-safewalk_user}
-      MYSQL_PASSWORD: ${DB_PASSWORD:-SafeWalkPass2026!}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?Configure DB_PASSWORD en .env}
     volumes:
       - mysql_data:/var/lib/mysql
       - ./backend/db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
       - ./backend/db/seed.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
-    ports:
-      - "127.0.0.1:3306:3306"
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u$${MYSQL_USER} -p$${MYSQL_PASSWORD} --silent"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -28,7 +23,6 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: safewalk-backend
     restart: always
     environment:
       NODE_ENV: production
@@ -36,10 +30,15 @@ services:
       DB_HOST: mysql
       DB_PORT: 3306
       DB_USER: ${DB_USER:-safewalk_user}
-      DB_PASSWORD: ${DB_PASSWORD:-SafeWalkPass2026!}
-      DB_NAME: ${DB_NAME:-safewalku}
-      JWT_SECRET: ${JWT_SECRET:-safewalk_super_secret_jwt_key_2026_change_in_prod}
-      CORS_ORIGIN: "https://safewalku.online,https://www.safewalku.online"
+      DB_PASSWORD: ${DB_PASSWORD:?Configure DB_PASSWORD en .env}
+      DB_NAME: safewalku
+      DB_CONNECTION_LIMIT: ${DB_CONNECTION_LIMIT:-10}
+      DB_CONNECT_TIMEOUT_MS: ${DB_CONNECT_TIMEOUT_MS:-5000}
+      JWT_SECRET: ${JWT_SECRET:?Configure JWT_SECRET en .env}
+      JWT_EXPIRES: ${JWT_EXPIRES:-2h}
+      CORS_ORIGIN: ${CORS_ORIGIN:-https://safewalku.online,https://www.safewalku.online}
+      OPENROUTESERVICE_API_KEY: ${OPENROUTESERVICE_API_KEY:-}
+      ROUTING_TIMEOUT_MS: ${ROUTING_TIMEOUT_MS:-8000}
     depends_on:
       mysql:
         condition: service_healthy
@@ -54,13 +53,12 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: safewalk-frontend
     restart: always
     ports:
-      - "80:80"
-      - "443:443"
+      - "${APP_BIND:-127.0.0.1}:${APP_PORT:-8080}:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     networks:
       - safewalk-net
 

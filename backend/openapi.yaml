@@ -1,4 +1,4 @@
-openapi: 3.0.0
+openapi: 3.0.3
 info:
   title: SafeWalk API
   version: 1.0.0
@@ -138,6 +138,8 @@ components:
         - nombre_ruta
         - nivel_seguridad
         - tiempo_estimado
+        - ubicaciones
+        - puntos
       properties:
         nombre_ruta:
           type: string
@@ -152,6 +154,40 @@ components:
         tiempo_estimado:
           type: number
           example: 15
+        ubicaciones:
+          type: array
+          minItems: 2
+          maxItems: 50
+          items:
+            type: integer
+          example: [1, 7]
+        puntos:
+          type: array
+          minItems: 2
+          maxItems: 500
+          items:
+            $ref: "#/components/schemas/RutaPunto"
+
+    RutaPunto:
+      type: object
+      required:
+        - latitud
+        - longitud
+      properties:
+        latitud:
+          type: number
+          minimum: -90
+          maximum: 90
+        longitud:
+          type: number
+          minimum: -180
+          maximum: 180
+        tipo:
+          type: string
+          enum: [INICIO, INTERMEDIO, CRUCE, APOYO, DESTINO]
+        observacion:
+          type: string
+          maxLength: 255
 
     EvidenciaRequest:
       type: object

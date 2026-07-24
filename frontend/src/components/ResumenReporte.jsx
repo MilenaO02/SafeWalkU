@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useMapConfig } from '../layouts/MainLayout';
+import { useMapConfig } from '../context/map';
 import { request } from '../services/api';
+import { clearPendingEvidence, getPendingEvidence } from '../services/pendingReport';
 
 export default function ResumenReporte() {
   const navigate = useNavigate();
@@ -18,6 +19,8 @@ export default function ResumenReporte() {
     evidencia: null
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [evidenceWarning, setEvidenceWarning] = useState(null);
+  const [submitError, setSubmitError] = useState(null);
 
   // Cargar datos reales guardados en el paso anterior
   useEffect(() => {
@@ -49,6 +52,7 @@ export default function ResumenReporte() {
   // Enviar el reporte a la base de datos Express (backend)
   const handleSendReport = async () => {
     setIsSubmitting(true);
+    setSubmitError(null);
 
     try {
       const data = await request('/reports', {
@@ -60,12 +64,23 @@ export default function ResumenReporte() {
         }),
       });
 
-      console.log("Reporte creado en backend:", data);
+      const evidenceFile = getPendingEvidence();
+      const reportId = data?.data?.id_reporte;
+      if (evidenceFile && reportId) {
+        const formData = new FormData();
+        formData.append('archivo', evidenceFile);
+        formData.append('id_reporte', String(reportId));
+        try {
+          await request('/evidencias', { method: 'POST', body: formData });
+          clearPendingEvidence();
+        } catch (evidenceError) {
+          setEvidenceWarning(evidenceError instanceof Error ? evidenceError.message : 'No se pudo cargar la evidencia.');
+        }
+      }
       setIsSent(true);
 
     } catch (error) {
-      console.error("Error creando reporte en backend:", error);
-      alert(error instanceof Error ? error.message : 'No se pudo enviar el reporte.');
+      setSubmitError(error instanceof Error ? error.message : 'No se pudo enviar el reporte.');
     } finally {
       setIsSubmitting(false);
     }
@@ -73,6 +88,7 @@ export default function ResumenReporte() {
 
   const handleFinish = () => {
     localStorage.removeItem('tempReport');
+    clearPendingEvidence();
     navigate('/app');
   };
 
@@ -144,6 +160,7 @@ export default function ResumenReporte() {
 
       {/* Acciones del Reporte */}
       <div className="pt-4 border-t border-slate-100 space-y-2 mt-auto">
+        {submitError && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">{submitError}</p>}
         <button 
           onClick={handleSendReport}
           disabled={isSubmitting}
@@ -162,7 +179,7 @@ export default function ResumenReporte() {
           )}
         </button>
         <p className="text-[10px] text-center text-slate-500 px-4 leading-relaxed font-semibold">
-          Tu reporte es anónimo y se despachará una patrulla preventiva de la UIDE de inmediato.
+          Tu reporte quedará asociado a tu cuenta para mantener trazabilidad y será revisado por un administrador.
         </p>
       </div>
 
@@ -176,8 +193,13 @@ export default function ResumenReporte() {
             
             <h2 className="text-xl font-black text-slate-900 tracking-tight">Reporte Recibido</h2>
             <p className="text-xs text-slate-500 mt-2 mb-6 leading-relaxed font-medium">
-              El equipo de seguridad de la UIDE ha sido notificado y se asignará una patrulla de monitoreo a la brevedad.
+              El reporte quedó registrado para revisión dentro de SafeWalk U.
             </p>
+            {evidenceWarning && (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
+                Reporte creado, pero la evidencia no pudo cargarse: {evidenceWarning}
+              </p>
+            )}
             
             <button 
               onClick={handleFinish} 

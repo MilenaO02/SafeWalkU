@@ -8,7 +8,7 @@ import { resolve } from "node:path";
 dotenv.config({ path: resolve(process.cwd(), ".env") });
 dotenv.config({ path: resolve(process.cwd(), "../.env") });
 
-const requiredVariables = ["DB_USER", "DB_PASSWORD", "DB_NAME"];
+const requiredVariables = ["DB_USER", "DB_PASSWORD"];
 const missingVariables = requiredVariables.filter((name) => !process.env[name]);
 if (missingVariables.length > 0) {
     throw new Error(`Faltan variables de base de datos: ${missingVariables.join(", ")}`);
@@ -19,7 +19,7 @@ const connection = await mysql.createConnection({
     port: Number(process.env.DB_PORT || 3306),
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
+    database: process.env.DB_NAME || "safewalku",
     multipleStatements: true
 });
 

@@ -67,6 +67,7 @@ deploy_frontend:
         StrictHostKeyChecking accept-new
         ConnectTimeout 20
         ServerAliveInterval 15
+        ServerAliveCountMax 20
       EOF
       chmod 600 ~/.ssh/config
       echo "Comprobando SSH en ${DEPLOY_HOST}:${DEPLOY_PORT}..."
@@ -94,6 +95,13 @@ deploy_frontend:
         sudo cp ~/safewalku.nginx /etc/nginx/sites-available/safewalku
         sudo ln -sf /etc/nginx/sites-available/safewalku /etc/nginx/sites-enabled/safewalku
         sudo rm -f /etc/nginx/sites-enabled/default
+        for site in /etc/nginx/sites-enabled/*; do
+          [ "$(readlink -f "$site")" = "/etc/nginx/sites-available/safewalku" ] && continue
+          if sudo grep -Eq "server_name[[:space:]]+.*safewalku\\.online" "$site"; then
+            echo "Deshabilitando configuracion Nginx duplicada: $site"
+            sudo rm -f "$site"
+          fi
+        done
         sudo nginx -t
         sudo systemctl enable nginx
         sudo systemctl restart nginx

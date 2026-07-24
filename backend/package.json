@@ -10,7 +10,6 @@
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
     "migrate:phase4": "node scripts/migrate-phase4.mjs",
-    "migrate:locations": "node scripts/migrate-location-verification.mjs",
     "migrate:routes": "node scripts/migrate-route-geometry.mjs",
     "audit:offline": "npm audit --offline --audit-level=high",
     "test": "npm run typecheck && npm run build"

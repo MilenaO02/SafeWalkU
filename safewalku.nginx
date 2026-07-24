@@ -1,5 +1,3 @@
-# /etc/nginx/sites-available/safewalku
-# Docker publica toda la aplicacion solamente en 127.0.0.1:8080.
 server {
     listen 80;
     listen [::]:80;
@@ -25,23 +23,41 @@ server {
     ssl_certificate_key /etc/letsencrypt/live/safewalku.online/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
 
+    root /var/www/safewalku/dist;
+    index index.html;
     client_max_body_size 10M;
+
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 
-    location / {
-        proxy_pass http://127.0.0.1:8080;
+    location /api/ {
+        proxy_pass http://127.0.0.1:3000/api/;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto https;
-        proxy_connect_timeout 15s;
-        proxy_read_timeout 60s;
     }
 
-    access_log /var/log/nginx/safewalku_access.log;
-    error_log /var/log/nginx/safewalku_error.log;
+    location /api-docs {
+        proxy_pass http://127.0.0.1:3000/api-docs;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+
+    location ^~ /uploads/ {
+        proxy_pass http://127.0.0.1:3000/uploads/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    location = /index.html {
+        add_header Cache-Control "no-store, no-cache, must-revalidate";
+    }
 }

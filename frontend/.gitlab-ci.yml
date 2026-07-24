@@ -8,170 +8,101 @@ default:
 
 build_frontend:
   stage: build
-
   script:
-    - echo "Instalando dependencias del frontend..."
     - cd frontend
     - npm ci
-
-    - echo "Construyendo frontend para producción..."
     - npm run build
-
   artifacts:
     name: "frontend-$CI_COMMIT_SHORT_SHA"
     paths:
       - frontend/dist/
+      - safewalku.nginx
     expire_in: 1 hour
 
 test_frontend_quality:
   stage: test
-
   script:
-    - echo "Instalando dependencias para ejecutar lint..."
     - cd frontend
     - npm ci
-
-    - echo "Ejecutando análisis de calidad del frontend..."
     - npm run lint
-
   allow_failure: false
 
 deploy_frontend:
   stage: deploy
   image: debian:bullseye-slim
-
   needs:
     - job: build_frontend
       artifacts: true
-
   before_script:
     - apt-get update -y
     - apt-get install -y openssh-client tar curl
-
     - eval "$(ssh-agent -s)"
-
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
-
     - |
       if [ -f "$AWS_SSH_KEY" ]; then
         cp "$AWS_SSH_KEY" ~/.ssh/id_rsa
       else
         printf '%s\n' "$AWS_SSH_KEY" | tr -d '\r' > ~/.ssh/id_rsa
       fi
-
     - chmod 600 ~/.ssh/id_rsa
     - ssh-add ~/.ssh/id_rsa
-
-    - ssh-keyscan -H "$AWS_HOST" >> ~/.ssh/known_hosts
-    - chmod 644 ~/.ssh/known_hosts
-
+    - |
+      resolve_ci_value() {
+        if [ -f "$1" ]; then tr -d '\r\n' < "$1"; else printf '%s' "$1"; fi
+      }
+      DEPLOY_HOST="$(resolve_ci_value "$AWS_HOST")"
+      DEPLOY_USER="$(resolve_ci_value "$AWS_USERNAME")"
+      DEPLOY_PORT="${AWS_SSH_PORT:-22}"
+      test -n "$DEPLOY_HOST" || { echo "ERROR: AWS_HOST esta vacio" >&2; exit 1; }
+      test -n "$DEPLOY_USER" || { echo "ERROR: AWS_USERNAME esta vacio" >&2; exit 1; }
+      case "$DEPLOY_HOST" in http://*|https://*|*@*|*/*) echo "ERROR: AWS_HOST debe contener solo IP o hostname" >&2; exit 1 ;; esac
+      cat > ~/.ssh/config <<EOF
+      Host safewalk-target
+        HostName $DEPLOY_HOST
+        User $DEPLOY_USER
+        Port $DEPLOY_PORT
+        IdentityFile ~/.ssh/id_rsa
+        IdentitiesOnly yes
+        StrictHostKeyChecking accept-new
+        ConnectTimeout 20
+        ServerAliveInterval 15
+      EOF
+      chmod 600 ~/.ssh/config
+      echo "Comprobando SSH en ${DEPLOY_HOST}:${DEPLOY_PORT}..."
+      ssh safewalk-target "echo Conexion SSH correcta"
   script:
-   
-    - echo "Empaquetando frontend..."
-
-    - >
-      tar -czf /tmp/frontend.tar.gz
-      frontend/dist
-      frontend/nginx.conf
-
-    - echo "Preparando directorio en EC2..."
-
-    - >
-      ssh "$AWS_USERNAME@$AWS_HOST"
-      "mkdir -p /home/$AWS_USERNAME/safewalku/frontend"
-
-    - echo "Enviando frontend a EC2..."
-
-    - >
-      scp /tmp/frontend.tar.gz
-      "$AWS_USERNAME@$AWS_HOST:/home/$AWS_USERNAME/safewalku/frontend.tar.gz"
-
-    - echo "Extrayendo nueva versión del frontend..."
-
-    - >
-      ssh "$AWS_USERNAME@$AWS_HOST"
-      "cd /home/$AWS_USERNAME/safewalku &&
-      rm -rf frontend/dist &&
-      tar -xzf frontend.tar.gz &&
-      rm -f frontend.tar.gz"
-
-    - echo "Liberando los puertos 80 y 443..."
-
-    - >
-      ssh "$AWS_USERNAME@$AWS_HOST"
-      "sudo systemctl stop apache2 2>/dev/null || true;
-      sudo systemctl stop nginx 2>/dev/null || true;
-      sudo docker rm -f safewalk-frontend 2>/dev/null || true;
-      sudo docker rm -f safewalkweb_container 2>/dev/null || true"
-
-    - echo "Eliminando contenedores que ocupen el puerto 80..."
-
-    - >
-      ssh "$AWS_USERNAME@$AWS_HOST"
-      "CONTAINERS=\$(sudo docker ps -q --filter publish=80);
-      if [ -n \"\$CONTAINERS\" ]; then
-        sudo docker rm -f \$CONTAINERS;
-      fi"
-
-    - echo "Eliminando contenedores que ocupen el puerto 443..."
-
-    - >
-      ssh "$AWS_USERNAME@$AWS_HOST"
-      "CONTAINERS=\$(sudo docker ps -q --filter publish=443);
-      if [ -n \"\$CONTAINERS\" ]; then
-        sudo docker rm -f \$CONTAINERS;
-      fi"
-
-    - echo "Verificando certificados SSL..."
-
-    - >
-      ssh "$AWS_USERNAME@$AWS_HOST"
-      "sudo test -f /etc/letsencrypt/live/safewalku.online/fullchain.pem &&
-      sudo test -f /etc/letsencrypt/live/safewalku.online/privkey.pem"
-
-    - echo "Creando el nuevo contenedor del frontend..."
-
-    - >
-      ssh "$AWS_USERNAME@$AWS_HOST"
-      "sudo docker run -d
-      --name safewalk-frontend
-      --restart unless-stopped
-      -p 80:80
-      -p 443:443
-      -v /home/$AWS_USERNAME/safewalku/frontend/dist:/usr/share/nginx/html:ro
-      -v /home/$AWS_USERNAME/safewalku/frontend/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      -v /etc/letsencrypt:/etc/letsencrypt:ro
-      nginx:alpine"
-
-    - echo "Esperando que Nginx inicie..."
-    - sleep 5
-
-    - echo "Verificando estado del contenedor..."
-
-    - >
-      ssh "$AWS_USERNAME@$AWS_HOST"
-      "sudo docker ps -a
-      --filter name=safewalk-frontend
-      --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'"
-
-    - echo "Mostrando logs del contenedor..."
-
-    - >
-      ssh "$AWS_USERNAME@$AWS_HOST"
-      "sudo docker logs safewalk-frontend --tail 30"
-
-    - echo "Comprobando HTTPS..."
-
-    - >
-      ssh "$AWS_USERNAME@$AWS_HOST"
-      "curl -k -I --fail https://localhost"
-
-    - echo "Frontend desplegado correctamente."
-
+    - tar -czf /tmp/frontend.tar.gz -C frontend dist
+    - scp /tmp/frontend.tar.gz safewalk-target:~/frontend.tar.gz
+    - scp safewalku.nginx safewalk-target:~/safewalku.nginx
+    - |
+      ssh safewalk-target '
+        set -e
+        sudo docker rm -f safewalk-frontend safewalkweb_container 2>/dev/null || true
+        sudo systemctl stop apache2 2>/dev/null || true
+        if ! command -v nginx >/dev/null 2>&1; then
+          sudo apt-get update -y
+          sudo apt-get install -y nginx
+        fi
+        rm -rf ~/frontend-release
+        mkdir -p ~/frontend-release
+        tar -xzf ~/frontend.tar.gz -C ~/frontend-release
+        sudo mkdir -p /var/www/safewalku
+        sudo rm -rf /var/www/safewalku/dist
+        sudo cp -a ~/frontend-release/dist /var/www/safewalku/dist
+        sudo chown -R www-data:www-data /var/www/safewalku
+        sudo cp ~/safewalku.nginx /etc/nginx/sites-available/safewalku
+        sudo ln -sf /etc/nginx/sites-available/safewalku /etc/nginx/sites-enabled/safewalku
+        sudo rm -f /etc/nginx/sites-enabled/default
+        sudo nginx -t
+        sudo systemctl enable nginx
+        sudo systemctl restart nginx
+        rm -f ~/frontend.tar.gz ~/safewalku.nginx
+      '
+    - ssh safewalk-target "curl --fail --silent --show-error http://127.0.0.1/api/health"
+    - curl --fail --silent --show-error --retry 3 https://safewalku.online/api/health
   environment:
     name: frontend-production
     url: https://safewalku.online
-
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'

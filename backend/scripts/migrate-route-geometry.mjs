@@ -2,7 +2,7 @@ import dotenv from "dotenv";
 import mysql from "mysql2/promise";
 import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 
 // En produccion el archivo de secretos vive en ~/safewalku/.env, un nivel
 // por encima del backend. En desarrollo se conserva backend/.env.
@@ -19,6 +19,13 @@ if (!process.env.DB_USER || !process.env.DB_PASSWORD) {
         }));
         const backendProcess = processes.find((entry) => entry.name === "safewalk-backend");
         const runtimeEnvironment = backendProcess?.pm2_env ?? {};
+        const environmentDirectories = [
+            runtimeEnvironment.pm_cwd,
+            runtimeEnvironment.pm_exec_path ? dirname(runtimeEnvironment.pm_exec_path) : undefined
+        ].filter(Boolean);
+        for (const directory of environmentDirectories) {
+            dotenv.config({ path: resolve(directory, ".env") });
+        }
         for (const name of ["DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME"]) {
             if (!process.env[name] && runtimeEnvironment[name] !== undefined) {
                 process.env[name] = String(runtimeEnvironment[name]);

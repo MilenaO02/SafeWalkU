@@ -1,0 +1,51 @@
+@import "tailwindcss";
+@import "./leaflet-safe.css";
+@theme {
+  /* Mapeo de colores de Stitch al estilo institucional UIDE */
+  --color-primary: #4a208c;
+  --color-primary-container: #7b1fa2;
+  --color-on-primary: #ffffff;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-border: #e2e8f0;
+  --color-on-surface: #1e293b;
+  --color-on-surface-variant: #64748b;
+  --color-outline: #94a3b8;
+  --color-outline-variant: #cbd5e1;
+  --color-safe-green: #22c55e;
+
+  /* Mapeo de Espaciados personalizados */
+  --spacing-stack-md: 1rem;
+  --spacing-stack-lg: 1.5rem;
+  --spacing-mb-stack-md: 1rem;
+  --spacing-mb-stack-lg: 1.5rem;
+}
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  body {
+    @apply font-sans antialiased bg-slate-50 text-slate-900 transition-colors duration-500 dark:bg-[#3C3C40] dark:text-slate-200;
+  }
+
+  :focus-visible {
+    outline: 3px solid #7c3aed;
+    outline-offset: 2px;
+  }
+
+  button:disabled,
+  input:disabled,
+  select:disabled {
+    cursor: not-allowed;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

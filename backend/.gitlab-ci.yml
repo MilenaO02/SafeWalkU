@@ -1,0 +1,111 @@
+stages:
+  - build
+  - test
+  - security
+  - deploy
+
+default:
+  image: node:20
+
+build_backend:
+  stage: build
+  script:
+    - echo "Instalando dependencias del backend..."
+    - cd backend
+    - npm ci
+    - echo "Compilando backend TypeScript..."
+    - npm run build
+    - echo "Comprobando archivo compilado..."
+    - test -f dist/server.js
+  artifacts:
+    name: "backend-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - backend/dist/
+      - backend/package.json
+      - backend/package-lock.json
+    expire_in: 1 hour
+
+test_backend_typescript:
+  stage: test
+  script:
+    - echo "Validando el codigo TypeScript..."
+    - cd backend
+    - npm ci
+    - npm run typecheck
+  allow_failure: false
+
+test_backend:
+  stage: test
+  script:
+    - echo "Ejecutando pruebas del backend..."
+    - cd backend
+    - npm ci
+    - npm test
+  allow_failure: false
+
+security_backend:
+  stage: security
+  script:
+    - echo "Analizando vulnerabilidades del backend..."
+    - cd backend
+    - npm ci
+    - npm audit --audit-level=high
+  allow_failure: true
+
+deploy_backend:
+  stage: deploy
+  image: debian:bullseye-slim
+
+  needs:
+    - job: build_backend
+      artifacts: true
+
+  before_script:
+    - apt-get update -y
+    - apt-get install -y openssh-client tar
+    - eval "$(ssh-agent -s)"
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - |
+      if [ -f "$AWS_SSH_KEY" ]; then
+        cp "$AWS_SSH_KEY" ~/.ssh/id_rsa
+      else
+        printf '%s\n' "$AWS_SSH_KEY" | tr -d '\r' > ~/.ssh/id_rsa
+      fi
+    - chmod 600 ~/.ssh/id_rsa
+    - ssh-add ~/.ssh/id_rsa
+    - ssh-keyscan -H "$AWS_HOST" >> ~/.ssh/known_hosts
+
+  script:
+    - echo "Empaquetando backend..."
+    - tar -czf /tmp/backend.tar.gz backend/dist backend/package.json backend/package-lock.json
+
+    - echo "Liberando espacio en EC2 antes del despliegue..."
+    - ssh "$AWS_USERNAME@$AWS_HOST" "npm cache clean --force 2>/dev/null || true; rm -rf ~/safewalku/backend/node_modules 2>/dev/null || true; sudo journalctl --vacuum-size=50M 2>/dev/null || true; sudo apt-get clean 2>/dev/null || true; df -h /"
+
+    - echo "Preparando directorio en EC2..."
+    - ssh "$AWS_USERNAME@$AWS_HOST" "mkdir -p ~/safewalku/backend"
+
+    - echo "Enviando backend..."
+    - scp /tmp/backend.tar.gz "$AWS_USERNAME@$AWS_HOST:~/safewalku/backend.tar.gz"
+
+    - echo "Extrayendo backend..."
+    - ssh "$AWS_USERNAME@$AWS_HOST" "cd ~/safewalku && rm -rf backend/dist && tar -xzf backend.tar.gz && rm -f backend.tar.gz"
+
+    - echo "Instalando dependencias de produccion..."
+    - ssh "$AWS_USERNAME@$AWS_HOST" "cd ~/safewalku/backend && npm ci --omit=dev"
+
+    - echo "Reiniciando backend con PM2..."
+    - ssh "$AWS_USERNAME@$AWS_HOST" "cd ~/safewalku/backend && if pm2 describe safewalk-backend > /dev/null 2>&1; then pm2 restart safewalk-backend --update-env; else pm2 start dist/server.js --name safewalk-backend; fi && pm2 save"
+
+    - echo "Verificando el proceso..."
+    - ssh "$AWS_USERNAME@$AWS_HOST" "pm2 status safewalk-backend"
+
+    - echo "Backend desplegado correctamente."
+
+  environment:
+    name: backend-production
+    url: https://safewalku.online/api
+
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'

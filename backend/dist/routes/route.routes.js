@@ -1,0 +1,25 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const route_controller_1 = __importDefault(require("../controllers/route.controller"));
+const auth_1 = __importDefault(require("../middleware/auth"));
+const authorize_1 = __importDefault(require("../middleware/authorize"));
+const validate_1 = __importDefault(require("../middleware/validate"));
+const route_schema_1 = require("../schemas/route.schema");
+const router = (0, express_1.Router)();
+/**
+ * @swagger
+ * tags:
+ *   name: Rutas
+ *   description: Gestión de rutas seguras
+ */
+router.get("/trazar", auth_1.default, route_controller_1.default.trazarRuta);
+router.get("/", auth_1.default, (0, authorize_1.default)("ESTUDIANTE", "ADMINISTRADOR"), route_controller_1.default.getAll);
+router.get("/:id", auth_1.default, (0, authorize_1.default)("ESTUDIANTE", "ADMINISTRADOR"), route_controller_1.default.getById);
+router.post("/", auth_1.default, (0, authorize_1.default)("ADMINISTRADOR"), (0, validate_1.default)(route_schema_1.createRouteSchema), route_controller_1.default.create);
+router.put("/:id", auth_1.default, (0, authorize_1.default)("ADMINISTRADOR"), (0, validate_1.default)(route_schema_1.updateRouteSchema), route_controller_1.default.update);
+router.delete("/:id", auth_1.default, (0, authorize_1.default)("ADMINISTRADOR"), route_controller_1.default.delete);
+exports.default = router;

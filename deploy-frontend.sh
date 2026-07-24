@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+echo "=== Desplegando frontend SafeWalk U ==="
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+FRONTEND_DIR="$SCRIPT_DIR/frontend"
+TARGET_DIR="/var/www/safewalku/dist"
+cd "$FRONTEND_DIR"
+
+echo "[1/4] Instalando dependencias y compilando..."
+npm ci
+npm run lint
+npm run build
+
+echo "[2/4] Publicando archivos compilados..."
+sudo mkdir -p "$TARGET_DIR"
+sudo rsync -a --delete dist/ "$TARGET_DIR/"
+
+echo "[3/4] Configurando permisos de lectura..."
+sudo chown -R www-data:www-data /var/www/safewalku
+sudo find /var/www/safewalku -type d -exec chmod 755 {} \;
+sudo find /var/www/safewalku -type f -exec chmod 644 {} \;
+
+echo "[4/4] Validando y recargando Nginx..."
+sudo nginx -t
+sudo systemctl reload nginx
+
+echo "=== Despliegue de frontend completado ==="

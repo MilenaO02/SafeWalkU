@@ -1,0 +1,26 @@
+stages:
+  - pipelines
+
+frontend_pipeline:
+  stage: pipelines
+  trigger:
+    include:
+      - local: "frontend/.gitlab-ci.yml"
+    strategy: depend
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - changes:
+        - frontend/**/*
+        - .gitlab-ci.yml
+
+backend_pipeline:
+  stage: pipelines
+  trigger:
+    include:
+      - local: "backend/.gitlab-ci.yml"
+    strategy: depend
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - changes:
+        - backend/**/*
+        - .gitlab-ci.yml

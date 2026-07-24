@@ -15,6 +15,8 @@ build_backend:
     - npm ci
     - echo "Compilando backend TypeScript..."
     - npm run build
+    - echo "Preparando dependencias de produccion para no saturar EC2..."
+    - npm prune --omit=dev
     - echo "Comprobando archivo compilado..."
     - test -f dist/server.js
   artifacts:
@@ -23,6 +25,7 @@ build_backend:
       - backend/dist/
       - backend/package.json
       - backend/package-lock.json
+      - backend/node_modules/
       - backend/scripts/migrate-route-geometry.mjs
       - backend/db/migrations/
     expire_in: 1 hour
@@ -96,6 +99,7 @@ deploy_backend:
         StrictHostKeyChecking accept-new
         ConnectTimeout 20
         ServerAliveInterval 15
+        ServerAliveCountMax 20
       EOF
       chmod 600 ~/.ssh/config
       echo "Comprobando SSH en ${DEPLOY_HOST}:${DEPLOY_PORT}..."
@@ -103,10 +107,30 @@ deploy_backend:
 
   script:
     - echo "Empaquetando backend..."
-    - tar -czf /tmp/backend.tar.gz backend/dist backend/package.json backend/package-lock.json backend/scripts/migrate-route-geometry.mjs backend/db/migrations
+    - tar -czf /tmp/backend.tar.gz backend/dist backend/node_modules backend/package.json backend/package-lock.json backend/scripts/migrate-route-geometry.mjs backend/db/migrations
 
     - echo "Liberando espacio en EC2 antes del despliegue..."
-    - ssh safewalk-target "npm cache clean --force 2>/dev/null || true; rm -rf ~/safewalku/backend/node_modules 2>/dev/null || true; sudo journalctl --vacuum-size=50M 2>/dev/null || true; sudo apt-get clean 2>/dev/null || true; df -h /"
+    - |
+      ssh safewalk-target '
+        set -e
+        npm cache clean --force 2>/dev/null || true
+        rm -rf ~/.npm/_cacache ~/.cache/npm 2>/dev/null || true
+        rm -f ~/safewalku/*.tar.gz ~/backend.tar.gz 2>/dev/null || true
+        sudo journalctl --vacuum-size=30M 2>/dev/null || true
+        sudo apt-get clean 2>/dev/null || true
+        sudo rm -rf /var/lib/apt/lists/* 2>/dev/null || true
+        if command -v docker >/dev/null 2>&1; then
+          sudo docker container prune -f || true
+          sudo docker image prune -af || true
+          sudo docker builder prune -af || true
+        fi
+        available_kb=$(df --output=avail / | tail -1 | tr -d " ")
+        df -h /
+        if [ "$available_kb" -lt 307200 ]; then
+          echo "ERROR: EC2 necesita al menos 300 MB libres para desplegar; amplie el volumen EBS." >&2
+          exit 1
+        fi
+      '
 
     - echo "Preparando directorio en EC2..."
     - ssh safewalk-target "mkdir -p ~/safewalku/backend"
@@ -115,10 +139,9 @@ deploy_backend:
     - scp /tmp/backend.tar.gz safewalk-target:~/safewalku/backend.tar.gz
 
     - echo "Extrayendo backend..."
-    - ssh safewalk-target "cd ~/safewalku && rm -rf backend/dist && tar -xzf backend.tar.gz && rm -f backend.tar.gz"
+    - ssh safewalk-target "cd ~/safewalku && rm -rf backend/dist backend/node_modules && tar -xzf backend.tar.gz && rm -f backend.tar.gz"
 
-    - echo "Instalando dependencias de produccion..."
-    - ssh safewalk-target "cd ~/safewalku/backend && npm ci --omit=dev"
+    - echo "Dependencias de produccion preparadas por GitLab; se omite npm ci en EC2."
 
     - echo "Aplicando migraciones..."
     - ssh safewalk-target "cd ~/safewalku/backend && npm run migrate:routes"

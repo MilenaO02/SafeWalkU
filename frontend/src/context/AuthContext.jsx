@@ -15,12 +15,33 @@ const normalizeRole = (role) => {
   return value;
 };
 
+const isTokenInvalidOrExpired = (token) => {
+  if (!token) return true;
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return true;
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const payload = JSON.parse(atob(base64));
+    if (payload.exp && payload.exp * 1000 < Date.now()) {
+      return true;
+    }
+    return false;
+  } catch {
+    return true;
+  }
+};
+
 const getStoredSession = () => {
   try {
     const storedUser = localStorage.getItem('user') || sessionStorage.getItem('user');
     const storedToken = localStorage.getItem('token') || sessionStorage.getItem('token');
 
-    if (!storedUser) {
+    if (!storedUser || !storedToken || isTokenInvalidOrExpired(storedToken)) {
+      localStorage.removeItem('user');
+      localStorage.removeItem('token');
+      sessionStorage.removeItem('user');
+      sessionStorage.removeItem('token');
       return { user: null, token: null };
     }
 
@@ -30,6 +51,10 @@ const getStoredSession = () => {
     };
   } catch (error) {
     console.error('Error reading stored auth session', error);
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
+    sessionStorage.removeItem('user');
+    sessionStorage.removeItem('token');
     return { user: null, token: null };
   }
 };
@@ -40,9 +65,6 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(initialSession.user ? { ...initialSession.user, rol: normalizeRole(initialSession.user.rol) } : null);
   const [token, setToken] = useState(initialSession.token);
   const [toast, setToast] = useState(null);
-
-  // We no longer need the useEffect that overwrites state asynchronously
-
 
   const login = (userData, authToken, storagePreference = 'localStorage') => {
     const normalizedUser = { ...userData, rol: normalizeRole(userData?.rol) };
@@ -91,7 +113,7 @@ export const AuthProvider = ({ children }) => {
     setUser(newUser);
   };
 
-  const isAuthenticated = Boolean(token && user);
+  const isAuthenticated = Boolean(token && user && !isTokenInvalidOrExpired(token));
   const isAdmin = normalizeRole(user?.rol) === 'ADMINISTRADOR';
   const hasRole = (role) => normalizeRole(user?.rol) === normalizeRole(role);
 
@@ -101,4 +123,3 @@ export const AuthProvider = ({ children }) => {
     </AuthContext.Provider>
   );
 };
-

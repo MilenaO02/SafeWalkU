@@ -21,6 +21,7 @@ router.use("/reports", reportRoutes);
 router.use("/evidencias", evidenciaRoutes);
 router.use("/routes", routeRoutes);
 router.use("/ubicaciones", ubicacionRoutes);
+router.use("/locations", ubicacionRoutes);
 router.use("/dashboard", dashboardRoutes);
 router.use("/contacts", contactoRoutes);
 router.use("/services", servicioRoutes);

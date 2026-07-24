@@ -100,5 +100,35 @@
 .leaflet-right { right: 0; }
 .leaflet-bottom { bottom: 0; }
 .leaflet-left { left: 0; }
+.leaflet-top .leaflet-control { margin-top: 10px; }
+.leaflet-bottom .leaflet-control { margin-bottom: 10px; }
+.leaflet-left .leaflet-control { margin-left: 10px; }
+.leaflet-right .leaflet-control { margin-right: 10px; }
+
+.leaflet-bar {
+  border: 2px solid rgb(0 0 0 / 20%);
+  border-radius: 6px;
+  background-clip: padding-box;
+  box-shadow: 0 1px 5px rgb(0 0 0 / 35%);
+}
+
+.leaflet-bar a {
+  display: block;
+  width: 44px;
+  height: 44px;
+  border-bottom: 1px solid #ccc;
+  background: #fff;
+  color: #111;
+  font: bold 24px/44px Arial, Helvetica, sans-serif;
+  text-align: center;
+  text-decoration: none;
+}
+
+.leaflet-bar a:first-child { border-radius: 4px 4px 0 0; }
+.leaflet-bar a:last-child { border-bottom: 0; border-radius: 0 0 4px 4px; }
+.leaflet-bar a:hover,
+.leaflet-bar a:focus { background: #f4f4f4; }
+.leaflet-bar a.leaflet-disabled { background: #f4f4f4; color: #bbb; cursor: default; }
+
 .leaflet-control-attribution { margin: 0; padding: 0 5px; background: rgb(255 255 255 / 80%); color: #334155; font-size: 10px; }
 .leaflet-control-attribution a { color: #2563eb; text-decoration: none; }

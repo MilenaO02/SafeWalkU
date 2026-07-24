@@ -162,7 +162,7 @@ export default function MainLayout() {
               {getAdminTitle()}
             </h2>
             <div className="flex items-center gap-4">
-              <button onClick={handleLogout} aria-label="Cerrar sesión" className="md:hidden material-symbols-outlined text-red-600 p-2">logout</button>
+              <button onClick={handleLogout} aria-label="Cerrar sesión" className="md:hidden material-symbols-outlined flex h-11 w-11 items-center justify-center text-red-600">logout</button>
               <div className="w-8 h-8 rounded-full bg-purple-900 flex items-center justify-center text-white text-xs font-black shadow-md">
                 {user ? `${user.nombre?.charAt(0) || ''}${user.apellido?.charAt(0) || ''}` || 'US' : 'AD'}
               </div>
@@ -235,7 +235,7 @@ export default function MainLayout() {
           <nav className="hidden md:flex items-center bg-slate-100/80 dark:bg-[#2B2B2F]/50 p-1 rounded-2xl border border-slate-200/50 dark:border-[#4A4A50]/50 backdrop-blur-md">
             {studentLinks.map((link) => {
               const active = !link.isAction && (location.pathname === link.path || (link.path === '/app' && location.pathname === '/resumen-reporte'));
-              const className = `flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-300 ${
+              const className = `flex min-h-11 items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-300 ${
                 link.highlight 
                   ? 'bg-red-500 text-white shadow-sm hover:bg-red-600' 
                   : active 
@@ -278,17 +278,19 @@ export default function MainLayout() {
             })}
           </nav>
           
-          <div className="flex items-center gap-2 md:gap-4">
+          <div className="flex items-center gap-2 md:gap-3">
             <button 
               onClick={toggleDarkMode}
-              className="material-symbols-outlined text-slate-500 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-white/10 p-1.5 md:p-2 rounded-full transition-all text-[20px] md:text-[22px]"
+              aria-label={isDarkMode ? 'Activar modo claro' : 'Activar modo oscuro'}
+              className="material-symbols-outlined flex h-11 w-11 items-center justify-center text-slate-500 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-white/10 rounded-full transition-all text-[20px] md:text-[22px]"
             >
               {isDarkMode ? 'light_mode' : 'dark_mode'}
             </button>
-            <button className="material-symbols-outlined text-slate-500 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-white/10 p-1.5 md:p-2 rounded-full transition-all text-[20px] md:text-[22px]">notifications</button>
+            <button aria-label="Notificaciones" className="material-symbols-outlined flex h-11 w-11 items-center justify-center text-slate-500 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-white/10 rounded-full transition-all text-[20px] md:text-[22px]">notifications</button>
             <button 
               onClick={handleLogout}
-              className="text-xs font-bold text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 bg-red-50 dark:bg-red-500/10 hover:bg-red-100/80 dark:hover:bg-red-500/20 px-2 md:px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1"
+              aria-label="Cerrar sesión"
+              className="min-h-11 min-w-11 text-xs font-bold text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 bg-red-50 dark:bg-red-500/10 hover:bg-red-100/80 dark:hover:bg-red-500/20 px-2 md:px-2.5 py-1.5 rounded-lg transition-colors flex items-center justify-center gap-1"
             >
               <span className="material-symbols-outlined text-[14px]">logout</span>
               <span className="hidden sm:inline">Salir</span>

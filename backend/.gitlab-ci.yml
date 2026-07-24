@@ -157,7 +157,7 @@ deploy_backend:
     - ssh safewalk-target "cd ~/safewalku/backend && npm run migrate:routes"
 
     - echo "Reiniciando backend con PM2..."
-    - ssh safewalk-target "cd ~/safewalku/backend && if pm2 describe safewalk-backend > /dev/null 2>&1; then pm2 restart safewalk-backend --update-env; else pm2 start dist/server.js --name safewalk-backend; fi && pm2 save"
+    - ssh safewalk-target "cd ~/safewalku/backend && if pm2 describe safewalk-backend > /dev/null 2>&1; then pm2 restart safewalk-backend; else pm2 start dist/server.js --name safewalk-backend; fi && pm2 save"
 
     - echo "Verificando el proceso..."
     - ssh safewalk-target "pm2 status safewalk-backend"

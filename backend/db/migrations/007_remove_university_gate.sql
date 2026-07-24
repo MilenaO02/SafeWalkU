@@ -24,7 +24,9 @@ INNER JOIN rutas_garita rg ON rg.id_ruta = ru.id_ruta;
 DELETE r FROM ruta r
 INNER JOIN rutas_garita rg ON rg.id_ruta = r.id_ruta;
 
-DELETE FROM lugarseguro WHERE LOWER(nombre) LIKE '%garita%';
+DELETE FROM lugarseguro WHERE id_ubicacion = 3 OR LOWER(nombre) LIKE '%garita%';
+DELETE FROM servicioemergencia WHERE id_ubicacion = 3 OR id_ubicacion IN (SELECT id_ubicacion FROM ubicacion WHERE LOWER(nombre) LIKE '%garita%');
+DELETE FROM coordenada WHERE id_ubicacion = 3 OR id_ubicacion IN (SELECT id_ubicacion FROM ubicacion WHERE LOWER(nombre) LIKE '%garita%');
 DELETE FROM ubicacion WHERE id_ubicacion = 3 OR LOWER(nombre) LIKE '%garita%';
 
 DROP TEMPORARY TABLE rutas_garita;

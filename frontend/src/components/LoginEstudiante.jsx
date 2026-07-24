@@ -136,7 +136,7 @@ const Login = () => {
             {/* Institutional Email Field */}
             <div className="space-y-1">
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider transition-colors duration-300" htmlFor="email">
-                Correo personal
+                Correo institucional
               </label>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 dark:text-slate-500 group-focus-within:text-purple-900 dark:group-focus-within:text-purple-400 transition-colors">
@@ -157,7 +157,7 @@ const Login = () => {
 
             {/* Password Field */}
             <div className="space-y-1">
-              <div className="flex justify-between items-center">
+              <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between">
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider transition-colors duration-300" htmlFor="password">
                   Contraseña
                 </label>
@@ -190,9 +190,9 @@ const Login = () => {
             </div>
 
             {/* Remember me */}
-            <div className="flex items-center space-x-2 py-1">
+            <div className="flex min-h-11 items-center space-x-2 py-1">
               <input 
-                className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 dark:bg-slate-700 text-purple-900 dark:text-purple-600 focus:ring-purple-900 dark:focus:ring-purple-500" 
+                className="w-6 h-6 rounded border-slate-300 dark:border-slate-600 dark:bg-slate-700 text-purple-900 dark:text-purple-600 focus:ring-purple-900 dark:focus:ring-purple-500"
                 id="remember" 
                 name="remember"
                 type="checkbox"

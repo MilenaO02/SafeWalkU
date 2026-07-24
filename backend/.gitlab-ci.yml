@@ -27,6 +27,7 @@ build_backend:
       - backend/package-lock.json
       - backend/node_modules/
       - backend/scripts/migrate-route-geometry.mjs
+      - backend/scripts/migrate-location-verification.mjs
       - backend/db/migrations/
     expire_in: 1 hour
 
@@ -107,7 +108,7 @@ deploy_backend:
 
   script:
     - echo "Empaquetando backend..."
-    - tar -czf /tmp/backend.tar.gz backend/dist backend/node_modules backend/package.json backend/package-lock.json backend/scripts/migrate-route-geometry.mjs backend/db/migrations
+    - tar -czf /tmp/backend.tar.gz backend/dist backend/node_modules backend/package.json backend/package-lock.json backend/scripts/migrate-route-geometry.mjs backend/scripts/migrate-location-verification.mjs backend/db/migrations
 
     - echo "Liberando espacio en EC2 antes del despliegue..."
     - |
@@ -154,6 +155,7 @@ deploy_backend:
     - echo "Dependencias de produccion preparadas por GitLab; se omite npm ci en EC2."
 
     - echo "Aplicando migraciones..."
+    - ssh safewalk-target "cd ~/safewalku/backend && npm run migrate:locations"
     - ssh safewalk-target "cd ~/safewalku/backend && npm run migrate:routes"
 
     - echo "Reiniciando backend con PM2..."

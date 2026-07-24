@@ -7,28 +7,24 @@ import { useAuth } from './context/auth';
 import AuthLayout from './layouts/AuthLayout.jsx';
 import MainLayout from './layouts/MainLayout.jsx';
 
-// Auth
-import LoginEstudiante from './components/LoginEstudiante.jsx';
-import Registro from './components/Registro.jsx';
 import PrivateRoute from './components/PrivateRoute.jsx';
-import Unauthorized from './components/Unauthorized.jsx';
 
-// Componentes Estudiante
-import StudentApp from './pages/StudentApp.jsx';
-import ReportarIncidente from './components/ReportarIncidente.jsx';
-import ResumenReporte from './components/ResumenReporte.jsx';
-import EmergenciaSos from './components/EmergenciaSos.jsx';
-import ListaContactosApoyo from './components/ListaContactosApoyo.jsx';
-import PerfilEstudiante from './components/PerfilEstudiante.jsx';
-import DetalleZonaRiesgo from './components/DetalleZonaRiesgo.jsx';
-
-// Componentes Administración
-import AdminDashboard from './pages/AdminDashboard.jsx';
-import GestionUsuarios from './components/GestionUsuarios.jsx';
-import HistorialNotificaciones from './components/HistorialNotificaciones.jsx';
-import AdminSettings from './components/AdminSettings.jsx';
-import EditorRutas from './components/EditorRutas.jsx';
-import EditorUbicaciones from './components/EditorUbicaciones.jsx';
+const LoginEstudiante = React.lazy(() => import('./components/LoginEstudiante.jsx'));
+const Registro = React.lazy(() => import('./components/Registro.jsx'));
+const Unauthorized = React.lazy(() => import('./components/Unauthorized.jsx'));
+const StudentApp = React.lazy(() => import('./pages/StudentApp.jsx'));
+const ReportarIncidente = React.lazy(() => import('./components/ReportarIncidente.jsx'));
+const ResumenReporte = React.lazy(() => import('./components/ResumenReporte.jsx'));
+const EmergenciaSos = React.lazy(() => import('./components/EmergenciaSos.jsx'));
+const ListaContactosApoyo = React.lazy(() => import('./components/ListaContactosApoyo.jsx'));
+const PerfilEstudiante = React.lazy(() => import('./components/PerfilEstudiante.jsx'));
+const DetalleZonaRiesgo = React.lazy(() => import('./components/DetalleZonaRiesgo.jsx'));
+const AdminDashboard = React.lazy(() => import('./pages/AdminDashboard.jsx'));
+const GestionUsuarios = React.lazy(() => import('./components/GestionUsuarios.jsx'));
+const HistorialNotificaciones = React.lazy(() => import('./components/HistorialNotificaciones.jsx'));
+const AdminSettings = React.lazy(() => import('./components/AdminSettings.jsx'));
+const EditorRutas = React.lazy(() => import('./components/EditorRutas.jsx'));
+const EditorUbicaciones = React.lazy(() => import('./components/EditorUbicaciones.jsx'));
 
 function ToastHost() {
   const { toast, clearToast } = useAuth();
@@ -75,6 +71,7 @@ function AppRoutes() {
   return (
     <>
       <Router>
+        <React.Suspense fallback={<div role="status" className="flex min-h-screen items-center justify-center bg-slate-50 text-sm font-bold text-purple-950">Cargando SafeWalk U…</div>}>
         <Routes>
           <Route element={<AuthLayout />}>
             <Route path="/" element={<LoginEstudiante />} />
@@ -101,6 +98,7 @@ function AppRoutes() {
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </React.Suspense>
       </Router>
       <ToastHost />
       <NetworkStatus />

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AuthContext } from './auth';
+import { buildApiUrl } from '../services/api';
 
 const normalizeRole = (role) => {
   const value = role?.toString().toUpperCase() ?? '';
@@ -61,10 +62,11 @@ const getStoredSession = () => {
 
 export const AuthProvider = ({ children }) => {
   // Initialize state synchronously so PrivateRoute and components have data on first render
-  const initialSession = getStoredSession();
+  const [initialSession] = useState(getStoredSession);
   const [user, setUser] = useState(initialSession.user ? { ...initialSession.user, rol: normalizeRole(initialSession.user.rol) } : null);
   const [token, setToken] = useState(initialSession.token);
   const [toast, setToast] = useState(null);
+  const [sessionReady, setSessionReady] = useState(!initialSession.token);
 
   const login = (userData, authToken, storagePreference = 'localStorage') => {
     const normalizedUser = { ...userData, rol: normalizeRole(userData?.rol) };
@@ -78,11 +80,13 @@ export const AuthProvider = ({ children }) => {
 
     setUser(normalizedUser);
     setToken(authToken);
+    setSessionReady(true);
   };
 
   const logout = () => {
     setUser(null);
     setToken(null);
+    setSessionReady(true);
     localStorage.removeItem('user');
     localStorage.removeItem('token');
     sessionStorage.removeItem('user');
@@ -104,6 +108,27 @@ export const AuthProvider = ({ children }) => {
     return () => window.removeEventListener('safewalk:unauthorized', handleUnauthorized);
   }, []);
 
+  useEffect(() => {
+    if (!initialSession.token) return;
+    let active = true;
+    fetch(buildApiUrl('/users/me'), { headers: { Authorization: `Bearer ${initialSession.token}` } })
+      .then(async (response) => {
+        if (!response.ok) throw new Error('invalid_session');
+        const payload = await response.json();
+        if (active && payload?.data) {
+          const validatedUser = { ...payload.data, rol: normalizeRole(payload.data.rol) };
+          setUser(validatedUser);
+          const storage = localStorage.getItem('token') ? localStorage : sessionStorage;
+          storage.setItem('user', JSON.stringify(validatedUser));
+        }
+      })
+      .catch(() => {
+        if (active) logout();
+      })
+      .finally(() => { if (active) setSessionReady(true); });
+    return () => { active = false; };
+  }, [initialSession.token]);
+
   const updateUser = (updatedData) => {
     const targetStorage = localStorage.getItem('user') ? localStorage : (sessionStorage.getItem('user') ? sessionStorage : null);
     if (!targetStorage) return;
@@ -118,7 +143,7 @@ export const AuthProvider = ({ children }) => {
   const hasRole = (role) => normalizeRole(user?.rol) === normalizeRole(role);
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, updateUser, toast, showToast, clearToast, isAuthenticated, isAdmin, hasRole }}>
+    <AuthContext.Provider value={{ user, token, login, logout, updateUser, toast, showToast, clearToast, sessionReady, isAuthenticated, isAdmin, hasRole }}>
       {children}
     </AuthContext.Provider>
   );

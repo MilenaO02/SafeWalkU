@@ -1,5 +1,3 @@
-import swaggerJsdoc from "swagger-jsdoc";
-
 const bearer = [{ bearerAuth: [] }];
 const standardResponses = {
     200: { description: "Operación correcta" },
@@ -12,8 +10,7 @@ const standardResponses = {
 const operation = (summary: string, security: object[] = bearer) => ({ summary, security, responses: standardResponses });
 const idParameter = [{ name: "id", in: "path", required: true, schema: { type: "integer", minimum: 1 } }];
 
-const options = {
-    definition: {
+const swaggerSpec = {
         openapi: "3.0.3",
         info: {
             title: "SafeWalk U API",
@@ -63,8 +60,6 @@ const options = {
             "/services": { get: operation("Listar servicios de emergencia") },
             "/places": { get: operation("Listar lugares seguros") }
         }
-    },
-    apis: []
 };
 
-export default swaggerJsdoc(options);
+export default swaggerSpec;

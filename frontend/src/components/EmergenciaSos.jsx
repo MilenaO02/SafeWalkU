@@ -13,9 +13,27 @@ export default function SafeWalkSOS() {
 
   useEffect(() => {
     let active = true;
-    Promise.all([request('/contacts'), request('/ubicaciones')]).then(([contactResponse, locationResponse]) => {
+    Promise.all([request('/contacts'), request('/ubicaciones'), request('/reports')]).then(([contactResponse, locationResponse, reportResponse]) => {
       if (!active) return;
-      setContacts(contactResponse.data || []); setLocations(locationResponse.data || []); setStatus('ready');
+      const loadedLocations = locationResponse.data || [];
+      const pendingSOS = (reportResponse.data || []).find((report) => report.tipo_reporte === 'SOS_PANICO' && report.estado === 'PENDIENTE');
+      setContacts(contactResponse.data || []);
+      setLocations(loadedLocations);
+
+      if (pendingSOS) {
+        const pendingLocationId = String(pendingSOS.id_ubicacion);
+        const pendingLocation = loadedLocations.find((item) => String(item.id_ubicacion) === pendingLocationId);
+        setActiveId(pendingSOS.id_reporte);
+        setLocationId(pendingLocationId);
+        setStatus('active');
+
+        if (pendingLocation && Number.isFinite(Number(pendingLocation.latitud)) && Number.isFinite(Number(pendingLocation.longitud))) {
+          const point = [Number(pendingLocation.latitud), Number(pendingLocation.longitud)];
+          setMapConfig({ centro: point, zoom: 18, markers: [{ position: point, title: pendingLocation.nombre, desc: 'Ubicación seleccionada para la alerta' }], circle: { center: point, radius: 60, color: '#ef4444' } });
+        }
+      } else {
+        setStatus('ready');
+      }
     }).catch((loadError) => { if (active) { setError(loadError.message); setStatus('error'); } });
     return () => { active = false; setMapConfig(defaultMapConfig); };
   }, [setMapConfig, defaultMapConfig]);

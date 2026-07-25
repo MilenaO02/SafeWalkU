@@ -60,6 +60,20 @@ class ReportRepository {
         return rows.length > 0;
     }
 
+    async findActiveSOSByUser(userId: number) {
+        const [rows] = await pool.query<ReportRow[]>(`
+            SELECT id_reporte, descripcion, fecha_reporte, nivel_riesgo,
+                   estado, tipo_reporte, id_usuario, id_ubicacion,
+                   id_administrador, estado_registro
+            FROM reporte
+            WHERE id_usuario = ? AND tipo_reporte = 'SOS_PANICO'
+              AND estado = 'PENDIENTE' AND estado_registro = 'ACTIVO'
+            ORDER BY fecha_reporte DESC
+            LIMIT 1
+        `, [userId]);
+        return rows[0];
+    }
+
     async findAdministratorId(userId: number) {
         const [rows] = await pool.query<RowDataPacket[]>(
             "SELECT id_administrador FROM administrador WHERE id_usuario = ? LIMIT 1",

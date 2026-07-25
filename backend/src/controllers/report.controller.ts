@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import reportService from "../services/report.service.js";
+import reportService, { ActiveSOSConflictError } from "../services/report.service.js";
 
 class ReportController {
 
@@ -158,7 +158,8 @@ class ReportController {
             const report = await reportService.createSOS(req.body, req.user!.id_usuario);
             return res.status(201).json({ success: true, message: "SOS Activado", data: report });
         } catch (error: any) {
-            return res.status(400).json({ success: false, message: error.message });
+            const status = error instanceof ActiveSOSConflictError ? 409 : 400;
+            return res.status(status).json({ success: false, message: error.message });
         }
     }
 

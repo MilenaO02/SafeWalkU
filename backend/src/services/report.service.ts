@@ -2,6 +2,13 @@ import reportRepository, { ReportRow } from "../repositories/report.repository.j
 
 type SessionUser = { id_usuario: number; rol: string };
 
+export class ActiveSOSConflictError extends Error {
+    constructor() {
+        super("Ya existe una alerta SOS pendiente para este usuario");
+        this.name = "ActiveSOSConflictError";
+    }
+}
+
 class ReportService {
     findAll(user: SessionUser) {
         return reportRepository.findAll(user.rol === "ADMINISTRADOR" ? undefined : user.id_usuario);
@@ -55,6 +62,9 @@ class ReportService {
     async createSOS(data: { descripcion: string; id_ubicacion: number }, userId: number) {
         if (!await reportRepository.locationExists(data.id_ubicacion)) {
             throw new Error("La ubicación indicada no existe");
+        }
+        if (await reportRepository.findActiveSOSByUser(userId)) {
+            throw new ActiveSOSConflictError();
         }
         const id = await reportRepository.createSOS({ ...data, id_usuario: userId });
         return this.findById(id);

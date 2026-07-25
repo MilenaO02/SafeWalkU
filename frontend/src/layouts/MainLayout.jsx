@@ -286,7 +286,6 @@ export default function MainLayout() {
             >
               {isDarkMode ? 'light_mode' : 'dark_mode'}
             </button>
-            <button aria-label="Notificaciones" className="material-symbols-outlined flex h-11 w-11 items-center justify-center text-slate-500 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-white/10 rounded-full transition-all text-[20px] md:text-[22px]">notifications</button>
             <button 
               onClick={handleLogout}
               aria-label="Cerrar sesión"

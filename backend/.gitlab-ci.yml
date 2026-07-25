@@ -26,6 +26,7 @@ build_backend:
       - backend/package.json
       - backend/package-lock.json
       - backend/node_modules/
+      - backend/ecosystem.config.cjs
       - backend/scripts/migrate-route-geometry.mjs
       - backend/db/migrations/
     expire_in: 1 hour
@@ -107,7 +108,7 @@ deploy_backend:
 
   script:
     - echo "Empaquetando backend..."
-    - tar -czf /tmp/backend.tar.gz backend/dist backend/node_modules backend/package.json backend/package-lock.json backend/scripts/migrate-route-geometry.mjs backend/db/migrations
+    - tar -czf /tmp/backend.tar.gz backend/dist backend/node_modules backend/package.json backend/package-lock.json backend/ecosystem.config.cjs backend/scripts/migrate-route-geometry.mjs backend/db/migrations
 
     - echo "Liberando espacio en EC2 antes del despliegue..."
     - |
@@ -157,10 +158,10 @@ deploy_backend:
     - ssh safewalk-target "cd ~/safewalku/backend && npm run migrate:routes"
 
     - echo "Reiniciando backend con PM2..."
-    - ssh safewalk-target "cd ~/safewalku/backend && if pm2 describe safewalk-backend > /dev/null 2>&1; then pm2 restart safewalk-backend; else pm2 start dist/server.js --name safewalk-backend; fi && pm2 save"
+    - ssh safewalk-target "cd ~/safewalku/backend && pm2 startOrReload ecosystem.config.cjs --env production --update-env && pm2 save"
 
     - echo "Verificando el proceso..."
-    - ssh safewalk-target "pm2 status safewalk-backend"
+    - ssh safewalk-target 'pm2 status safewalk-backend && test "$(pm2 pid safewalk-backend)" != "0" && curl --fail --silent --show-error --retry 5 --retry-delay 2 http://127.0.0.1:3000/api/health'
 
     - echo "Backend desplegado correctamente."
 

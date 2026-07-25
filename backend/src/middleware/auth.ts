@@ -17,16 +17,22 @@ export default async function auth(req: Request, res: Response, next: NextFuncti
         return res.status(500).json({ success: false, message: "Configuración de autenticación incompleta." });
     }
 
+    let decoded: JwtPayload;
     try {
-        const decoded = jwt.verify(match[1], jwtSecret, {
+        decoded = jwt.verify(match[1], jwtSecret, {
             algorithms: ["HS256"]
         }) as JwtPayload;
-        const idUsuario = Number(decoded.id_usuario);
+    } catch {
+        return res.status(401).json({ success: false, message: "Token inválido o vencido." });
+    }
 
-        if (!Number.isInteger(idUsuario) || idUsuario < 1) {
-            throw new Error("Identificador de sesión inválido");
-        }
+    const idUsuario = Number(decoded.id_usuario);
 
+    if (!Number.isInteger(idUsuario) || idUsuario < 1) {
+        return res.status(401).json({ success: false, message: "Token inválido o vencido." });
+    }
+
+    try {
         // La base de datos es la fuente actual del estado y el rol. De este modo,
         // desactivar una cuenta invalida también sus tokens todavía no vencidos.
         const usuario = await userService.getById(idUsuario);
@@ -39,8 +45,13 @@ export default async function auth(req: Request, res: Response, next: NextFuncti
             correo: usuario.correo,
             rol: usuario.rol
         };
-        next();
-    } catch {
-        return res.status(401).json({ success: false, message: "Token inválido o vencido." });
+    } catch (error) {
+        console.error("No fue posible consultar el usuario de la sesión:", error);
+        return res.status(500).json({
+            success: false,
+            message: "No fue posible validar la sesión con la base de datos."
+        });
     }
+
+    return next();
 }

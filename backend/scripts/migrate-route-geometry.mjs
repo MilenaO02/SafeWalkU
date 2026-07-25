@@ -79,7 +79,12 @@ const connection = await mysql.createConnection({
 });
 
 try {
-    for (const migration of ["005_add_route_geometry.sql", "006_correct_verified_locations.sql", "007_remove_university_gate.sql"]) {
+    for (const migration of [
+        "005_add_route_geometry.sql",
+        "006_correct_verified_locations.sql",
+        "007_remove_university_gate.sql",
+        "008_reconcile_legacy_schema.sql"
+    ]) {
         const sql = await readFile(resolve(import.meta.dirname, `../db/migrations/${migration}`), "utf8");
         await connection.query(sql.replace(/^USE\s+`?safewalku`?;/im, ""));
         console.log(`Migracion aplicada: ${migration}`);

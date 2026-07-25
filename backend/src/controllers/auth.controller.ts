@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import service from "../services/auth.service.js";
+import service, { InvalidCredentialsError } from "../services/auth.service.js";
 
 class AuthController {
     async register(req: Request, res: Response) {
@@ -38,10 +38,18 @@ class AuthController {
                 usuario: resultado.usuario,
                 data: resultado
             });
-        } catch (error: any) {
-            res.status(401).json({
+        } catch (error: unknown) {
+            if (error instanceof InvalidCredentialsError) {
+                return res.status(401).json({
+                    success: false,
+                    message: "Credenciales incorrectas"
+                });
+            }
+
+            console.error("Error interno durante el login:", error);
+            return res.status(500).json({
                 success: false,
-                message: "Credenciales incorrectas"
+                message: "Error interno del servidor"
             });
         }
     }

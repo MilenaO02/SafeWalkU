@@ -4,6 +4,13 @@ import repository from "../repositories/user.repository.js";
 import { isValidUideEmail } from "../middleware/validateDomain.js";
 import { getJwtSecret } from "../config/security.js";
 
+export class InvalidCredentialsError extends Error {
+    constructor() {
+        super("Credenciales incorrectas");
+        this.name = "InvalidCredentialsError";
+    }
+}
+
 class AuthService {
     async register(data: any) {
         const correo = (data.correo ?? data.email ?? "").toString().trim().toLowerCase();
@@ -48,7 +55,7 @@ class AuthService {
         const ok = await bcrypt.compare(contrasena, usuario?.contrasena ?? dummyHash);
 
         if (!usuario || !ok || usuario.estado !== "ACTIVO") {
-            throw new Error("Credenciales incorrectas");
+            throw new InvalidCredentialsError();
         }
 
         const jwtSecret = getJwtSecret();

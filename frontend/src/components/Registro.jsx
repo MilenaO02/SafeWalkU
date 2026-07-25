@@ -6,7 +6,8 @@ export default function Registro() {
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
-    name: '',
+    nombre: '',
+    apellido: '',
     email: '',
     password: '',
     confirmPassword: '',
@@ -34,13 +35,9 @@ export default function Registro() {
 
     setLoading(true);
     try {
-      const [firstName, ...lastNameParts] = formData.name.trim().split(' ');
-      const nombre = firstName || '';
-      const apellido = lastNameParts.join(' ') || 'Sin Apellido';
-
       await register({
-        nombre,
-        apellido,
+        nombre: formData.nombre.trim(),
+        apellido: formData.apellido.trim(),
         correo: formData.email.trim().toLowerCase(),
         contrasena: formData.password
       });
@@ -98,19 +95,40 @@ export default function Registro() {
             {/* Nombre */}
             <div className="space-y-1">
               <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider">
-                Nombre completo
+                Nombre
               </label>
               <div className="relative group">
                 <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-purple-900 transition-colors text-[20px]">
                   person
                 </span>
                 <input
-                  name="name"
+                  name="nombre"
                   type="text"
                   required
-                  value={formData.name}
+                  value={formData.nombre}
                   onChange={handleChange}
-                  placeholder="Ej: Martín García"
+                  placeholder="Ej: Martín"
+                  className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-900 transition-all font-medium text-slate-800"
+                />
+              </div>
+            </div>
+
+            {/* Apellido */}
+            <div className="space-y-1">
+              <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                Apellido
+              </label>
+              <div className="relative group">
+                <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-purple-900 transition-colors text-[20px]">
+                  badge
+                </span>
+                <input
+                  name="apellido"
+                  type="text"
+                  required
+                  value={formData.apellido}
+                  onChange={handleChange}
+                  placeholder="Ej: Garcia"
                   className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-900 transition-all font-medium text-slate-800"
                 />
               </div>

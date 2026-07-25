@@ -41,6 +41,13 @@ app.use(
 
 app.use("/api", routes);
 
+app.use("/api", (_req, res) => {
+    res.status(404).json({
+        success: false,
+        message: "Endpoint no encontrado"
+    });
+});
+
 app.get("/", (req, res) => {
     res.json({
         nombre: "SafeWalk API",

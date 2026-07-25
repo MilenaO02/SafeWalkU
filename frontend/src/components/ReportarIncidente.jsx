@@ -35,7 +35,9 @@ export default function ReportarIncidente() {
     event.preventDefault();
     const location = locations.find((item) => String(item.id_ubicacion) === form.locationId);
     if (!location) { setError('Selecciona una ubicación registrada.'); return; }
-    localStorage.setItem('tempReport', JSON.stringify({ categoria: form.category, descripcion: form.description.trim() || 'Sin descripción adicional.', fecha: new Date().toLocaleString('es-EC'), ubicacion: location.nombre, id_ubicacion: location.id_ubicacion, coordenadas: [Number(location.latitud), Number(location.longitud)], evidencia: evidence?.name || null }));
+    const description = form.description.trim();
+    if (description.length < 10) { setError('La descripción debe contener al menos 10 caracteres.'); return; }
+    localStorage.setItem('tempReport', JSON.stringify({ categoria: form.category, descripcion: description, fecha: new Date().toLocaleString('es-EC'), ubicacion: location.nombre, id_ubicacion: location.id_ubicacion, coordenadas: [Number(location.latitud), Number(location.longitud)], evidencia: evidence?.name || null }));
     setPendingEvidence(evidence);
     navigate('/resumen-reporte');
   };

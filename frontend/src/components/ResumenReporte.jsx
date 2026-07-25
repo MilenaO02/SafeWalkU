@@ -10,14 +10,8 @@ export default function ResumenReporte() {
   
   // Estado para el modal de éxito e información
   const [isSent, setIsSent] = useState(false);
-  const [report, setReport] = useState({
-    categoria: "Incidente de Prueba",
-    descripcion: "Se detectaron luminarias apagadas en los alrededores de la Biblioteca.",
-    fecha: new Date().toLocaleString('es-EC', { timeZone: 'America/Guayaquil' }),
-    ubicacion: "Campus UIDE - Sector Biblioteca",
-    coordenadas: [-3.9835, -79.2022],
-    evidencia: null
-  });
+  const [report, setReport] = useState(null);
+  const [draftStatus, setDraftStatus] = useState('loading');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [evidenceWarning, setEvidenceWarning] = useState(null);
   const [submitError, setSubmitError] = useState(null);
@@ -25,9 +19,35 @@ export default function ResumenReporte() {
   // Cargar datos reales guardados en el paso anterior
   useEffect(() => {
     const rawData = localStorage.getItem('tempReport');
-    if (rawData) {
+    if (!rawData) {
+      setDraftStatus('missing');
+      return;
+    }
+
+    try {
       const parsed = JSON.parse(rawData);
+      const coordinatesAreValid = Array.isArray(parsed?.coordenadas)
+        && parsed.coordenadas.length === 2
+        && parsed.coordenadas.every((value) => Number.isFinite(Number(value)));
+      const draftIsValid = typeof parsed?.categoria === 'string'
+        && parsed.categoria.trim().length > 0
+        && typeof parsed?.descripcion === 'string'
+        && parsed.descripcion.trim().length >= 10
+        && typeof parsed?.ubicacion === 'string'
+        && parsed.ubicacion.trim().length > 0
+        && Number.isInteger(Number(parsed?.id_ubicacion))
+        && Number(parsed.id_ubicacion) > 0
+        && coordinatesAreValid;
+
+      if (!draftIsValid) {
+        localStorage.removeItem('tempReport');
+        clearPendingEvidence();
+        setDraftStatus('missing');
+        return;
+      }
+
       setReport(parsed);
+      setDraftStatus('ready');
 
       // Centrar y marcar la ubicación en el mapa
       setMapConfig({
@@ -46,11 +66,20 @@ export default function ResumenReporte() {
           color: '#ba1a1a'
         }
       });
+    } catch {
+      localStorage.removeItem('tempReport');
+      clearPendingEvidence();
+      setDraftStatus('missing');
     }
   }, [setMapConfig]);
 
   // Enviar el reporte a la base de datos Express (backend)
   const handleSendReport = async () => {
+    if (!report) {
+      setSubmitError('No existe un reporte pendiente.');
+      return;
+    }
+
     setIsSubmitting(true);
     setSubmitError(null);
 
@@ -91,6 +120,20 @@ export default function ResumenReporte() {
     clearPendingEvidence();
     navigate('/app');
   };
+
+  if (draftStatus === 'loading') {
+    return <p className="rounded-xl bg-slate-50 p-4 text-sm">Cargando borrador del reporte…</p>;
+  }
+
+  if (!report) {
+    return <div className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6 text-center">
+      <h2 className="text-lg font-black text-slate-900">No existe un reporte pendiente.</h2>
+      <p className="text-sm text-slate-500">Completa el formulario de incidente antes de abrir el resumen.</p>
+      <button type="button" onClick={() => navigate('/reportar')} className="min-h-11 rounded-xl bg-purple-900 px-5 text-sm font-bold text-white">
+        Crear reporte
+      </button>
+    </div>;
+  }
 
   return (
     <div className="space-y-5 h-full flex flex-col justify-between">

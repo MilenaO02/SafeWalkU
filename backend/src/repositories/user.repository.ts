@@ -1,4 +1,5 @@
 import pool from "../config/database.js";
+import { ResultSetHeader } from "mysql2";
 
 export interface Usuario {
 
@@ -226,7 +227,7 @@ class UserRepository {
 
     async delete(id:number){
 
-    await pool.query(
+    const [result] = await pool.query<ResultSetHeader>(
 
         `
 
@@ -236,11 +237,15 @@ class UserRepository {
 
         WHERE id_usuario=?
 
+        AND estado='ACTIVO'
+
         `,
 
         [id]
 
     );
+
+    return result.affectedRows === 1;
 
 }
 

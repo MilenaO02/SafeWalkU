@@ -1,12 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { request } from '../services/api';
+import { useAuth } from '../context/auth';
 
 export default function NotificationHistory() {
+  const { showToast } = useAuth();
   const [reports, setReports] = useState([]);
   const [filter, setFilter] = useState('TODOS');
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('loading');
   const [error, setError] = useState(null);
+  const [busyId, setBusyId] = useState(null);
 
   const load = async () => {
     setStatus('loading'); setError(null);
@@ -20,6 +23,23 @@ export default function NotificationHistory() {
     return typeMatches && text.includes(search.trim().toLowerCase());
   }), [reports, filter, search]);
 
+  const reviewReport = async (report, nextStatus) => {
+    setBusyId(report.id_reporte);
+    setError(null);
+    try {
+      const response = await request(`/reports/${report.id_reporte}`, {
+        method: 'PUT',
+        body: JSON.stringify({ estado: nextStatus })
+      });
+      setReports((items) => items.map((item) => item.id_reporte === report.id_reporte ? response.data : item));
+      showToast(`Reporte marcado como ${nextStatus.toLowerCase()}.`);
+    } catch (actionError) {
+      setError(actionError.message);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   return <div className="space-y-5">
     <div><h2 className="text-xl md:text-2xl font-black text-purple-950">Reportes y alertas</h2><p className="mt-1 text-xs text-slate-500">Historial real registrado en SafeWalk U.</p></div>
     <div className="flex flex-col gap-3 sm:flex-row"><input aria-label="Buscar reporte" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar reporte" className="min-h-11 flex-1 rounded-xl border border-slate-200 px-4 text-sm" /><select aria-label="Filtrar tipo" value={filter} onChange={(event) => setFilter(event.target.value)} className="min-h-11 rounded-xl border border-slate-200 px-4 text-sm"><option value="TODOS">Todos</option><option value="SOS_PANICO">SOS</option><option value="INCIDENTE">Incidentes</option></select></div>
@@ -28,6 +48,11 @@ export default function NotificationHistory() {
     {status === 'ready' && <div className="space-y-3">{filtered.map((report) => <article key={report.id_reporte} className={`rounded-2xl border p-4 ${report.tipo_reporte === 'SOS_PANICO' ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50'}`}>
       <div className="flex flex-wrap items-start justify-between gap-2"><div><p className="text-xs font-black">{report.tipo_reporte === 'SOS_PANICO' ? 'Alerta SOS' : 'Reporte de incidente'}</p><p className="mt-1 text-[11px] opacity-70">{report.nombre} {report.apellido} · {report.ubicacion}</p></div><span className="rounded-lg border border-current/20 bg-white/60 px-2 py-1 text-[10px] font-black">{report.estado}</span></div>
       <p className="mt-3 text-xs leading-relaxed">{report.descripcion}</p><time className="mt-2 block text-[10px] opacity-60">{new Date(report.fecha_reporte).toLocaleString()}</time>
+      {report.tipo_reporte === 'INCIDENTE' && report.estado === 'PENDIENTE' && <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <button disabled={busyId === report.id_reporte} onClick={() => reviewReport(report, 'VALIDADO')} className="min-h-11 rounded-xl bg-green-700 px-3 text-xs font-bold text-white disabled:opacity-50">Validar</button>
+        <button disabled={busyId === report.id_reporte} onClick={() => reviewReport(report, 'RECHAZADO')} className="min-h-11 rounded-xl bg-red-700 px-3 text-xs font-bold text-white disabled:opacity-50">Rechazar</button>
+        <button disabled={busyId === report.id_reporte} onClick={() => reviewReport(report, 'DUPLICADO')} className="min-h-11 rounded-xl border border-amber-300 bg-white px-3 text-xs font-bold text-amber-800 disabled:opacity-50">Duplicado</button>
+      </div>}
     </article>)}{!filtered.length && <p className="rounded-2xl bg-white p-6 text-center text-sm text-slate-500">No hay reportes para este filtro.</p>}</div>}
   </div>;
 }

@@ -9,6 +9,8 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
+    "openapi:generate": "npm run build && node scripts/export-openapi.mjs",
+    "validate:openapi": "npm run build && node scripts/validate-openapi.mjs",
     "backup:before-demo-cleanup": "node scripts/backup-database.mjs",
     "migrate:phase4": "node scripts/migrate-phase4.mjs",
     "migrate:routes": "node scripts/migrate-route-geometry.mjs",

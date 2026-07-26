@@ -15,6 +15,11 @@ dotenv.config();
 
 const app = express();
 
+// Produccion usa un unico proxy Nginx delante de Express. Esto permite que
+// express-rate-limit identifique la IP real sin confiar en proxies arbitrarios.
+app.set("trust proxy", 1);
+app.disable("x-powered-by");
+
 const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:5173,https://localhost:5173").split(",").map((origin) => origin.trim()).filter(Boolean);
 
 app.use(cors({

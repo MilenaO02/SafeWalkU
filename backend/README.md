@@ -19,13 +19,11 @@ La base `safewalku` se crea con `db/schema.sql`. `db/seed.sql` es opcional y sol
 npm run typecheck
 npm run build
 npm test
+npm run openapi:generate
 npm run validate:openapi
-npm run validate:phase8
-npm run test:http:phase7          # requiere MySQL configurado
-npm run test:integration:phase4   # requiere MySQL configurado
 ```
 
-El contrato completo se mantiene en `openapi.yaml`. Para instalacion, Docker, PM2, Nginx, respaldo y restauracion consulte `../docs/DESPLIEGUE.md`.
+El contrato fuente se mantiene en `src/docs/swagger.ts`, se publica en `/api-docs` y `npm run openapi:generate` actualiza la instantanea `openapi.yaml`. `npm run validate:openapi` comprueba que ambas representaciones coincidan y que todas las operaciones registradas esten documentadas.
 
 ## Variables
 

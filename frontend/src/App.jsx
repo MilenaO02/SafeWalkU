@@ -81,13 +81,13 @@ function AppRoutes() {
           </Route>
 
           <Route element={<PrivateRoute><MainLayout /></PrivateRoute>}>
-            <Route path="/app" element={<StudentApp />} />
-            <Route path="/reportar" element={<ReportarIncidente />} />
-            <Route path="/resumen-reporte" element={<ResumenReporte />} />
-            <Route path="/sos" element={<EmergenciaSos />} />
-            <Route path="/contactos" element={<ListaContactosApoyo />} />
-            <Route path="/perfil" element={<PerfilEstudiante />} />
-            <Route path="/detalle-zona" element={<DetalleZonaRiesgo />} />
+            <Route path="/app" element={<PrivateRoute requiredRole="ESTUDIANTE"><StudentApp /></PrivateRoute>} />
+            <Route path="/reportar" element={<PrivateRoute requiredRole="ESTUDIANTE"><ReportarIncidente /></PrivateRoute>} />
+            <Route path="/resumen-reporte" element={<PrivateRoute requiredRole="ESTUDIANTE"><ResumenReporte /></PrivateRoute>} />
+            <Route path="/sos" element={<PrivateRoute requiredRole="ESTUDIANTE"><EmergenciaSos /></PrivateRoute>} />
+            <Route path="/contactos" element={<PrivateRoute requiredRole="ESTUDIANTE"><ListaContactosApoyo /></PrivateRoute>} />
+            <Route path="/perfil" element={<PrivateRoute requiredRole="ESTUDIANTE"><PerfilEstudiante /></PrivateRoute>} />
+            <Route path="/detalle-zona" element={<PrivateRoute requiredRole="ESTUDIANTE"><DetalleZonaRiesgo /></PrivateRoute>} />
             <Route path="/admin" element={<PrivateRoute requiredRole="ADMINISTRADOR"><AdminDashboard /></PrivateRoute>} />
             <Route path="/admin/usuarios" element={<PrivateRoute requiredRole="ADMINISTRADOR"><GestionUsuarios /></PrivateRoute>} />
             <Route path="/admin/notificaciones" element={<PrivateRoute requiredRole="ADMINISTRADOR"><HistorialNotificaciones /></PrivateRoute>} />

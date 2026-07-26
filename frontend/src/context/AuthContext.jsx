@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AuthContext } from './auth';
-import { buildApiUrl } from '../services/api';
+import { buildApiUrl, request } from '../services/api';
 
 const normalizeRole = (role) => {
   const value = role?.toString().toUpperCase() ?? '';
@@ -14,6 +14,16 @@ const normalizeRole = (role) => {
   }
 
   return value;
+};
+
+const normalizeUser = (userData) => {
+  if (!userData) return null;
+
+  const rol = normalizeRole(userData.rol);
+  const receivedRoles = Array.isArray(userData.roles) ? userData.roles : [rol];
+  const roles = [...new Set(receivedRoles.map(normalizeRole).filter(Boolean))];
+
+  return { ...userData, rol, roles };
 };
 
 const isTokenInvalidOrExpired = (token) => {
@@ -63,13 +73,13 @@ const getStoredSession = () => {
 export const AuthProvider = ({ children }) => {
   // Initialize state synchronously so PrivateRoute and components have data on first render
   const [initialSession] = useState(getStoredSession);
-  const [user, setUser] = useState(initialSession.user ? { ...initialSession.user, rol: normalizeRole(initialSession.user.rol) } : null);
+  const [user, setUser] = useState(normalizeUser(initialSession.user));
   const [token, setToken] = useState(initialSession.token);
   const [toast, setToast] = useState(null);
   const [sessionReady, setSessionReady] = useState(!initialSession.token);
 
   const login = (userData, authToken, storagePreference = 'localStorage') => {
-    const normalizedUser = { ...userData, rol: normalizeRole(userData?.rol) };
+    const normalizedUser = normalizeUser(userData);
     const targetStorage = storagePreference === 'localStorage' ? localStorage : sessionStorage;
     const otherStorage = storagePreference === 'localStorage' ? sessionStorage : localStorage;
 
@@ -81,6 +91,17 @@ export const AuthProvider = ({ children }) => {
     setUser(normalizedUser);
     setToken(authToken);
     setSessionReady(true);
+  };
+
+  const switchRole = async (role) => {
+    const normalizedRole = normalizeRole(role);
+    const payload = await request('/auth/switch-role', {
+      method: 'POST',
+      body: JSON.stringify({ rol: normalizedRole }),
+    });
+    const storagePreference = localStorage.getItem('token') ? 'localStorage' : 'sessionStorage';
+    login(payload.usuario, payload.token, storagePreference);
+    return normalizeUser(payload.usuario);
   };
 
   const logout = () => {
@@ -116,7 +137,7 @@ export const AuthProvider = ({ children }) => {
         if (!response.ok) throw new Error('invalid_session');
         const payload = await response.json();
         if (active && payload?.data) {
-          const validatedUser = { ...payload.data, rol: normalizeRole(payload.data.rol) };
+          const validatedUser = normalizeUser(payload.data);
           setUser(validatedUser);
           const storage = localStorage.getItem('token') ? localStorage : sessionStorage;
           storage.setItem('user', JSON.stringify(validatedUser));
@@ -133,7 +154,7 @@ export const AuthProvider = ({ children }) => {
     const targetStorage = localStorage.getItem('user') ? localStorage : (sessionStorage.getItem('user') ? sessionStorage : null);
     if (!targetStorage) return;
     const currentUser = JSON.parse(targetStorage.getItem('user'));
-    const newUser = { ...currentUser, ...updatedData };
+    const newUser = normalizeUser({ ...currentUser, ...updatedData });
     targetStorage.setItem('user', JSON.stringify(newUser));
     setUser(newUser);
   };
@@ -143,7 +164,7 @@ export const AuthProvider = ({ children }) => {
   const hasRole = (role) => normalizeRole(user?.rol) === normalizeRole(role);
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, updateUser, toast, showToast, clearToast, sessionReady, isAuthenticated, isAdmin, hasRole }}>
+    <AuthContext.Provider value={{ user, token, login, logout, switchRole, updateUser, toast, showToast, clearToast, sessionReady, isAuthenticated, isAdmin, hasRole }}>
       {children}
     </AuthContext.Provider>
   );

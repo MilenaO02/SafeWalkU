@@ -8,7 +8,14 @@ class UserController {
 
     async getMe(req: Request, res: Response) {
         const usuario = await service.getById(req.user!.id_usuario);
-        return res.json({ success: true, data: usuario });
+        return res.json({
+            success: true,
+            data: {
+                ...usuario,
+                rol: req.user!.rol,
+                roles: req.user!.roles
+            }
+        });
     }
 
     async getAll(req: Request, res: Response) {

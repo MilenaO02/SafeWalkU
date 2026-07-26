@@ -14,6 +14,12 @@ class UserService {
 
     }
 
+    async getAvailableRoles(id: number) {
+
+        return await repository.findAvailableRoles(id);
+
+    }
+
     async update(id: number, data: any) {
 
         if (data.correo) {

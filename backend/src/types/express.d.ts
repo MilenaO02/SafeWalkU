@@ -14,6 +14,8 @@ declare global {
 
                 rol: string;
 
+                roles: string[];
+
             }
 
         }

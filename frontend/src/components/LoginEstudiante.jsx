@@ -73,6 +73,7 @@ const Login = () => {
           apellido: usuario.apellido,
           correo: usuario.correo ?? correo,
           rol: usuario.rol ?? 'ESTUDIANTE',
+          roles: usuario.roles ?? [usuario.rol ?? 'ESTUDIANTE'],
           foto_perfil: usuario.foto_perfil ?? null,
         },
         data.token,

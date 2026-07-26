@@ -28,11 +28,15 @@ export default function MainLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const isAdminRoute = location.pathname.startsWith('/admin');
-  const { user, logout, showToast } = useAuth();
+  const { user, logout, switchRole, showToast } = useAuth();
 
   const [mapConfig, setMapConfig] = useState(defaultMapConfig);
   const [campusPoint, setCampusPoint] = useState(defaultMapConfig.centro);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isSwitchingRole, setIsSwitchingRole] = useState(false);
+
+  const availableRoles = user?.roles || [user?.rol].filter(Boolean);
+  const canSwitchRole = availableRoles.includes('ESTUDIANTE') && availableRoles.includes('ADMINISTRADOR');
 
   useEffect(() => {
     if (isDarkMode) {
@@ -59,6 +63,22 @@ export default function MainLayout() {
     logout();
     showToast('Sesión cerrada');
     navigate('/login');
+  };
+
+  const handleSwitchRole = async () => {
+    if (!canSwitchRole || isSwitchingRole) return;
+
+    const targetRole = user?.rol === 'ADMINISTRADOR' ? 'ESTUDIANTE' : 'ADMINISTRADOR';
+    setIsSwitchingRole(true);
+    try {
+      await switchRole(targetRole);
+      showToast(targetRole === 'ADMINISTRADOR' ? 'Modo administrador activado' : 'Modo estudiante activado');
+      navigate(targetRole === 'ADMINISTRADOR' ? '/admin' : '/app');
+    } catch (error) {
+      showToast(error.message || 'No fue posible cambiar el modo de acceso', 'error');
+    } finally {
+      setIsSwitchingRole(false);
+    }
   };
 
   // ----------------------------------------------------
@@ -144,6 +164,18 @@ export default function MainLayout() {
           </nav>
 
           <div className="px-3 pt-4 border-t border-slate-100">
+            {canSwitchRole && (
+              <button
+                onClick={handleSwitchRole}
+                disabled={isSwitchingRole}
+                className="mb-2 w-full flex items-center gap-4 px-4 py-3 rounded-xl text-purple-900 hover:bg-purple-50 font-bold text-sm transition-all disabled:opacity-60"
+              >
+                <span className={`material-symbols-outlined text-[20px] ${isSwitchingRole ? 'animate-spin' : ''}`}>
+                  {isSwitchingRole ? 'progress_activity' : 'school'}
+                </span>
+                <span>Modo estudiante</span>
+              </button>
+            )}
             <button 
               onClick={handleLogout}
               className="w-full flex items-center gap-4 px-4 py-3 rounded-xl text-red-600 hover:bg-red-50 font-bold text-sm transition-all"
@@ -162,6 +194,19 @@ export default function MainLayout() {
               {getAdminTitle()}
             </h2>
             <div className="flex items-center gap-4">
+              {canSwitchRole && (
+                <button
+                  onClick={handleSwitchRole}
+                  disabled={isSwitchingRole}
+                  aria-label="Cambiar a modo estudiante"
+                  className="flex min-h-11 items-center gap-2 rounded-xl bg-purple-50 px-3 text-xs font-bold text-purple-900 transition-colors hover:bg-purple-100 disabled:opacity-60"
+                >
+                  <span className={`material-symbols-outlined text-[20px] ${isSwitchingRole ? 'animate-spin' : ''}`}>
+                    {isSwitchingRole ? 'progress_activity' : 'school'}
+                  </span>
+                  <span className="hidden lg:inline">Modo estudiante</span>
+                </button>
+              )}
               <button onClick={handleLogout} aria-label="Cerrar sesión" className="md:hidden material-symbols-outlined flex h-11 w-11 items-center justify-center text-red-600">logout</button>
               <div className="w-8 h-8 rounded-full bg-purple-900 flex items-center justify-center text-white text-xs font-black shadow-md">
                 {user ? `${user.nombre?.charAt(0) || ''}${user.apellido?.charAt(0) || ''}` || 'US' : 'AD'}
@@ -279,6 +324,19 @@ export default function MainLayout() {
           </nav>
           
           <div className="flex items-center gap-2 md:gap-3">
+            {canSwitchRole && (
+              <button
+                onClick={handleSwitchRole}
+                disabled={isSwitchingRole}
+                aria-label="Cambiar a modo administrador"
+                className="flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-lg bg-purple-50 px-2 text-xs font-bold text-purple-900 transition-colors hover:bg-purple-100 disabled:opacity-60 dark:bg-purple-500/10 dark:text-purple-300"
+              >
+                <span className={`material-symbols-outlined text-[19px] ${isSwitchingRole ? 'animate-spin' : ''}`}>
+                  {isSwitchingRole ? 'progress_activity' : 'admin_panel_settings'}
+                </span>
+                <span className="hidden lg:inline">Administrar</span>
+              </button>
+            )}
             <button 
               onClick={toggleDarkMode}
               aria-label={isDarkMode ? 'Activar modo claro' : 'Activar modo oscuro'}

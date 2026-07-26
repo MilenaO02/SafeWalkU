@@ -28,3 +28,7 @@ export const loginSchema = z.object({
     correo: institutionalEmail,
     contrasena: z.string().min(1).max(72)
 }).strict();
+
+export const switchRoleSchema = z.object({
+    rol: z.enum(["ESTUDIANTE", "ADMINISTRADOR"])
+}).strict();

@@ -18,7 +18,43 @@ export interface Usuario {
 
 }
 
+export type UserRole = Usuario["rol"];
+
 class UserRepository {
+
+    async findAvailableRoles(id: number): Promise<UserRole[]> {
+
+        const [rows]: any = await pool.query(
+
+            `
+            SELECT
+                u.rol,
+                EXISTS(
+                    SELECT 1
+                    FROM administrador a
+                    WHERE a.id_usuario = u.id_usuario
+                ) AS es_administrador
+            FROM usuario u
+            WHERE u.id_usuario = ?
+              AND u.estado = 'ACTIVO'
+            `,
+
+            [id]
+
+        );
+
+        if (!rows[0]) {
+            return [];
+        }
+
+        const roles = new Set<UserRole>([rows[0].rol]);
+        if (Boolean(rows[0].es_administrador)) {
+            roles.add("ADMINISTRADOR");
+        }
+
+        return [...roles];
+
+    }
 
     async findAll() {
 

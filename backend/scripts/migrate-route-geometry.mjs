@@ -84,7 +84,8 @@ try {
         "006_correct_verified_locations.sql",
         "007_remove_university_gate.sql",
         "008_reconcile_legacy_schema.sql",
-        "009_remove_demo_data.sql"
+        "009_remove_demo_data.sql",
+        "010_authorize_dual_role_admin.sql"
     ]) {
         const sql = await readFile(resolve(import.meta.dirname, `../db/migrations/${migration}`), "utf8");
         const migrationSql = sql.replace(/^USE\s+`?safewalku`?;/im, "");
@@ -138,6 +139,33 @@ try {
                 }
                 await connection.commit();
                 console.log("Limpieza demo verificada; usuario real 27 preservado.");
+            } catch (error) {
+                await connection.rollback();
+                throw error;
+            }
+        } else if (migration === "010_authorize_dual_role_admin.sql") {
+            await connection.beginTransaction();
+            try {
+                await connection.query(migrationSql);
+                const [verificationRows] = await connection.query(`
+                    SELECT
+                        (SELECT COUNT(*)
+                         FROM usuario
+                         WHERE id_usuario = 27
+                           AND correo = 'miordonezle@uide.edu.ec'
+                           AND rol = 'ESTUDIANTE'
+                           AND estado = 'ACTIVO') AS student_account,
+                        (SELECT COUNT(*)
+                         FROM administrador
+                         WHERE id_usuario = 27
+                           AND cargo = 'Administradora del sistema SafeWalk U') AS admin_authorization
+                `);
+                const verification = verificationRows[0];
+                if (Number(verification.student_account) !== 1 || Number(verification.admin_authorization) !== 1) {
+                    throw new Error(`La verificación del acceso dual falló: ${JSON.stringify(verification)}`);
+                }
+                await connection.commit();
+                console.log("Acceso dual verificado; usuario 27 conserva el rol ESTUDIANTE.");
             } catch (error) {
                 await connection.rollback();
                 throw error;

@@ -40,10 +40,25 @@ export default async function auth(req: Request, res: Response, next: NextFuncti
             return res.status(401).json({ success: false, message: "Sesión no válida." });
         }
 
+        const roles = await userService.getAvailableRoles(idUsuario);
+        const activeRole = decoded.rol?.toString().toUpperCase();
+
+        if (activeRole !== "ESTUDIANTE" && activeRole !== "ADMINISTRADOR") {
+            return res.status(401).json({ success: false, message: "Token inválido o vencido." });
+        }
+
+        if (!roles.includes(activeRole)) {
+            return res.status(403).json({
+                success: false,
+                message: "El modo de acceso de esta sesión ya no está autorizado."
+            });
+        }
+
         req.user = {
             id_usuario: usuario.id_usuario,
             correo: usuario.correo,
-            rol: usuario.rol
+            rol: activeRole,
+            roles
         };
     } catch (error) {
         console.error("No fue posible consultar el usuario de la sesión:", error);

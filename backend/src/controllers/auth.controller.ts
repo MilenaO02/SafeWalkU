@@ -1,5 +1,9 @@
 import { Request, Response } from "express";
-import service, { InvalidCredentialsError } from "../services/auth.service.js";
+import service, {
+    InvalidCredentialsError,
+    InvalidSessionError,
+    RoleNotAllowedError
+} from "../services/auth.service.js";
 
 class AuthController {
     async register(req: Request, res: Response) {
@@ -50,6 +54,34 @@ class AuthController {
             return res.status(500).json({
                 success: false,
                 message: "Error interno del servidor"
+            });
+        }
+    }
+
+    async switchRole(req: Request, res: Response) {
+        try {
+            const resultado = await service.switchRole(req.user!.id_usuario, req.body.rol);
+
+            return res.status(200).json({
+                success: true,
+                message: `Modo ${req.body.rol.toLowerCase()} activado`,
+                token: resultado.token,
+                usuario: resultado.usuario,
+                data: resultado
+            });
+        } catch (error: unknown) {
+            if (error instanceof RoleNotAllowedError) {
+                return res.status(403).json({ success: false, message: error.message });
+            }
+
+            if (error instanceof InvalidSessionError) {
+                return res.status(401).json({ success: false, message: error.message });
+            }
+
+            console.error("Error interno al cambiar el modo de acceso:", error);
+            return res.status(500).json({
+                success: false,
+                message: "No fue posible cambiar el modo de acceso"
             });
         }
     }

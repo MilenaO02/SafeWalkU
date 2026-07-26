@@ -89,8 +89,10 @@ deploy_frontend:
         mkdir -p ~/frontend-release
         tar -xzf ~/frontend.tar.gz -C ~/frontend-release
         sudo mkdir -p /var/www/safewalku
-        sudo rm -rf /var/www/safewalku/dist
-        sudo cp -a ~/frontend-release/dist /var/www/safewalku/dist
+        sudo mkdir -p /var/www/safewalku/dist/assets
+        sudo cp -a ~/frontend-release/dist/assets/. /var/www/safewalku/dist/assets/
+        sudo find ~/frontend-release/dist -mindepth 1 -maxdepth 1 ! -name assets -exec cp -a {} /var/www/safewalku/dist/ \;
+        sudo find /var/www/safewalku/dist/assets -type f -mtime +14 -delete
         sudo chown -R www-data:www-data /var/www/safewalku
         sudo cp ~/safewalku.nginx /etc/nginx/sites-available/safewalku
         sudo ln -sf /etc/nginx/sites-available/safewalku /etc/nginx/sites-enabled/safewalku

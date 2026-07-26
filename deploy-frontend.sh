@@ -13,8 +13,12 @@ npm run lint
 npm run build
 
 echo "[2/4] Publicando archivos compilados..."
-sudo mkdir -p "$TARGET_DIR"
-sudo rsync -a --delete dist/ "$TARGET_DIR/"
+sudo mkdir -p "$TARGET_DIR/assets"
+# Publicar primero los chunks con hash y conservar los anteriores durante un
+# periodo de gracia evita romper pestañas abiertas durante un despliegue.
+sudo rsync -a dist/assets/ "$TARGET_DIR/assets/"
+sudo rsync -a --exclude 'assets/' dist/ "$TARGET_DIR/"
+sudo find "$TARGET_DIR/assets" -type f -mtime +14 -delete
 
 echo "[3/4] Configurando permisos de lectura..."
 sudo chown -R www-data:www-data /var/www/safewalku

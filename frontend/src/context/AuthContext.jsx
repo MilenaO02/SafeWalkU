@@ -100,8 +100,20 @@ export const AuthProvider = ({ children }) => {
       body: JSON.stringify({ rol: normalizedRole }),
     });
     const storagePreference = localStorage.getItem('token') ? 'localStorage' : 'sessionStorage';
-    login(payload.usuario, payload.token, storagePreference);
-    return normalizeUser(payload.usuario);
+    const normalizedUser = normalizeUser(payload.usuario);
+    const targetStorage = storagePreference === 'localStorage' ? localStorage : sessionStorage;
+    const otherStorage = storagePreference === 'localStorage' ? sessionStorage : localStorage;
+
+    // Guardar primero la nueva sesión sin cambiar el estado de React en la
+    // ruta actual. Si el estado se actualiza mientras seguimos en /app o
+    // /admin, PrivateRoute interpreta momentáneamente el rol nuevo contra la
+    // ruta anterior y redirige a /403 antes de completar la navegación.
+    targetStorage.setItem('user', JSON.stringify(normalizedUser));
+    targetStorage.setItem('token', payload.token);
+    otherStorage.removeItem('user');
+    otherStorage.removeItem('token');
+
+    return normalizedUser;
   };
 
   const logout = () => {

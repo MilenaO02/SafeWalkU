@@ -72,8 +72,9 @@ export default function MainLayout() {
     setIsSwitchingRole(true);
     try {
       await switchRole(targetRole);
-      showToast(targetRole === 'ADMINISTRADOR' ? 'Modo administrador activado' : 'Modo estudiante activado');
-      navigate(targetRole === 'ADMINISTRADOR' ? '/admin' : '/app');
+      // La recarga inicia AuthContext desde el JWT recién almacenado y evita
+      // que las guardas evalúen el rol nuevo contra la ruta anterior.
+      window.location.replace(targetRole === 'ADMINISTRADOR' ? '/admin' : '/app');
     } catch (error) {
       showToast(error.message || 'No fue posible cambiar el modo de acceso', 'error');
     } finally {

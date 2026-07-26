@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { login as loginRequest } from '../services/api';
+import { checkHealth, login as loginRequest } from '../services/api';
 import { useAuth } from '../context/auth';
 
 import logoClaro from '../assets/icon_modoclaro.png';
@@ -14,6 +14,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorAlert, setErrorAlert] = useState(null);
+  const [healthStatus, setHealthStatus] = useState('connecting');
 
   // Estado para el modo oscuro
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -28,6 +29,24 @@ const Login = () => {
       document.documentElement.classList.remove('dark');
     }
   }, [isDarkMode]);
+
+  useEffect(() => {
+    let active = true;
+
+    checkHealth()
+      .then((response) => {
+        if (!active) return;
+        const operational = response?.success === true
+          && response?.api === 'online'
+          && response?.database === 'connected';
+        setHealthStatus(operational ? 'operational' : 'unavailable');
+      })
+      .catch(() => {
+        if (active) setHealthStatus('unavailable');
+      });
+
+    return () => { active = false; };
+  }, []);
 
   const toggleDarkMode = () => {
     setIsDarkMode(!isDarkMode);
@@ -244,9 +263,11 @@ const Login = () => {
         </div>
 
         {/* System Status Indicator */}
-        <div className="mt-4 flex items-center justify-center gap-2 opacity-60">
-          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-          <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest transition-colors duration-300">Todos los sistemas operativos</span>
+        <div className="mt-4 flex items-center justify-center gap-2 opacity-70" role="status" aria-live="polite">
+          <div className={`h-2 w-2 rounded-full ${healthStatus === 'operational' ? 'bg-green-500' : healthStatus === 'unavailable' ? 'bg-red-500' : 'animate-pulse bg-amber-500'}`}></div>
+          <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest transition-colors duration-300">
+            {healthStatus === 'operational' ? 'Sistema operativo' : healthStatus === 'unavailable' ? 'Servicio temporalmente no disponible' : 'Conectando...'}
+          </span>
         </div>
       </main>
     </div>

@@ -83,10 +83,68 @@ try {
         "005_add_route_geometry.sql",
         "006_correct_verified_locations.sql",
         "007_remove_university_gate.sql",
-        "008_reconcile_legacy_schema.sql"
+        "008_reconcile_legacy_schema.sql",
+        "009_remove_demo_data.sql"
     ]) {
         const sql = await readFile(resolve(import.meta.dirname, `../db/migrations/${migration}`), "utf8");
-        await connection.query(sql.replace(/^USE\s+`?safewalku`?;/im, ""));
+        const migrationSql = sql.replace(/^USE\s+`?safewalku`?;/im, "");
+
+        if (migration === "009_remove_demo_data.sql") {
+            await connection.beginTransaction();
+            try {
+                await connection.query(migrationSql);
+                const [verificationRows] = await connection.query(`
+                    SELECT
+                        (SELECT COUNT(*) FROM usuario
+                         WHERE id_usuario BETWEEN 1 AND 24 AND id_usuario <> 14) AS demo_users,
+                        (SELECT COUNT(*) FROM usuario
+                         WHERE id_usuario = 14
+                           AND (rol <> 'ESTUDIANTE' OR estado <> 'INACTIVO')) AS user_14_invalid,
+                        (SELECT COUNT(*) FROM usuario
+                         WHERE id_usuario = 14) AS user_14_count,
+                        (SELECT COUNT(*) FROM administrador a
+                         INNER JOIN usuario u ON u.id_usuario = a.id_usuario
+                         WHERE u.id_usuario BETWEEN 1 AND 24) AS demo_admins,
+                        (SELECT COUNT(*) FROM reporte
+                         WHERE id_usuario BETWEEN 1 AND 24) AS demo_reports,
+                        (SELECT COUNT(*) FROM evidencia
+                         WHERE url_archivo LIKE 'https://safewalk.com/evidencias/%') AS fake_evidence,
+                        (SELECT COUNT(*) FROM contactoemergencia
+                         WHERE id_usuario BETWEEN 1 AND 24) AS demo_contacts,
+                        (SELECT COUNT(*) FROM rutafavorita
+                         WHERE id_usuario BETWEEN 1 AND 24) AS demo_favorites,
+                        (SELECT COUNT(*) FROM compartirubicacion
+                         WHERE id_usuario BETWEEN 1 AND 24) AS demo_shares,
+                        (SELECT COUNT(*) FROM servicioemergencia
+                         WHERE id_servicio = 18
+                           AND nombre = 'Hospital Universitario'
+                           AND id_ubicacion = 9) AS inconsistent_service,
+                        (SELECT COUNT(*) FROM (
+                            SELECT contrasena
+                            FROM usuario
+                            WHERE estado = 'ACTIVO'
+                            GROUP BY contrasena
+                            HAVING COUNT(*) > 1
+                         ) AS shared_password_groups) AS active_shared_password_groups,
+                        (SELECT COUNT(*) FROM usuario WHERE id_usuario = 27) AS real_user_27
+                `);
+                const verification = verificationRows[0];
+                const expectedOne = new Set(["user_14_count", "real_user_27"]);
+                const invalidResults = Object.entries(verification).filter(([key, value]) => (
+                    expectedOne.has(key) ? Number(value) !== 1 : Number(value) !== 0
+                ));
+                if (invalidResults.length > 0) {
+                    throw new Error(`La verificacion de limpieza fallo: ${JSON.stringify(verification)}`);
+                }
+                await connection.commit();
+                console.log("Limpieza demo verificada; usuario real 27 preservado.");
+            } catch (error) {
+                await connection.rollback();
+                throw error;
+            }
+        } else {
+            await connection.query(migrationSql);
+        }
         console.log(`Migracion aplicada: ${migration}`);
     }
 } finally {

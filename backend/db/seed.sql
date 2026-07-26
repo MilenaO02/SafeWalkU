@@ -1,4 +1,16 @@
+-- Reinicio controlado del catalogo para entornos de desarrollo.
+-- Debe habilitarse de forma explicita en la misma sesion MySQL:
+-- SET @ALLOW_SAFEWALK_RESET = 1;
+-- SOURCE backend/db/seed.sql;
+-- La barrera evita ejecutar por accidente los TRUNCATE en produccion.
 USE safewalku;
+
+CREATE TEMPORARY TABLE `_safewalk_seed_guard` (
+  `permitido` TINYINT NOT NULL CHECK (`permitido` = 1)
+);
+INSERT INTO `_safewalk_seed_guard` (`permitido`)
+VALUES (COALESCE(@ALLOW_SAFEWALK_RESET, 0));
+DROP TEMPORARY TABLE `_safewalk_seed_guard`;
 
 SET FOREIGN_KEY_CHECKS = 0;
 
@@ -16,37 +28,6 @@ TRUNCATE TABLE ruta;
 TRUNCATE TABLE ubicacion;
 TRUNCATE TABLE usuario;
 SET FOREIGN_KEY_CHECKS = 1;
-
-SET @PASSWORD_HASH = '$2b$10$jQg5JizVvOCStQEPW64RaO3i5/bpSRvz23VQqv/n4BMXiwpHLiQkC';
-
-
-INSERT INTO usuario (id_usuario, nombre, apellido, correo, contrasena, rol, estado) VALUES
-(1,'Edgar Anderson','Bustos Castillo','edgar.bustos1@uide.edu.ec',@PASSWORD_HASH,'ESTUDIANTE','ACTIVO'),
-(2,'Hector Antonio','Campoverde Rodriguez','hector.campoverde2@uide.edu.ec',@PASSWORD_HASH,'ESTUDIANTE','ACTIVO'),
-(3,'Anyela Carolina','Carpio Torres','anyela.carpio3@uide.edu.ec',@PASSWORD_HASH,'ESTUDIANTE','ACTIVO'),
-(4,'Carlo Sebastián','Carrion Espinosa','carlo.carrion4@uide.edu.ec',@PASSWORD_HASH,'ESTUDIANTE','ACTIVO'),
-(5,'Joseph Steven','Cartuche Vicente','joseph.cartuche5@uide.edu.ec',@PASSWORD_HASH,'ESTUDIANTE','ACTIVO'),
-(6,'Charlie Alexander','Cardenas Toledo','charlie.cardenas6@uide.edu.ec',@PASSWORD_HASH,'ADMINISTRADOR','ACTIVO'),
-(7,'Steven Paul','Chininin Camacas','steven.chininin7@uide.edu.ec',@PASSWORD_HASH,'ESTUDIANTE','ACTIVO'),
-(8,'Stephano Dilan','Galvez Perez','stephano.galvez8@uide.edu.ec',@PASSWORD_HASH,'ESTUDIANTE','ACTIVO'),
-(9,'Maria Jose','Guanca Guaman','maria.guanca9@uide.edu.ec',@PASSWORD_HASH,'ESTUDIANTE','ACTIVO'),
-(10,'Diego Fernando','Fernando Lopez Saquicela','diego.lopez10@uide.edu.ec',@PASSWORD_HASH,'ESTUDIANTE','ACTIVO'),
-(11,'Deyvi Hernan','Masache Rengel','deyvi.masache11@uide.edu.ec',@PASSWORD_HASH,'ESTUDIANTE','ACTIVO'),
-(12,'Janneth Nayerly','Medina Cambisaca','janneth.medina12@uide.edu.ec',@PASSWORD_HASH,'ESTUDIANTE','ACTIVO'),
-(13,'Angel Fernando','Medina Mendoza','angel.medina13@uide.edu.ec',@PASSWORD_HASH,'ESTUDIANTE','ACTIVO'),
-(14,'Alejandro David','Morocho Grageda','alejandro.morocho14@uide.edu.ec',@PASSWORD_HASH,'ESTUDIANTE','ACTIVO'),
-(15,'Milena Yamileth','Ordoñez Leon','milena.ordonez15@uide.edu.ec',@PASSWORD_HASH,'ADMINISTRADOR','ACTIVO'),
-(16,'Santiago Alexander','Rios Rios','santiago.rios16@uide.edu.ec',@PASSWORD_HASH,'ESTUDIANTE','ACTIVO'),
-(17,'Felix Agustin','Rodas Melgar','felix.rodas17@uide.edu.ec',@PASSWORD_HASH,'ESTUDIANTE','ACTIVO'),
-(18,'Paula Alejandra','Rojas Granda','paula.rojas18@uide.edu.ec',@PASSWORD_HASH,'ESTUDIANTE','ACTIVO'),
-(19,'Yostin Daniel','Ruiz Sinche','yostin.ruiz19@uide.edu.ec',@PASSWORD_HASH,'ESTUDIANTE','ACTIVO'),
-(20,'Derky Alejandro','Sanchez Granda','derky.sanchez20@uide.edu.ec',@PASSWORD_HASH,'ESTUDIANTE','ACTIVO'),
-(21,'Jhosty Jhair','Soto Leon','jhosty.soto21@uide.edu.ec',@PASSWORD_HASH,'ESTUDIANTE','ACTIVO'),
-(22,'Aurora Marina','Zhuma Jaramillo','aurora.zhuma22@uide.edu.ec',@PASSWORD_HASH,'ESTUDIANTE','ACTIVO');
-
-INSERT INTO administrador (id_administrador, id_usuario, cargo, fecha_asignacion) VALUES
-(1,6,'Docente administrador del sistema','2026-06-01'),
-(3,15,'Administradora de reportes','2026-06-01');
 
 INSERT INTO ubicacion (id_ubicacion, nombre, direccion, tipo_zona) VALUES
 (1,'UIDE Campus Loja','Av. Salvador Bustamante Celi, campus Loja','UNIVERSIDAD'),
@@ -161,54 +142,6 @@ INSERT INTO ruta_ubicacion (id_ruta_ubicacion, id_ruta, id_ubicacion, orden_punt
 (43,22,1,1),
 (44,22,2,2);
 
-INSERT INTO reporte (id_reporte, descripcion, nivel_riesgo, estado, id_usuario, id_ubicacion, id_administrador, estado_registro) VALUES
-(1,'Zona con poca iluminación durante la noche','ALTO','PENDIENTE',4,5,NULL,'ACTIVO'),
-(2,'Paradero con baja presencia de personas','MEDIO','VALIDADO',5,6,3,'ACTIVO'),
-(3,'Congestión vehicular en entrada principal','MEDIO','VALIDADO',6,7,1,'ACTIVO'),
-(4,'Sector poco transitado en horario nocturno','ALTO','PENDIENTE',7,8,NULL,'ACTIVO'),
-(5,'Ruta segura dentro del campus','BAJO','VALIDADO',8,9,3,'ACTIVO'),
-(6,'Presencia de vehículos en hora pico','MEDIO','PENDIENTE',9,10,NULL,'ACTIVO'),
-(7,'Falta de señalización visible','MEDIO','VALIDADO',10,11,1,'ACTIVO'),
-(8,'Zona oscura cercana al parque','ALTO','RECHAZADO',11,12,3,'ACTIVO'),
-(9,'Servicio de emergencia cercano identificado','BAJO','VALIDADO',12,13,1,'ACTIVO'),
-(10,'Calle posterior con poca iluminación','ALTO','PENDIENTE',13,14,NULL,'ACTIVO'),
-(11,'Zona con tráfico intenso','MEDIO','VALIDADO',14,15,3,'ACTIVO'),
-(12,'Sector recomendado como lugar seguro','BAJO','VALIDADO',15,16,1,'ACTIVO'),
-(13,'Barrio con reportes de inseguridad','ALTO','PENDIENTE',16,17,NULL,'ACTIVO'),
-(14,'Ruta alternativa con mejor iluminación','BAJO','VALIDADO',17,18,3,'ACTIVO'),
-(15,'Zona con baja circulación peatonal','MEDIO','PENDIENTE',18,19,NULL,'ACTIVO'),
-(16,'Punto cercano a servicio médico','BAJO','VALIDADO',19,20,1,'ACTIVO'),
-(17,'Sector con antecedentes de robos','ALTO','VALIDADO',20,21,3,'ACTIVO'),
-(18,'Cruce peatonal con poca señalética','MEDIO','PENDIENTE',21,22,NULL,'ACTIVO'),
-(19,'Acceso interno seguro','BAJO','VALIDADO',22,1,1,'ACTIVO'),
-(20,'Zona posterior no recomendable con lluvia','MEDIO','VALIDADO',3,2,3,'ACTIVO'),
-(21,'Falta de transporte público en horario nocturno','MEDIO','PENDIENTE',4,1,NULL,'ACTIVO'),
-(22,'Punto de apoyo cercano para estudiantes','ALTO','VALIDADO',5,4,1,'ACTIVO');
-
-INSERT INTO evidencia (id_evidencia, url_archivo, tipo_archivo, id_reporte) VALUES
-(1,'https://safewalk.com/evidencias/evidencia1.jpg','IMAGEN',1),
-(2,'https://safewalk.com/evidencias/evidencia2.jpg','IMAGEN',2),
-(3,'https://safewalk.com/evidencias/evidencia3.jpg','IMAGEN',3),
-(4,'https://safewalk.com/evidencias/evidencia4.jpg','IMAGEN',4),
-(5,'https://safewalk.com/evidencias/evidencia5.mp4','VIDEO',5),
-(6,'https://safewalk.com/evidencias/evidencia6.jpg','IMAGEN',6),
-(7,'https://safewalk.com/evidencias/evidencia7.jpg','IMAGEN',7),
-(8,'https://safewalk.com/evidencias/evidencia8.jpg','IMAGEN',8),
-(9,'https://safewalk.com/evidencias/evidencia9.jpg','IMAGEN',9),
-(10,'https://safewalk.com/evidencias/evidencia10.mp4','VIDEO',10),
-(11,'https://safewalk.com/evidencias/evidencia11.jpg','IMAGEN',11),
-(12,'https://safewalk.com/evidencias/evidencia12.jpg','IMAGEN',12),
-(13,'https://safewalk.com/evidencias/evidencia13.jpg','IMAGEN',13),
-(14,'https://safewalk.com/evidencias/evidencia14.jpg','IMAGEN',14),
-(15,'https://safewalk.com/evidencias/evidencia15.mp4','VIDEO',15),
-(16,'https://safewalk.com/evidencias/evidencia16.jpg','IMAGEN',16),
-(17,'https://safewalk.com/evidencias/evidencia17.jpg','IMAGEN',17),
-(18,'https://safewalk.com/evidencias/evidencia18.jpg','IMAGEN',18),
-(19,'https://safewalk.com/evidencias/evidencia19.jpg','IMAGEN',19),
-(20,'https://safewalk.com/evidencias/evidencia20.mp4','VIDEO',20),
-(21,'https://safewalk.com/evidencias/evidencia21.jpg','IMAGEN',21),
-(22,'https://safewalk.com/evidencias/evidencia22.jpg','IMAGEN',22);
-
 INSERT INTO servicioemergencia (id_servicio, nombre, tipo, telefono, id_ubicacion) VALUES
 (1,'UPC Jipiro','UPC','911',8),
 (2,'Hospital Isidro Ayora','HOSPITAL','072570200',9),
@@ -227,7 +160,6 @@ INSERT INTO servicioemergencia (id_servicio, nombre, tipo, telefono, id_ubicacio
 (15,'Bomberos Centro','BOMBEROS','102',14),
 (16,'Policía Vía Zamora','POLICIA','911',17),
 (17,'UPC Sauces Norte','UPC','911',12),
-(18,'Hospital Universitario','HOSPITAL','072560100',9),
 (19,'Bomberos Loja Sur','BOMBEROS','102',20),
 (21,'Punto ECU 911 Loja','POLICIA','911',14),
 (22,'Cruz Roja Loja','HOSPITAL','131',14);
@@ -252,78 +184,6 @@ INSERT INTO lugarseguro (id_lugar_seguro, nombre, descripcion, id_ubicacion) VAL
 (20,'Acceso biblioteca','Punto interno seguro',4),
 (21,'UPC Las Pitas','Punto de apoyo policial',11),
 (22,'Punto seguro entrada campus','Zona vigilada en la entrada',2);
-
-INSERT INTO contactoemergencia (id_contacto, nombre, telefono, parentesco, id_usuario) VALUES
-(1,'Contacto emergencia 1','0990000001','PADRE',1),
-(2,'Contacto emergencia 2','0990000002','HERMANA',2),
-(3,'Contacto emergencia 3','0990000003','HERMANO',3),
-(4,'Contacto emergencia 4','0990000004','AMIGO',4),
-(5,'Contacto emergencia 5','0990000005','OTRO',5),
-(6,'Contacto emergencia 6','0990000006','PAREJA',6),
-(7,'Contacto emergencia 7','0990000007','MADRE',7),
-(8,'Contacto emergencia 8','0990000008','PADRE',8),
-(9,'Contacto emergencia 9','0990000009','HERMANA',9),
-(10,'Contacto emergencia 10','0990000010','HERMANO',10),
-(11,'Contacto emergencia 11','0990000011','AMIGO',11),
-(12,'Contacto emergencia 12','0990000012','OTRO',12),
-(13,'Contacto emergencia 13','0990000013','PAREJA',13),
-(14,'Contacto emergencia 14','0990000014','MADRE',14),
-(15,'Contacto emergencia 15','0990000015','PADRE',15),
-(16,'Contacto emergencia 16','0990000016','HERMANA',16),
-(17,'Contacto emergencia 17','0990000017','HERMANO',17),
-(18,'Contacto emergencia 18','0990000018','AMIGO',18),
-(19,'Contacto emergencia 19','0990000019','OTRO',19),
-(20,'Contacto emergencia 20','0990000020','PAREJA',20),
-(21,'Contacto emergencia 21','0990000021','MADRE',21),
-(22,'Contacto emergencia 22','0990000022','PADRE',22);
-
-INSERT INTO rutafavorita (id_favorita, id_usuario, id_ruta, fecha_guardado) VALUES
-(1,1,1,CURRENT_TIMESTAMP),
-(2,2,2,CURRENT_TIMESTAMP),
-(3,3,3,CURRENT_TIMESTAMP),
-(4,4,4,CURRENT_TIMESTAMP),
-(5,5,5,CURRENT_TIMESTAMP),
-(6,6,6,CURRENT_TIMESTAMP),
-(7,7,7,CURRENT_TIMESTAMP),
-(8,8,8,CURRENT_TIMESTAMP),
-(9,9,9,CURRENT_TIMESTAMP),
-(10,10,10,CURRENT_TIMESTAMP),
-(11,11,11,CURRENT_TIMESTAMP),
-(13,13,13,CURRENT_TIMESTAMP),
-(14,14,14,CURRENT_TIMESTAMP),
-(15,15,15,CURRENT_TIMESTAMP),
-(16,16,16,CURRENT_TIMESTAMP),
-(17,17,17,CURRENT_TIMESTAMP),
-(18,18,18,CURRENT_TIMESTAMP),
-(19,19,19,CURRENT_TIMESTAMP),
-(20,20,20,CURRENT_TIMESTAMP),
-(21,21,21,CURRENT_TIMESTAMP),
-(22,22,22,CURRENT_TIMESTAMP);
-
-INSERT INTO compartirubicacion (id_compartir, fecha_inicio, fecha_fin, estado, id_usuario, id_contacto) VALUES
-(1,'2026-07-02 18:00:00','2026-07-02 19:00:00','FINALIZADO',1,1),
-(2,'2026-07-03 19:00:00',NULL,'ACTIVO',2,2),
-(3,'2026-07-04 20:00:00','2026-07-04 21:00:00','FINALIZADO',3,3),
-(4,'2026-07-05 21:00:00',NULL,'ACTIVO',4,4),
-(5,'2026-07-06 17:00:00','2026-07-06 18:00:00','FINALIZADO',5,5),
-(6,'2026-07-07 18:00:00',NULL,'ACTIVO',6,6),
-(7,'2026-07-08 19:00:00','2026-07-08 20:00:00','FINALIZADO',7,7),
-(8,'2026-07-09 20:00:00',NULL,'ACTIVO',8,8),
-(9,'2026-07-10 21:00:00','2026-07-10 22:00:00','FINALIZADO',9,9),
-(10,'2026-07-01 17:00:00',NULL,'ACTIVO',10,10),
-(11,'2026-07-02 18:00:00','2026-07-02 19:00:00','FINALIZADO',11,11),
-(12,'2026-07-03 19:00:00',NULL,'ACTIVO',12,12),
-(13,'2026-07-04 20:00:00','2026-07-04 21:00:00','FINALIZADO',13,13),
-(14,'2026-07-05 21:00:00',NULL,'ACTIVO',14,14),
-(15,'2026-07-06 17:00:00','2026-07-06 18:00:00','FINALIZADO',15,15),
-(16,'2026-07-07 18:00:00',NULL,'ACTIVO',16,16),
-(17,'2026-07-08 19:00:00','2026-07-08 20:00:00','FINALIZADO',17,17),
-(18,'2026-07-09 20:00:00',NULL,'ACTIVO',18,18),
-(19,'2026-07-10 21:00:00','2026-07-10 22:00:00','FINALIZADO',19,19),
-(20,'2026-07-01 17:00:00',NULL,'ACTIVO',20,20),
-(21,'2026-07-02 18:00:00','2026-07-02 19:00:00','FINALIZADO',21,21),
-(22,'2026-07-03 19:00:00',NULL,'ACTIVO',22,22);
-
 
 -- Verificación de cantidad de registros principales
 SELECT 'usuario' AS tabla, COUNT(*) AS total FROM usuario

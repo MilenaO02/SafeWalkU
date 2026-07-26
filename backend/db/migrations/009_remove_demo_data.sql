@@ -18,6 +18,14 @@ WHERE a.id_usuario BETWEEN 1 AND 24
 DELETE FROM evidencia
 WHERE url_archivo LIKE 'https://safewalk.com/evidencias/%';
 
+-- Algunas instalaciones antiguas no tienen ON DELETE CASCADE en evidencia.
+-- Se eliminan explicitamente todos los adjuntos de reportes demo antes del padre.
+DELETE e
+FROM evidencia AS e
+INNER JOIN reporte AS r
+    ON r.id_reporte = e.id_reporte
+WHERE r.id_usuario BETWEEN 1 AND 24;
+
 DELETE FROM reporte
 WHERE id_usuario BETWEEN 1 AND 24;
 

@@ -19,6 +19,20 @@ class EvidenceRepository {
         `, [id]);
         return rows[0];
     }
+    async findByReportIds(reportIds) {
+        if (reportIds.length === 0)
+            return [];
+        const placeholders = reportIds.map(() => "?").join(", ");
+        const [rows] = await pool.query(`
+            SELECT e.id_evidencia, e.url_archivo, e.tipo_archivo, e.id_reporte
+            FROM evidencia e
+            INNER JOIN reporte r ON r.id_reporte = e.id_reporte
+            WHERE e.id_reporte IN (${placeholders})
+              AND r.estado_registro = 'ACTIVO'
+            ORDER BY e.id_evidencia ASC
+        `, reportIds);
+        return rows;
+    }
     async countByReport(reportId) {
         const [rows] = await pool.query("SELECT COUNT(*) AS total FROM evidencia WHERE id_reporte = ?", [reportId]);
         return Number(rows[0].total);

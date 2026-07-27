@@ -6,6 +6,9 @@ class UserService {
     async getById(id) {
         return await repository.findById(id);
     }
+    async getAvailableRoles(id) {
+        return await repository.findAvailableRoles(id);
+    }
     async update(id, data) {
         if (data.correo) {
             const existing = await repository.findByEmail(data.correo);

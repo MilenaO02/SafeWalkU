@@ -1,4 +1,5 @@
 import reportRepository, { ReportRow } from "../repositories/report.repository.js";
+import evidenceRepository from "../repositories/evidencia.repository.js";
 
 type SessionUser = { id_usuario: number; rol: string };
 
@@ -10,15 +11,29 @@ export class ActiveSOSConflictError extends Error {
 }
 
 class ReportService {
-    findAll(user: SessionUser) {
-        return reportRepository.findAll(user.rol === "ADMINISTRADOR" ? undefined : user.id_usuario);
+    async findAll(user: SessionUser) {
+        const reports = await reportRepository.findAll(user.rol === "ADMINISTRADOR" ? undefined : user.id_usuario);
+        const evidence = await evidenceRepository.findByReportIds(reports.map((report) => report.id_reporte));
+        const evidenceByReport = new Map<number, typeof evidence>();
+
+        for (const item of evidence) {
+            const reportEvidence = evidenceByReport.get(item.id_reporte) ?? [];
+            reportEvidence.push(item);
+            evidenceByReport.set(item.id_reporte, reportEvidence);
+        }
+
+        return reports.map((report) => ({
+            ...report,
+            evidencias: evidenceByReport.get(report.id_reporte) ?? []
+        }));
     }
 
     async findById(id: number) {
         if (!Number.isInteger(id) || id < 1) throw new Error("ID de reporte inválido");
         const reporte = await reportRepository.findById(id);
         if (!reporte) throw new Error("Reporte no encontrado");
-        return reporte;
+        const evidencias = await evidenceRepository.findByReportIds([id]);
+        return { ...reporte, evidencias };
     }
 
     async findAccessibleById(id: number, user: SessionUser) {

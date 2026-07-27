@@ -52,6 +52,14 @@ async function request(path, options = {}) {
   }
 }
 
+function buildAssetUrl(path) {
+  if (!path) return '';
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const serverBase = API_BASE_URL.replace(/\/api$/, '');
+  return `${serverBase}${normalizedPath}`;
+}
+
 export const login = (payload) => request('/auth/login', {
   method: 'POST',
   body: JSON.stringify(payload),
@@ -66,4 +74,5 @@ export const checkHealth = () => request('/health', {
   method: 'GET',
 });
 
-export { buildApiUrl, API_BASE_URL, request };
+export { buildApiUrl, buildAssetUrl, API_BASE_URL, request };
+

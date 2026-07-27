@@ -46,11 +46,23 @@ class RouteService {
         const catalogPoints = recommended?.puntos?.map((point) => [
             Number(point.latitud), Number(point.longitud)
         ]) ?? [];
-        const fallbackCoordinates = manualTrace.length >= 2
-            ? manualTrace
-            : catalogPoints.length >= 2
-                ? catalogPoints
-                : [[originLat, originLng], [Number(destination.latitud), Number(destination.longitud)]];
+        const origin = [originLat, originLng];
+        const destinationPoint = [Number(destination.latitud), Number(destination.longitud)];
+        const anchorToOrigin = (points) => {
+            if (points.length < 2)
+                return null;
+            const startDistance = distanceMeters(origin, points[0]);
+            if (startDistance > 50)
+                return null;
+            return startDistance > 1 ? [origin, ...points] : points;
+        };
+        const applicableManualTrace = anchorToOrigin(manualTrace);
+        const applicableCatalogPoints = anchorToOrigin(catalogPoints);
+        const fallbackMatchesOrigin = Boolean(applicableManualTrace || applicableCatalogPoints);
+        const hasCatalogFallback = manualTrace.length >= 2 || catalogPoints.length >= 2;
+        const fallbackCoordinates = applicableManualTrace
+            ?? applicableCatalogPoints
+            ?? [origin, destinationPoint];
         const fallbackDistance = fallbackCoordinates.slice(1).reduce((total, point, index) => total + distanceMeters(fallbackCoordinates[index], point), 0);
         let pedestrianRoute = null;
         let routingError = false;
@@ -64,7 +76,7 @@ class RouteService {
         const coordinates = pedestrianRoute?.coordinates ?? fallbackCoordinates;
         const source = pedestrianRoute
             ? "OPENROUTESERVICE"
-            : manualTrace.length >= 2
+            : applicableManualTrace
                 ? "TRAZADO_MANUAL"
                 : "REFERENCIAL";
         return {
@@ -76,7 +88,7 @@ class RouteService {
                 ?? Math.max(1, Math.ceil(fallbackDistance / 80)),
             distancia_m: pedestrianRoute?.distanceMeters ?? Math.round(fallbackDistance),
             ruta_catalogada: Boolean(recommended),
-            trazado_manual: manualTrace.length >= 2,
+            trazado_manual: Boolean(applicableManualTrace),
             trazado_peatonal: Boolean(pedestrianRoute),
             fuente_trazado: source,
             instrucciones: pedestrianRoute?.instructions ?? [],
@@ -86,11 +98,13 @@ class RouteService {
                 ? recommended
                     ? "Trayecto peatonal calculado hacia un destino seguro registrado. Revisa las condiciones actuales del entorno."
                     : "Trayecto peatonal calculado por calles y senderos; el proveedor no garantiza por si solo la seguridad del recorrido."
-                : routingError
-                    ? "El calculo peatonal no respondio; se muestra el respaldo disponible. Intenta nuevamente antes de iniciar."
-                    : pedestrianRoutingService.isConfigured()
-                        ? "No se obtuvo una ruta peatonal; se muestra el respaldo disponible."
-                        : "Configura OpenRouteService para seguir calles y senderos; mientras tanto se muestra el trazado manual o referencial."
+                : hasCatalogFallback && !fallbackMatchesOrigin
+                    ? "El respaldo catalogado no inicia cerca de tu ubicacion; se muestra una referencia directa al destino. No la uses como navegacion peatonal."
+                    : routingError
+                        ? "El calculo peatonal no respondio; se muestra el respaldo disponible. Intenta nuevamente antes de iniciar."
+                        : pedestrianRoutingService.isConfigured()
+                            ? "No se obtuvo una ruta peatonal; se muestra el respaldo disponible."
+                            : "Configura OpenRouteService para seguir calles y senderos; mientras tanto se muestra el trazado manual o referencial."
         };
     }
 }

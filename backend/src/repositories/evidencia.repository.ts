@@ -11,6 +11,8 @@ export interface EvidenceRow extends RowDataPacket {
     estado_registro: string;
 }
 
+export type EvidenceSummary = Pick<EvidenceRow, "id_evidencia" | "url_archivo" | "tipo_archivo" | "id_reporte">;
+
 class EvidenceRepository {
     async findAll() {
         const [rows] = await pool.query<EvidenceRow[]>(`
@@ -31,6 +33,21 @@ class EvidenceRepository {
             WHERE e.id_evidencia = ? AND r.estado_registro = 'ACTIVO'
         `, [id]);
         return rows[0];
+    }
+
+    async findByReportIds(reportIds: number[]): Promise<EvidenceSummary[]> {
+        if (reportIds.length === 0) return [];
+
+        const placeholders = reportIds.map(() => "?").join(", ");
+        const [rows] = await pool.query<EvidenceRow[]>(`
+            SELECT e.id_evidencia, e.url_archivo, e.tipo_archivo, e.id_reporte
+            FROM evidencia e
+            INNER JOIN reporte r ON r.id_reporte = e.id_reporte
+            WHERE e.id_reporte IN (${placeholders})
+              AND r.estado_registro = 'ACTIVO'
+            ORDER BY e.id_evidencia ASC
+        `, reportIds);
+        return rows;
     }
 
     async countByReport(reportId: number) {

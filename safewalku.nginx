@@ -24,7 +24,7 @@ server {
 
     root /var/www/safewalku/dist;
     index index.html;
-    client_max_body_size 10M;
+    client_max_body_size 25M;
 
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     add_header X-Content-Type-Options "nosniff" always;

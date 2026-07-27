@@ -1,7 +1,25 @@
 import reportRepository from "../repositories/report.repository.js";
+import evidenceRepository from "../repositories/evidencia.repository.js";
+export class ActiveSOSConflictError extends Error {
+    constructor() {
+        super("Ya existe una alerta SOS pendiente para este usuario");
+        this.name = "ActiveSOSConflictError";
+    }
+}
 class ReportService {
-    findAll(user) {
-        return reportRepository.findAll(user.rol === "ADMINISTRADOR" ? undefined : user.id_usuario);
+    async findAll(user) {
+        const reports = await reportRepository.findAll(user.rol === "ADMINISTRADOR" ? undefined : user.id_usuario);
+        const evidence = await evidenceRepository.findByReportIds(reports.map((report) => report.id_reporte));
+        const evidenceByReport = new Map();
+        for (const item of evidence) {
+            const reportEvidence = evidenceByReport.get(item.id_reporte) ?? [];
+            reportEvidence.push(item);
+            evidenceByReport.set(item.id_reporte, reportEvidence);
+        }
+        return reports.map((report) => ({
+            ...report,
+            evidencias: evidenceByReport.get(report.id_reporte) ?? []
+        }));
     }
     async findById(id) {
         if (!Number.isInteger(id) || id < 1)
@@ -9,7 +27,8 @@ class ReportService {
         const reporte = await reportRepository.findById(id);
         if (!reporte)
             throw new Error("Reporte no encontrado");
-        return reporte;
+        const evidencias = await evidenceRepository.findByReportIds([id]);
+        return { ...reporte, evidencias };
     }
     async findAccessibleById(id, user) {
         const report = await this.findById(id);
@@ -48,6 +67,9 @@ class ReportService {
     async createSOS(data, userId) {
         if (!await reportRepository.locationExists(data.id_ubicacion)) {
             throw new Error("La ubicación indicada no existe");
+        }
+        if (await reportRepository.findActiveSOSByUser(userId)) {
+            throw new ActiveSOSConflictError();
         }
         const id = await reportRepository.createSOS({ ...data, id_usuario: userId });
         return this.findById(id);

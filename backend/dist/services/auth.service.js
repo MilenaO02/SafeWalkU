@@ -3,7 +3,40 @@ import jwt from "jsonwebtoken";
 import repository from "../repositories/user.repository.js";
 import { isValidUideEmail } from "../middleware/validateDomain.js";
 import { getJwtSecret } from "../config/security.js";
+export class InvalidCredentialsError extends Error {
+    constructor() {
+        super("Credenciales incorrectas");
+        this.name = "InvalidCredentialsError";
+    }
+}
+export class InvalidSessionError extends Error {
+    constructor() {
+        super("Sesión no válida");
+        this.name = "InvalidSessionError";
+    }
+}
+export class RoleNotAllowedError extends Error {
+    constructor() {
+        super("El modo solicitado no está autorizado para esta cuenta");
+        this.name = "RoleNotAllowedError";
+    }
+}
 class AuthService {
+    createToken(usuario, rol) {
+        const signOptions = {
+            algorithm: "HS256",
+            expiresIn: (process.env.JWT_EXPIRES || "2h")
+        };
+        return jwt.sign({
+            id_usuario: usuario.id_usuario,
+            correo: usuario.correo,
+            rol
+        }, getJwtSecret(), signOptions);
+    }
+    withoutPassword(usuario, rol, roles) {
+        const { contrasena: _, ...usuarioSeguro } = usuario;
+        return { ...usuarioSeguro, rol, roles };
+    }
     async register(data) {
         const correo = (data.correo ?? data.email ?? "").toString().trim().toLowerCase();
         if (!isValidUideEmail(correo)) {
@@ -36,22 +69,28 @@ class AuthService {
         const dummyHash = "$2b$12$0gY3X44P2MOw19C3at5yQe1mILPz9EAbg8QzydqH7/dMU42trqt7G";
         const ok = await bcrypt.compare(contrasena, usuario?.contrasena ?? dummyHash);
         if (!usuario || !ok || usuario.estado !== "ACTIVO") {
-            throw new Error("Credenciales incorrectas");
+            throw new InvalidCredentialsError();
         }
-        const jwtSecret = getJwtSecret();
-        const signOptions = {
-            algorithm: "HS256",
-            expiresIn: (process.env.JWT_EXPIRES || "2h")
-        };
-        const token = jwt.sign({
-            id_usuario: usuario.id_usuario,
-            correo: usuario.correo,
-            rol: usuario.rol
-        }, jwtSecret, signOptions);
-        const { contrasena: _, ...usuarioSeguro } = usuario;
+        const roles = await repository.findAvailableRoles(usuario.id_usuario);
+        const activeRole = usuario.rol;
+        const token = this.createToken(usuario, activeRole);
         return {
             token,
-            usuario: usuarioSeguro
+            usuario: this.withoutPassword(usuario, activeRole, roles)
+        };
+    }
+    async switchRole(idUsuario, requestedRole) {
+        const usuario = await repository.findById(idUsuario);
+        if (!usuario || usuario.estado !== "ACTIVO") {
+            throw new InvalidSessionError();
+        }
+        const roles = await repository.findAvailableRoles(idUsuario);
+        if (!roles.includes(requestedRole)) {
+            throw new RoleNotAllowedError();
+        }
+        return {
+            token: this.createToken(usuario, requestedRole),
+            usuario: this.withoutPassword(usuario, requestedRole, roles)
         };
     }
 }

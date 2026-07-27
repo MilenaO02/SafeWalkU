@@ -34,9 +34,24 @@ export default function ContactosEmergencia() {
 
   const resetForm = () => { setForm(emptyForm); setEditingId(null); };
   const submit = async (event) => {
-    event.preventDefault(); setSaving(true); setError(null);
+    event.preventDefault();
+    setError(null);
+
+    const nameRegex = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s'-]+$/;
+    if (!nameRegex.test(form.nombre.trim())) {
+      setError('El nombre del contacto solo debe contener letras, espacios y tildes.');
+      return;
+    }
+
+    const phoneRegex = /^\+?[0-9][0-9\s-]{6,19}$/;
+    if (!phoneRegex.test(form.telefono.trim())) {
+      setError('Ingresa un número de teléfono válido (ej: 0991234567 o +593991234567).');
+      return;
+    }
+
+    setSaving(true);
     try {
-      await request(editingId ? `/contacts/${editingId}` : '/contacts', { method: editingId ? 'PUT' : 'POST', body: JSON.stringify(form) });
+      await request(editingId ? `/contacts/${editingId}` : '/contacts', { method: editingId ? 'PUT' : 'POST', body: JSON.stringify({ ...form, nombre: form.nombre.trim(), telefono: form.telefono.trim() }) });
       showToast(editingId ? 'Contacto actualizado.' : 'Contacto agregado.'); resetForm(); await load();
     } catch (submitError) { setError(submitError instanceof Error ? submitError.message : 'No fue posible guardar el contacto.'); }
     finally { setSaving(false); }
@@ -56,7 +71,7 @@ export default function ContactosEmergencia() {
     <form onSubmit={submit} className="space-y-3 rounded-2xl border border-purple-100 bg-purple-50/40 p-4">
       <div className="flex items-center justify-between"><h3 className="text-sm font-black text-purple-950">{editingId ? 'Editar contacto' : 'Agregar contacto'}</h3><span className="text-[10px] font-bold text-slate-500">{data.contactos.length}/20</span></div>
       <input required minLength={2} maxLength={100} aria-label="Nombre del contacto" placeholder="Nombre completo" value={form.nombre} onChange={(event) => setForm((value) => ({ ...value, nombre: event.target.value }))} className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" />
-      <input required inputMode="tel" aria-label="Teléfono del contacto" placeholder="Teléfono, por ejemplo 0991234567" value={form.telefono} onChange={(event) => setForm((value) => ({ ...value, telefono: event.target.value }))} className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" />
+      <input required type="tel" inputMode="tel" aria-label="Teléfono del contacto" placeholder="Teléfono, por ejemplo 0991234567" value={form.telefono} onChange={(event) => setForm((value) => ({ ...value, telefono: event.target.value }))} className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" />
       <select aria-label="Parentesco" value={form.parentesco} onChange={(event) => setForm((value) => ({ ...value, parentesco: event.target.value }))} className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm">{relationships.map((relationship) => <option key={relationship} value={relationship}>{relationship}</option>)}</select>
       <div className="grid grid-cols-2 gap-2">{editingId && <button type="button" onClick={resetForm} className="min-h-11 rounded-xl border border-purple-300 text-xs font-bold text-purple-900">Cancelar</button>}<button disabled={saving || (!editingId && data.contactos.length >= 20)} className={`${editingId ? '' : 'col-span-2'} min-h-11 rounded-xl bg-purple-900 text-xs font-bold text-white disabled:opacity-50`}>{saving ? 'Guardando…' : editingId ? 'Guardar cambios' : 'Agregar contacto'}</button></div>
     </form>

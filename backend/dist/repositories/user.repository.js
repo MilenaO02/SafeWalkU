@@ -1,5 +1,27 @@
 import pool from "../config/database.js";
 class UserRepository {
+    async findAvailableRoles(id) {
+        const [rows] = await pool.query(`
+            SELECT
+                u.rol,
+                EXISTS(
+                    SELECT 1
+                    FROM administrador a
+                    WHERE a.id_usuario = u.id_usuario
+                ) AS es_administrador
+            FROM usuario u
+            WHERE u.id_usuario = ?
+              AND u.estado = 'ACTIVO'
+            `, [id]);
+        if (!rows[0]) {
+            return [];
+        }
+        const roles = new Set([rows[0].rol]);
+        if (Boolean(rows[0].es_administrador)) {
+            roles.add("ADMINISTRADOR");
+        }
+        return [...roles];
+    }
     async findAll() {
         const [rows] = await pool.query(`
 
@@ -107,7 +129,7 @@ class UserRepository {
         return this.findById(id);
     }
     async delete(id) {
-        await pool.query(`
+        const [result] = await pool.query(`
 
         UPDATE usuario
 
@@ -115,7 +137,10 @@ class UserRepository {
 
         WHERE id_usuario=?
 
+        AND estado='ACTIVO'
+
         `, [id]);
+        return result.affectedRows === 1;
     }
     async updateFotoPerfil(id, foto_perfil) {
         await pool.query(`UPDATE usuario SET foto_perfil = ? WHERE id_usuario = ?`, [foto_perfil, id]);

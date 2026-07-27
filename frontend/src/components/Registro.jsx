@@ -24,6 +24,22 @@ export default function Registro() {
     e.preventDefault();
     setError(null);
 
+    const nameRegex = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s'-]+$/;
+    if (!nameRegex.test(formData.nombre.trim())) {
+      setError('El nombre solo debe contener letras, espacios y tildes.');
+      return;
+    }
+    if (!nameRegex.test(formData.apellido.trim())) {
+      setError('El apellido solo debe contener letras, espacios y tildes.');
+      return;
+    }
+
+    const emailTrimmed = formData.email.trim().toLowerCase();
+    if (!emailTrimmed.endsWith('@uide.edu.ec')) {
+      setError('Solo se permiten correos institucionales @uide.edu.ec.');
+      return;
+    }
+
     if (formData.password !== formData.confirmPassword) {
       setError('Las contraseñas no coinciden.');
       return;

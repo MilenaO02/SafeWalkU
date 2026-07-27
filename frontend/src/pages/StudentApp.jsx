@@ -77,6 +77,23 @@ export default function StudentApp() {
     fetchZonas();
   }, []);
 
+  const handleDestinoSelect = (destino) => {
+    if (!destino) return;
+    const lat = Number(destino.latitud);
+    const lng = Number(destino.longitud);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+    setMapConfig((prev) => ({
+      ...prev,
+      centro: [lat, lng],
+      zoom: 17,
+      markers: [
+        ...prev.markers.filter((m) => m.title !== destino.nombre && m.title !== 'Tu ubicación'),
+        { position: [lat, lng], title: destino.nombre, desc: destino.direccion }
+      ]
+    }));
+  };
+
   const handleTrazarRuta = async (destino) => {
     if (!userPos) {
       setGeoError('Selecciona tu ubicación mediante GPS o coordenadas manuales antes de trazar.');
@@ -86,18 +103,59 @@ export default function StudentApp() {
       setRouteStatus('loading');
       setGeoError(null);
       const [lat, lng] = userPos;
-      const json = await request(`/routes/trazar?origen_lat=${lat}&origen_lng=${lng}&destino_id=${destino.id_ubicacion}`);
-      if (json.success) {
-        setRouteSummary(json.data);
-        setMapConfig(prev => ({
+      const isNumericId = Number.isInteger(Number(destino.id_ubicacion)) && Number(destino.id_ubicacion) > 0;
+
+      if (isNumericId) {
+        const json = await request(`/routes/trazar?origen_lat=${lat}&origen_lng=${lng}&destino_id=${destino.id_ubicacion}`);
+        if (json.success) {
+          setRouteSummary(json.data);
+          setMapConfig((prev) => ({
+            ...prev,
+            polyline: json.data.coordenadas,
+            centro: json.data.coordenadas[Math.floor(json.data.coordenadas.length / 2)] || [lat, lng],
+            zoom: 16,
+            markers: [
+              ...prev.markers.filter((m) => m.title !== destino.nombre && m.title !== 'Tu ubicación'),
+              { position: [lat, lng], title: 'Tu ubicación', desc: 'Punto desde el que solicitaste la ruta' },
+              { position: [Number(destino.latitud), Number(destino.longitud)], title: destino.nombre, desc: destino.direccion }
+            ]
+          }));
+        }
+      } else {
+        // Destino desde Google Places
+        const destLat = Number(destino.latitud);
+        const destLng = Number(destino.longitud);
+        const polyline = [[lat, lng], [destLat, destLng]];
+
+        // Cálculo de distancia haversine aproximada en metros
+        const rad = (d) => (d * Math.PI) / 180;
+        const R = 6371000;
+        const dLat = rad(destLat - lat);
+        const dLng = rad(destLng - lng);
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(rad(lat)) * Math.cos(rad(destLat)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        const distM = Math.round(2 * R * Math.asin(Math.sqrt(a)));
+        const estMin = Math.max(1, Math.ceil(distM / 80));
+
+        setRouteSummary({
+          nombre_ruta: `Camino a ${destino.nombre}`,
+          distancia_m: distM,
+          tiempo_estimado: estMin,
+          fuente_trazado: 'GOOGLE_MAPS',
+          aviso: 'Trayecto trazado hacia el lugar seleccionado en Google Maps.',
+          instrucciones: [
+            { instruction: `Avanza con dirección a ${destino.nombre} (${destino.direccion})`, distance_m: distM }
+          ]
+        });
+
+        setMapConfig((prev) => ({
           ...prev,
-          polyline: json.data.coordenadas,
-          centro: json.data.coordenadas[Math.floor(json.data.coordenadas.length / 2)] || [lat, lng],
+          polyline,
+          centro: [(lat + destLat) / 2, (lng + destLng) / 2],
           zoom: 16,
           markers: [
-            ...prev.markers.filter(m => m.title !== destino.nombre && m.title !== 'Tu ubicación'),
+            ...prev.markers.filter((m) => m.title !== destino.nombre && m.title !== 'Tu ubicación'),
             { position: [lat, lng], title: 'Tu ubicación', desc: 'Punto desde el que solicitaste la ruta' },
-            { position: [Number(destino.latitud), Number(destino.longitud)], title: destino.nombre, desc: destino.direccion }
+            { position: [destLat, destLng], title: destino.nombre, desc: destino.direccion }
           ]
         }));
       }
@@ -114,6 +172,7 @@ export default function StudentApp() {
       {/* Buscador de Destinos */}
       <div className="bg-slate-50 dark:bg-[#2B2B2F] p-5 rounded-2xl border border-slate-100 dark:border-[#4A4A50] shadow-inner transition-colors duration-500">
         <BuscadorPrincipal
+          onDestinoSelect={handleDestinoSelect}
           onTrazar={handleTrazarRuta}
           tracing={routeStatus === 'loading'}
           originLabel={userPos

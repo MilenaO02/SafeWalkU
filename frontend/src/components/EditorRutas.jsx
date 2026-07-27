@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CircleMarker, MapContainer, Polyline, Popup, TileLayer, useMapEvents } from 'react-leaflet';
 import { request } from '../services/api';
 import { useAuth } from '../context/auth';
+import MapaInteractivo from './MapaInteractivo';
 
 const fallbackCenter = [-3.97245, -79.19933];
 const emptyForm = { nombre_ruta: '', descripcion: '', nivel_seguridad: 'ALTO', tiempo_estimado: 5, origen: '', destino: '' };
@@ -109,7 +109,21 @@ export default function EditorRutas() {
         <div className="rounded-xl bg-slate-50 p-3 text-xs"><b>{points.length}</b> puntos · <b>{totalDistance} m</b>{drawing && <p className="mt-1 text-purple-700">2. Haz clic en el mapa para agregar puntos intermedios.</p>}</div>
         <div className="grid grid-cols-2 gap-2"><button type="button" onClick={reset} className="min-h-11 rounded-xl border border-slate-200 text-xs font-bold">Cancelar</button><button disabled={status === 'saving'} className="min-h-11 rounded-xl bg-purple-900 text-xs font-bold text-white disabled:opacity-50">{status === 'saving' ? 'Guardando…' : 'Guardar ruta'}</button></div>
       </form>
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-3"><div className="h-[520px] min-h-[360px]"><MapContainer key={`${mapCenter[0]}-${mapCenter[1]}-${editingId || 'new'}`} center={mapCenter} zoom={17} className="h-full w-full rounded-xl"><TileLayer attribution="&copy; OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" /><ClickCapture enabled={drawing} onAdd={addPoint} />{points.length > 1 && <Polyline positions={points} pathOptions={{ color: '#4a208c', weight: 6 }} />}{points.map((point, index) => <CircleMarker key={`${point[0]}-${point[1]}-${index}`} center={point} radius={index === 0 || index === points.length - 1 ? 8 : 5} pathOptions={{ color: index === 0 ? '#2563eb' : index === points.length - 1 ? '#16a34a' : '#7e22ce', fillOpacity: 1 }}><Popup>Punto {index + 1}<br />{point[0].toFixed(6)}, {point[1].toFixed(6)}</Popup></CircleMarker>)}</MapContainer></div></section>
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-3">
+        <div className="h-[520px] min-h-[360px]">
+          <MapaInteractivo
+            key={`${mapCenter[0]}-${mapCenter[1]}-${editingId || 'new'}`}
+            centro={mapCenter}
+            zoom={17}
+            polyline={points}
+            markers={points.map((point, index) => ({
+              position: point,
+              title: `Punto ${index + 1}`,
+              desc: `${point[0].toFixed(6)}, ${point[1].toFixed(6)}`
+            }))}
+          />
+        </div>
+      </section>
     </div>
     <section className="rounded-2xl border border-slate-200 bg-white p-5"><h3 className="font-black">Rutas registradas</h3><div className="mt-4 grid gap-3 md:grid-cols-2">{routes.map((route) => <article key={route.id_ruta} className="rounded-xl border border-slate-200 p-4"><div className="flex justify-between gap-3"><div><p className="font-bold">{route.nombre_ruta}</p><p className="mt-1 text-xs text-slate-500">{route.nivel_seguridad} · {route.tiempo_estimado} min · {route.total_puntos} puntos manuales</p></div><span className={`h-fit rounded-lg px-2 py-1 text-[10px] font-black ${Number(route.total_puntos) >= 2 ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>{Number(route.total_puntos) >= 2 ? 'TRAZADA' : 'REFERENCIAL'}</span></div><div className="mt-3 flex gap-2"><button onClick={() => edit(route)} className="min-h-11 flex-1 rounded-xl bg-purple-50 text-xs font-bold text-purple-900">Editar</button><button onClick={() => remove(route)} className="min-h-11 rounded-xl border border-red-200 px-4 text-xs font-bold text-red-700">Eliminar</button></div></article>)}{status === 'ready' && !routes.length && <p className="text-sm text-slate-500">No hay rutas registradas.</p>}</div></section>
   </div>;

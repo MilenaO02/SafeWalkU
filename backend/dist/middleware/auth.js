@@ -13,28 +13,50 @@ export default async function auth(req, res, next) {
     catch {
         return res.status(500).json({ success: false, message: "Configuración de autenticación incompleta." });
     }
+    let decoded;
     try {
-        const decoded = jwt.verify(match[1], jwtSecret, {
+        decoded = jwt.verify(match[1], jwtSecret, {
             algorithms: ["HS256"]
         });
-        const idUsuario = Number(decoded.id_usuario);
-        if (!Number.isInteger(idUsuario) || idUsuario < 1) {
-            throw new Error("Identificador de sesión inválido");
-        }
+    }
+    catch {
+        return res.status(401).json({ success: false, message: "Token inválido o vencido." });
+    }
+    const idUsuario = Number(decoded.id_usuario);
+    if (!Number.isInteger(idUsuario) || idUsuario < 1) {
+        return res.status(401).json({ success: false, message: "Token inválido o vencido." });
+    }
+    try {
         // La base de datos es la fuente actual del estado y el rol. De este modo,
         // desactivar una cuenta invalida también sus tokens todavía no vencidos.
         const usuario = await userService.getById(idUsuario);
         if (!usuario || usuario.estado !== "ACTIVO") {
             return res.status(401).json({ success: false, message: "Sesión no válida." });
         }
+        const roles = await userService.getAvailableRoles(idUsuario);
+        const activeRole = decoded.rol?.toString().toUpperCase();
+        if (activeRole !== "ESTUDIANTE" && activeRole !== "ADMINISTRADOR") {
+            return res.status(401).json({ success: false, message: "Token inválido o vencido." });
+        }
+        if (!roles.includes(activeRole)) {
+            return res.status(403).json({
+                success: false,
+                message: "El modo de acceso de esta sesión ya no está autorizado."
+            });
+        }
         req.user = {
             id_usuario: usuario.id_usuario,
             correo: usuario.correo,
-            rol: usuario.rol
+            rol: activeRole,
+            roles
         };
-        next();
     }
-    catch {
-        return res.status(401).json({ success: false, message: "Token inválido o vencido." });
+    catch (error) {
+        console.error("No fue posible consultar el usuario de la sesión:", error);
+        return res.status(500).json({
+            success: false,
+            message: "No fue posible validar la sesión con la base de datos."
+        });
     }
+    return next();
 }

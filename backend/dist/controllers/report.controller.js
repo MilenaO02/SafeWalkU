@@ -1,4 +1,4 @@
-import reportService from "../services/report.service.js";
+import reportService, { ActiveSOSConflictError } from "../services/report.service.js";
 class ReportController {
     async getAll(req, res) {
         try {
@@ -93,7 +93,8 @@ class ReportController {
             return res.status(201).json({ success: true, message: "SOS Activado", data: report });
         }
         catch (error) {
-            return res.status(400).json({ success: false, message: error.message });
+            const status = error instanceof ActiveSOSConflictError ? 409 : 400;
+            return res.status(status).json({ success: false, message: error.message });
         }
     }
     async cancelSOS(req, res) {

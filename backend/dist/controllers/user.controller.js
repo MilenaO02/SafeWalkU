@@ -4,26 +4,70 @@ import { hasValidImageSignature } from "../config/multer.js";
 class UserController {
     async getMe(req, res) {
         const usuario = await service.getById(req.user.id_usuario);
-        return res.json({ success: true, data: usuario });
+        return res.json({
+            success: true,
+            data: {
+                ...usuario,
+                rol: req.user.rol,
+                roles: req.user.roles
+            }
+        });
     }
     async getAll(req, res) {
-        const usuarios = await service.getAll();
-        res.json(usuarios);
-    }
-    async getById(req, res) {
-        const usuario = await service.getById(Number(req.params.id));
-        if (!usuario) {
-            return res.status(404).json({
-                message: "Usuario no encontrado"
+        try {
+            const usuarios = await service.getAll();
+            return res.status(200).json({ success: true, data: usuarios });
+        }
+        catch (error) {
+            console.error("No fue posible consultar los usuarios:", error);
+            return res.status(500).json({
+                success: false,
+                message: "No fue posible consultar los usuarios"
             });
         }
-        res.json(usuario);
+    }
+    async getById(req, res) {
+        try {
+            const id = Number(req.params.id);
+            if (!Number.isInteger(id) || id < 1) {
+                return res.status(400).json({ success: false, message: "ID de usuario inválido" });
+            }
+            const usuario = await service.getById(id);
+            if (!usuario) {
+                return res.status(404).json({ success: false, message: "Usuario no encontrado" });
+            }
+            return res.status(200).json({ success: true, data: usuario });
+        }
+        catch (error) {
+            console.error("No fue posible consultar el usuario:", error);
+            return res.status(500).json({
+                success: false,
+                message: "No fue posible consultar el usuario"
+            });
+        }
     }
     async update(req, res) {
-        await service.update(Number(req.params.id), req.body);
-        res.json({
-            message: "Usuario actualizado correctamente"
-        });
+        try {
+            const id = Number(req.params.id);
+            if (!Number.isInteger(id) || id < 1) {
+                return res.status(400).json({ success: false, message: "ID de usuario inválido" });
+            }
+            const usuario = await service.update(id, req.body);
+            return res.status(200).json({
+                success: true,
+                message: "Usuario actualizado correctamente",
+                data: usuario
+            });
+        }
+        catch (error) {
+            const status = error.message === "Usuario no encontrado"
+                ? 404
+                : error.message === "Correo ya registrado" ? 409 : 400;
+            return res.status(status).json({
+                success: false,
+                message: error.message || "No fue posible actualizar el usuario"
+            });
+        }
     }
     async updateMe(req, res) {
         try {
@@ -37,11 +81,33 @@ class UserController {
         }
     }
     async delete(req, res) {
-        await service.delete(Number(req.params.id));
-        res.json({
-            success: true,
-            message: "Usuario desactivado correctamente"
-        });
+        try {
+            const id = Number(req.params.id);
+            if (!Number.isInteger(id) || id < 1) {
+                return res.status(400).json({ success: false, message: "ID de usuario inválido" });
+            }
+            if (id === req.user.id_usuario) {
+                return res.status(409).json({
+                    success: false,
+                    message: "No puede desactivar la cuenta de la sesión actual"
+                });
+            }
+            const deleted = await service.delete(id);
+            if (!deleted) {
+                return res.status(404).json({ success: false, message: "Usuario no encontrado" });
+            }
+            return res.status(200).json({
+                success: true,
+                message: "Usuario desactivado correctamente"
+            });
+        }
+        catch (error) {
+            console.error("No fue posible desactivar el usuario:", error);
+            return res.status(500).json({
+                success: false,
+                message: "No fue posible desactivar el usuario"
+            });
+        }
     }
     async uploadFoto(req, res) {
         try {

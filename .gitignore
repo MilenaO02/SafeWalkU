@@ -32,3 +32,7 @@ backups/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Ignorar carpeta docs y archivos markdown en la raíz
+docs/
+/*.md

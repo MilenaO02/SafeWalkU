@@ -33,6 +33,7 @@ backups/
 .DS_Store
 Thumbs.db
 
-# Ignorar carpeta docs y archivos markdown en la raíz
+# Ignorar carpeta docs y archivos markdown en la raíz (excepto MANUAL_USUARIO.md)
 docs/
 /*.md
+!MANUAL_USUARIO.md

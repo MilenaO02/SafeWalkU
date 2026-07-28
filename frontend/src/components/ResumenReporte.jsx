@@ -84,11 +84,13 @@ export default function ResumenReporte() {
     setSubmitError(null);
 
     try {
+      // nivel_riesgo is now derived from the category map in ReportarIncidente
+      // and stored in the draft, so we read it directly instead of re-deriving here.
       const data = await request('/reports', {
         method: 'POST',
         body: JSON.stringify({
-          descripcion: `[Categoría: ${report.categoria}] - ${report.descripcion}` ,
-          nivel_riesgo: report.categoria === "Robo / Hurto" || report.categoria === "Acoso / Intimidación" ? "ALTO" : "MEDIO",
+          descripcion:  `[Categoría: ${report.categoria}] - ${report.descripcion}`,
+          nivel_riesgo: report.nivel_riesgo ?? 'MEDIO',
           id_ubicacion: report.id_ubicacion,
         }),
       });
@@ -160,9 +162,24 @@ export default function ResumenReporte() {
           
           <div className="space-y-1">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Categoría</span>
-            <span className="text-xs font-extrabold text-slate-900 bg-white border border-slate-200/60 px-3 py-1.5 rounded-xl inline-block shadow-sm">
-              {report.categoria}
-            </span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-extrabold text-slate-900 bg-white border border-slate-200/60 px-3 py-1.5 rounded-xl inline-block shadow-sm">
+                {report.categoria}
+              </span>
+              {report.nivel_riesgo && (
+                <span
+                  className={`text-[10px] font-black px-2.5 py-1 rounded-lg ${
+                    report.nivel_riesgo === 'ALTO'
+                      ? 'bg-red-100 text-red-700'
+                      : report.nivel_riesgo === 'MEDIO'
+                      ? 'bg-amber-100 text-amber-700'
+                      : 'bg-green-100 text-green-700'
+                  }`}
+                >
+                  Riesgo {report.nivel_riesgo}
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="space-y-1">

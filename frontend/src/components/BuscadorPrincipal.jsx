@@ -21,7 +21,7 @@ export default function BuscadorPrincipal({
   const wrapperRef = useRef(null);
   const sessionTokenRef = useRef(newSessionToken());
 
-  const googleApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+  const googleApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || (typeof window !== 'undefined' && window.VITE_GOOGLE_MAPS_API_KEY);
 
   // Cargar Google Maps JS API de forma segura y asíncrona
   useEffect(() => {

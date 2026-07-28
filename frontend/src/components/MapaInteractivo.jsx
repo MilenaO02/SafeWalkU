@@ -16,16 +16,15 @@ export default function MapaInteractivo({
   const [mapError, setMapError] = useState(null);
   const [mapReady, setMapReady] = useState(false);
 
-  const googleApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-
   const centroLat = Array.isArray(centro) && Number.isFinite(Number(centro[0])) ? Number(centro[0]) : null;
   const centroLng = Array.isArray(centro) && Number.isFinite(Number(centro[1])) ? Number(centro[1]) : null;
   const zoomNum = Number.isFinite(Number(zoom)) ? Number(zoom) : 17;
+  const googleApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || (typeof window !== 'undefined' && window.VITE_GOOGLE_MAPS_API_KEY);
 
   // Inicializar mapa nativo de Google Maps
   useEffect(() => {
     if (!googleApiKey) {
-      setMapError('No se encontró VITE_GOOGLE_MAPS_API_KEY en las variables del navegador.');
+      setMapError('No se encontró VITE_GOOGLE_MAPS_API_KEY al compilar el frontend. Asegúrate de configurar la clave en frontend/.env.production y recompilar.');
       return;
     }
     if (!mapRef.current) return;

@@ -138,6 +138,20 @@ class ReportRepository {
         return rows;
     }
 
+    async findActiveReportsByCity(ciudad: string) {
+        const [rows] = await pool.query<RowDataPacket[]>(`
+            SELECT r.id_reporte, r.descripcion, r.nivel_riesgo, r.fecha_reporte, r.estado,
+                   ub.nombre AS ubicacion_nombre, ub.radio_metros,
+                   c.latitud, c.longitud
+            FROM reporte r
+            INNER JOIN ubicacion ub ON r.id_ubicacion = ub.id_ubicacion
+            INNER JOIN coordenada c ON c.id_ubicacion = ub.id_ubicacion
+            WHERE ub.ciudad = ? AND r.estado IN ('PENDIENTE', 'VALIDADO')
+              AND r.estado_registro = 'ACTIVO' AND r.tipo_reporte = 'INCIDENTE'
+        `, [ciudad]);
+        return rows;
+    }
+
     async createSOS(report: { descripcion: string; id_usuario: number; id_ubicacion: number }) {
         const [result] = await pool.query<ResultSetHeader>(`
             INSERT INTO reporte

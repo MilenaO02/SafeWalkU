@@ -13,6 +13,7 @@ export default function ReportarIncidente() {
   const [locations, setLocations] = useState([]);
   const [form, setForm] = useState({ category: '', description: '', locationId: '' });
   const [evidence, setEvidence] = useState(null);
+  const [evidenceError, setEvidenceError] = useState(null);
   const [status, setStatus] = useState('loading');
   const [error, setError] = useState(null);
 
@@ -42,6 +43,16 @@ export default function ReportarIncidente() {
     navigate('/resumen-reporte');
   };
 
+  const handleEvidenceChange = (event) => {
+    const file = event.target.files?.[0] || null;
+    setEvidenceError(null);
+    if (!file) { setEvidence(null); return; }
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/webm'];
+    if (!allowed.includes(file.type)) { setEvidenceError('Solo se permiten imágenes JPG, PNG, WEBP y videos MP4 o WEBM.'); event.target.value = ''; return; }
+    if (file.size > 25 * 1024 * 1024) { setEvidenceError('La evidencia no puede superar 25 MB.'); event.target.value = ''; return; }
+    setEvidence(file);
+  };
+
   return <div className="space-y-5">
     <button onClick={() => navigate('/app')} className="flex min-h-11 items-center gap-1 text-xs font-bold text-purple-900"><span className="material-symbols-outlined">arrow_back</span>Volver al inicio</button>
     <div><h2 className="text-xl font-black text-purple-950">Reportar incidente</h2><p className="mt-1 text-xs text-slate-500">Describe lo ocurrido y selecciona el punto registrado más cercano.</p></div>
@@ -51,7 +62,8 @@ export default function ReportarIncidente() {
       <label className="block text-xs font-bold">Tipo de incidente<select required value={form.category} onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))} className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 bg-white px-4"><option value="">Selecciona una categoría</option>{categories.map((category) => <option key={category}>{category}</option>)}</select></label>
       <label className="block text-xs font-bold">Ubicación<select required disabled={status !== 'ready'} value={form.locationId} onChange={(event) => selectLocation(event.target.value)} className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 bg-white px-4"><option value="">Selecciona un punto</option>{locations.map((location) => <option key={location.id_ubicacion} value={location.id_ubicacion}>{location.nombre} — {location.direccion}</option>)}</select></label>
       <label className="block text-xs font-bold">Descripción<textarea required minLength={10} maxLength={300} value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} placeholder="Describe qué ocurrió…" className="mt-1 h-28 w-full rounded-xl border border-slate-200 p-3 text-sm" /></label>
-      <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp,video/mp4" className="hidden" onChange={(event) => setEvidence(event.target.files?.[0] || null)} />
+      <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm" className="hidden" onChange={handleEvidenceChange} />
+      {evidenceError && <p role="alert" className="text-xs font-semibold text-red-700">{evidenceError}</p>}
       <div className="rounded-xl border border-dashed border-slate-300 p-3"><button type="button" onClick={() => inputRef.current?.click()} className="min-h-11 w-full rounded-xl bg-slate-100 px-4 text-xs font-bold">{evidence ? 'Cambiar evidencia' : 'Adjuntar evidencia opcional'}</button>{evidence && <div className="mt-2 flex items-center justify-between gap-2 text-xs"><span className="truncate">{evidence.name}</span><button type="button" onClick={() => { setEvidence(null); clearPendingEvidence(); if (inputRef.current) inputRef.current.value = ''; }} className="min-h-11 px-3 font-bold text-red-600">Quitar</button></div>}</div>
       <button disabled={status !== 'ready'} className="min-h-11 w-full rounded-xl bg-purple-900 px-4 text-xs font-bold text-white disabled:opacity-50">Revisar reporte</button>
     </form>

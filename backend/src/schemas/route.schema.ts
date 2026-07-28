@@ -47,5 +47,12 @@ export const updateRouteSchema = z.object({
 export const traceRouteQuerySchema = z.object({
     origen_lat: z.coerce.number().min(-90).max(90),
     origen_lng: z.coerce.number().min(-180).max(180),
-    destino_id: z.coerce.number().int().positive()
-}).strict();
+    destino_id: z.coerce.number().int().positive().optional(),
+    destino_lat: z.coerce.number().min(-90).max(90).optional(),
+    destino_lng: z.coerce.number().min(-180).max(180).optional(),
+    destino_nombre: z.string().trim().max(200).optional(),
+    destino_direccion: z.string().trim().max(300).optional(),
+    place_id: z.string().trim().max(255).optional()
+}).strict().refine((data) => Boolean(data.destino_id) || (data.destino_lat !== undefined && data.destino_lng !== undefined), {
+    message: "Debe indicar destino_id o coordenadas del destino"
+});

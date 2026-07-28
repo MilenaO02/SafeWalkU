@@ -17,6 +17,13 @@ export default function StudentProfile() {
 
   const save = async (event) => {
     event.preventDefault(); setStatus('saving'); setError(null);
+    const personName = /^[\p{L}\p{M}]+(?:[ '\u2019-][\p{L}\p{M}]+)*$/u;
+    if (!personName.test(form.nombre.trim()) || !personName.test(form.apellido.trim())) {
+      setError('Nombre y apellido solo deben contener letras, espacios, tildes, guiones o apóstrofes.'); setStatus('ready'); return;
+    }
+    if (!form.correo.trim().toLowerCase().endsWith('@uide.edu.ec')) {
+      setError('Solo se permiten correos institucionales @uide.edu.ec.'); setStatus('ready'); return;
+    }
     try {
       const response = await request('/users/me', { method: 'PUT', body: JSON.stringify({ nombre: form.nombre.trim(), apellido: form.apellido.trim(), correo: form.correo.trim().toLowerCase() }) });
       setProfile(response.data); updateUser(response.data); setEditing(false); setStatus('ready'); showToast('Perfil actualizado.');
@@ -47,6 +54,6 @@ export default function StudentProfile() {
     {status === 'loading' && <p className="rounded-xl bg-slate-50 p-4 text-sm">Cargando perfil…</p>}
     {error && <p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
     <section className="rounded-3xl border border-slate-200 bg-white p-5 text-sm dark:border-[#4A4A50] dark:bg-[#2B2B2F] dark:text-white"><h3 className="font-black">Información de la cuenta</h3><dl className="mt-4 space-y-3"><div className="flex justify-between gap-4"><dt className="text-slate-500">ID</dt><dd className="font-bold">{profile?.id_usuario}</dd></div><div className="flex justify-between gap-4"><dt className="text-slate-500">Estado</dt><dd className="font-bold">{profile?.estado || 'ACTIVO'}</dd></div><div className="flex justify-between gap-4"><dt className="text-slate-500">Registro</dt><dd className="font-bold">{profile?.fecha_registro ? new Date(profile.fecha_registro).toLocaleDateString() : '—'}</dd></div></dl></section>
-    {editing && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/70 p-4"><form onSubmit={save} className="w-full max-w-sm space-y-4 rounded-3xl bg-white p-6"><h3 className="text-lg font-black">Editar perfil</h3>{[['nombre', 'Nombre'], ['apellido', 'Apellido'], ['correo', 'Correo institucional']].map(([key, label]) => <label key={key} className="block text-xs font-bold">{label}<input required type={key === 'correo' ? 'email' : 'text'} value={form[key]} onChange={(event) => setForm((value) => ({ ...value, [key]: event.target.value }))} className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 text-sm" /></label>)}<div className="flex gap-2"><button type="button" onClick={() => setEditing(false)} className="min-h-11 flex-1 rounded-xl border border-slate-200 text-xs font-bold">Cancelar</button><button disabled={status === 'saving'} className="min-h-11 flex-1 rounded-xl bg-purple-900 text-xs font-bold text-white">Guardar</button></div></form></div>}
+    {editing && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/70 p-4"><form onSubmit={save} className="w-full max-w-sm space-y-4 rounded-3xl bg-white p-6"><h3 className="text-lg font-black">Editar perfil</h3>{[['nombre', 'Nombre'], ['apellido', 'Apellido'], ['correo', 'Correo institucional']].map(([key, label]) => <label key={key} className="block text-xs font-bold">{label}<input required minLength={key === 'correo' ? undefined : 2} maxLength={key === 'correo' ? 254 : 100} type={key === 'correo' ? 'email' : 'text'} value={form[key]} onChange={(event) => setForm((value) => ({ ...value, [key]: event.target.value }))} className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 text-sm" /></label>)}<div className="flex gap-2"><button type="button" onClick={() => setEditing(false)} className="min-h-11 flex-1 rounded-xl border border-slate-200 text-xs font-bold">Cancelar</button><button disabled={status === 'saving'} className="min-h-11 flex-1 rounded-xl bg-purple-900 text-xs font-bold text-white">Guardar</button></div></form></div>}
   </div>;
 }

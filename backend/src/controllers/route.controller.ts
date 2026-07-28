@@ -162,7 +162,16 @@ class RouteController {
             const result = await routeService.trazarRuta(
                 parsed.data.origen_lat,
                 parsed.data.origen_lng,
-                parsed.data.destino_id
+                parsed.data.destino_id,
+                parsed.data.destino_lat !== undefined && parsed.data.destino_lng !== undefined
+                    ? {
+                        lat: parsed.data.destino_lat,
+                        lng: parsed.data.destino_lng,
+                        nombre: parsed.data.destino_nombre,
+                        direccion: parsed.data.destino_direccion,
+                        place_id: parsed.data.place_id
+                    }
+                    : undefined
             );
             return res.status(200).json({ success: true, data: result });
         } catch (error: any) {

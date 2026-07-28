@@ -1,12 +1,14 @@
 import routeRepository from "../repositories/route.repository.js";
-import pedestrianRoutingService from "./pedestrian-routing.service.js";
+import reportRepository from "../repositories/report.repository.js";
+import googleRoutesService from "./google-routes.service.js";
+import safetyAnalysisService from "./safety-analysis.service.js";
 function distanceMeters(a, b) {
-    const radians = (degrees) => degrees * Math.PI / 180;
+    const radians = (degrees) => (degrees * Math.PI) / 180;
     const earthRadius = 6371000;
     const deltaLat = radians(b[0] - a[0]);
     const deltaLng = radians(b[1] - a[1]);
-    const value = Math.sin(deltaLat / 2) ** 2
-        + Math.cos(radians(a[0])) * Math.cos(radians(b[0])) * Math.sin(deltaLng / 2) ** 2;
+    const value = Math.sin(deltaLat / 2) ** 2 +
+        Math.cos(radians(a[0])) * Math.cos(radians(b[0])) * Math.sin(deltaLng / 2) ** 2;
     return 2 * earthRadius * Math.asin(Math.sqrt(value));
 }
 class RouteService {
@@ -15,7 +17,7 @@ class RouteService {
     }
     async findById(id) {
         if (!Number.isInteger(id) || id < 1)
-            throw new Error("ID de ruta invÃ¡lido");
+            throw new Error("ID de ruta inválido");
         const route = await routeRepository.findById(id);
         if (!route)
             throw new Error("Ruta no encontrada");
@@ -35,76 +37,138 @@ class RouteService {
         await routeRepository.delete(id);
         return { success: true, message: "Ruta eliminada correctamente" };
     }
-    async trazarRuta(originLat, originLng, destinationId) {
-        const destination = await routeRepository.findDestination(destinationId);
-        if (!destination)
+    async trazarRuta(originLat, originLng, destinationId, externalDestination) {
+        const destination = destinationId ? await routeRepository.findDestination(destinationId) : null;
+        if (!destination && !externalDestination)
             throw new Error("Destino no encontrado");
-        const recommended = await routeRepository.findRecommendedByDestination(destinationId);
-        const manualTrace = recommended?.trazado?.map((point) => [
-            Number(point.latitud), Number(point.longitud)
-        ]) ?? [];
-        const catalogPoints = recommended?.puntos?.map((point) => [
-            Number(point.latitud), Number(point.longitud)
-        ]) ?? [];
+        const recommended = destinationId ? await routeRepository.findRecommendedByDestination(destinationId) : null;
         const origin = [originLat, originLng];
-        const destinationPoint = [Number(destination.latitud), Number(destination.longitud)];
-        const anchorToOrigin = (points) => {
-            if (points.length < 2)
-                return null;
-            const startDistance = distanceMeters(origin, points[0]);
-            if (startDistance > 50)
-                return null;
-            return startDistance > 1 ? [origin, ...points] : points;
-        };
-        const applicableManualTrace = anchorToOrigin(manualTrace);
-        const applicableCatalogPoints = anchorToOrigin(catalogPoints);
-        const fallbackMatchesOrigin = Boolean(applicableManualTrace || applicableCatalogPoints);
-        const hasCatalogFallback = manualTrace.length >= 2 || catalogPoints.length >= 2;
-        const fallbackCoordinates = applicableManualTrace
-            ?? applicableCatalogPoints
-            ?? [origin, destinationPoint];
-        const fallbackDistance = fallbackCoordinates.slice(1).reduce((total, point, index) => total + distanceMeters(fallbackCoordinates[index], point), 0);
-        let pedestrianRoute = null;
-        let routingError = false;
+        const destinationPoint = externalDestination
+            ? [externalDestination.lat, externalDestination.lng]
+            : [Number(destination.latitud), Number(destination.longitud)];
+        const destinationName = externalDestination?.nombre || destination?.nombre || "Destino seleccionado";
+        const destinationAddress = externalDestination?.direccion || destination?.direccion || "Loja, Ecuador";
+        // Cargar reportes incidentales activos y zonas de riesgo en la ciudad (Loja)
+        let activeReports = [];
+        let riskZones = [];
         try {
-            pedestrianRoute = await pedestrianRoutingService.calculate([originLat, originLng], [Number(destination.latitud), Number(destination.longitud)]);
+            const rawReports = await reportRepository.findActiveReportsByCity("Loja");
+            activeReports = rawReports.map((r) => ({
+                id_reporte: Number(r.id_reporte),
+                descripcion: String(r.descripcion || ""),
+                nivel_riesgo: r.nivel_riesgo,
+                fecha_reporte: r.fecha_reporte,
+                latitud: Number(r.latitud),
+                longitud: Number(r.longitud)
+            }));
+            const rawZones = await reportRepository.findRiskZonesByCity("Loja");
+            riskZones = rawZones.map((z) => ({
+                id_reporte: Number(z.id_reporte),
+                ubicacion_nombre: String(z.ubicacion_nombre || ""),
+                nivel_riesgo: z.nivel_riesgo,
+                radio_metros: Number(z.radio_metros) || 80,
+                latitud: Number(z.latitud),
+                longitud: Number(z.longitud)
+            }));
+        }
+        catch (err) {
+            console.warn("No fue posible cargar datos de seguridad de MySQL:", err instanceof Error ? err.message : err);
+        }
+        // Intentar cálculo peatonal con Google Routes
+        let googleRoute = null;
+        try {
+            googleRoute = await googleRoutesService.calculate(origin, destinationPoint);
         }
         catch (error) {
-            routingError = true;
-            console.warn("No fue posible calcular la ruta peatonal externa:", error instanceof Error ? error.message : error);
+            console.warn("Fallo al consultar Google Routes API:", error instanceof Error ? error.message : error);
         }
-        const coordinates = pedestrianRoute?.coordinates ?? fallbackCoordinates;
-        const source = pedestrianRoute
-            ? "OPENROUTESERVICE"
-            : applicableManualTrace
-                ? "TRAZADO_MANUAL"
-                : "REFERENCIAL";
+        if (googleRoute && googleRoute.coordinates.length >= 2) {
+            const safety = safetyAnalysisService.evaluate(googleRoute.coordinates, activeReports, riskZones);
+            return {
+                route_id: recommended?.id_ruta ?? null,
+                source: "GOOGLE_ROUTES",
+                travel_mode: "WALK",
+                origin: { lat: originLat, lng: originLng },
+                destination: {
+                    location_id: destinationId ?? null,
+                    place_id: externalDestination?.place_id ?? null,
+                    name: destinationName,
+                    address: destinationAddress,
+                    lat: destinationPoint[0],
+                    lng: destinationPoint[1]
+                },
+                distance_m: googleRoute.distanceMeters,
+                duration_min: googleRoute.durationMinutes,
+                encoded_polyline: googleRoute.encodedPolyline,
+                coordinates: googleRoute.coordinates,
+                steps: googleRoute.instructions,
+                safety,
+                // Campos de compatibilidad retroactiva
+                id_ruta: recommended?.id_ruta ?? null,
+                nombre_ruta: recommended?.nombre_ruta ?? `Camino a ${destinationName}`,
+                nivel_seguridad: safety.classification === "SEGURA" ? "BAJO" : safety.classification === "PRECAUCIÓN" ? "MEDIO" : "ALTO",
+                tiempo_estimado: googleRoute.durationMinutes,
+                distancia_m: googleRoute.distanceMeters,
+                ruta_catalogada: Boolean(recommended),
+                trazado_manual: false,
+                trazado_peatonal: true,
+                fuente_trazado: "GOOGLE_ROUTES",
+                instrucciones: googleRoute.instructions,
+                origen_usuario: origin,
+                coordenadas: googleRoute.coordinates,
+                aviso: "Trayecto peatonal calculado con Google Routes. Las condiciones de seguridad se evalúan con los datos del sistema."
+            };
+        }
+        // Trazado de respaldo referencial en caso de falla de Google Routes
+        const fallbackCoordinates = [origin, destinationPoint];
+        const fallbackDistance = Math.round(distanceMeters(origin, destinationPoint));
+        const fallbackDuration = Math.max(1, Math.ceil(fallbackDistance / 80));
+        const fallbackSafety = safetyAnalysisService.evaluate(fallbackCoordinates, activeReports, riskZones);
         return {
+            route_id: recommended?.id_ruta ?? null,
+            source: "REFERENCIAL",
+            travel_mode: "WALK",
+            origin: { lat: originLat, lng: originLng },
+            destination: {
+                location_id: destinationId ?? null,
+                place_id: externalDestination?.place_id ?? null,
+                name: destinationName,
+                address: destinationAddress,
+                lat: destinationPoint[0],
+                lng: destinationPoint[1]
+            },
+            distance_m: fallbackDistance,
+            duration_min: fallbackDuration,
+            encoded_polyline: "",
+            coordinates: fallbackCoordinates,
+            steps: [
+                {
+                    instruction: `Dirígete en línea recta hacia ${destinationName}`,
+                    distance_m: fallbackDistance,
+                    duration_min: fallbackDuration
+                }
+            ],
+            safety: fallbackSafety,
+            // Campos de compatibilidad retroactiva
             id_ruta: recommended?.id_ruta ?? null,
-            nombre_ruta: recommended?.nombre_ruta ?? "Trayecto referencial al destino",
-            nivel_seguridad: recommended?.nivel_seguridad ?? null,
-            tiempo_estimado: pedestrianRoute?.durationMinutes
-                ?? recommended?.tiempo_estimado
-                ?? Math.max(1, Math.ceil(fallbackDistance / 80)),
-            distancia_m: pedestrianRoute?.distanceMeters ?? Math.round(fallbackDistance),
+            nombre_ruta: `Trayecto referencial a ${destinationName}`,
+            nivel_seguridad: fallbackSafety.classification === "SEGURA" ? "BAJO" : fallbackSafety.classification === "PRECAUCIÓN" ? "MEDIO" : "ALTO",
+            tiempo_estimado: fallbackDuration,
+            distancia_m: fallbackDistance,
             ruta_catalogada: Boolean(recommended),
-            trazado_manual: Boolean(applicableManualTrace),
-            trazado_peatonal: Boolean(pedestrianRoute),
-            fuente_trazado: source,
-            instrucciones: pedestrianRoute?.instructions ?? [],
-            origen_usuario: [originLat, originLng],
-            coordenadas: coordinates,
-            aviso: pedestrianRoute
-                ? recommended
-                    ? "Trayecto peatonal calculado hacia un destino seguro registrado. Revisa las condiciones actuales del entorno."
-                    : "Trayecto peatonal calculado por calles y senderos; el proveedor no garantiza por si solo la seguridad del recorrido."
-                : hasCatalogFallback && !fallbackMatchesOrigin
-                    ? "El respaldo catalogado no inicia cerca de tu ubicacion; se muestra una referencia directa al destino. No la uses como navegacion peatonal."
-                    : routingError
-                        ? "El calculo peatonal no respondio; se muestra el respaldo disponible. Intenta nuevamente antes de iniciar."
-                        : pedestrianRoutingService.isConfigured()
-                            ? "No se obtuvo una ruta peatonal; se muestra el respaldo disponible."
-                            : "Configura OpenRouteService para seguir calles y senderos; mientras tanto se muestra el trazado manual o referencial."
+            trazado_manual: false,
+            trazado_peatonal: false,
+            fuente_trazado: "REFERENCIAL",
+            instrucciones: [
+                {
+                    instruction: `Dirígete en línea recta hacia ${destinationName}`,
+                    distance_m: fallbackDistance,
+                    duration_min: fallbackDuration
+                }
+            ],
+            origen_usuario: origin,
+            coordenadas: fallbackCoordinates,
+            aviso: "No fue posible obtener la ruta de Google Routes; se muestra un trazado referencial directo. Verifica el entorno antes de caminar."
         };
     }
 }

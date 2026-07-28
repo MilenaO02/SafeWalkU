@@ -38,7 +38,8 @@ async function request(path, options = {}) {
       if (!isJson) {
         throw new Error(`El servidor respondió con un error de red o HTML (${response.status}). Por favor intente más tarde.`);
       }
-      const msg = data?.message || (Array.isArray(data?.errors) ? data.errors.map(e => e.message || e).join(', ') : 'Solicitud fallida');
+      const fieldErrors = Array.isArray(data?.errors) ? data.errors.map(e => e.message || e).filter(Boolean).join(', ') : '';
+      const msg = fieldErrors || data?.message || 'Solicitud fallida';
       throw new Error(msg);
     }
 
@@ -75,4 +76,3 @@ export const checkHealth = () => request('/health', {
 });
 
 export { buildApiUrl, buildAssetUrl, API_BASE_URL, request };
-

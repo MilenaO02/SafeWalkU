@@ -240,7 +240,18 @@ export default function MainLayout() {
   const handleCenterUser = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (pos) => setMapConfig(prev => ({ ...prev, centro: [pos.coords.latitude, pos.coords.longitude], zoom: 17 }))
+        (pos) => {
+          const point = [pos.coords.latitude, pos.coords.longitude];
+          setMapConfig(prev => ({
+            ...prev,
+            centro: point,
+            zoom: 17,
+            markers: [
+              ...prev.markers.filter((marker) => marker.kind !== 'user'),
+              { position: point, kind: 'user', title: 'Tu ubicación', desc: 'Ubicación GPS actual' }
+            ]
+          }));
+        }
       );
     }
   };

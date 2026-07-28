@@ -17,7 +17,6 @@ export default function BuscadorPrincipal({
   const [destinoSeleccionado, setDestinoSeleccionado] = useState(null);
   const [searchError, setSearchError] = useState(null);
   const [searching, setSearching] = useState(false);
-  const [googleLoaded, setGoogleLoaded] = useState(false);
   const [noResults, setNoResults] = useState(false);
 
   const wrapperRef = useRef(null);
@@ -29,9 +28,7 @@ export default function BuscadorPrincipal({
 
   useEffect(() => {
     if (!googleApiKey) return;
-    loadGoogleMaps(googleApiKey)
-      .then((maps) => { if (maps) setGoogleLoaded(true); })
-      .catch(() => setGoogleLoaded(false));
+    loadGoogleMaps(googleApiKey).catch(() => {});
   }, [googleApiKey]);
 
   // Close dropdown on outside click

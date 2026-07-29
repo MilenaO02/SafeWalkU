@@ -1,12 +1,40 @@
 let googleMapsPromise = null;
 
+async function loadLibraries() {
+  const maps = window.google?.maps;
+  if (!maps) {
+    throw new Error('Google Maps JS API no disponible tras cargar script.');
+  }
+
+  // With loading=async the global namespace can exist before its
+  // constructors are ready. importLibrary waits for each library to finish
+  // initializing and avoids errors such as "Map is not a constructor".
+  if (typeof maps.importLibrary === 'function') {
+    const [mapsLibrary, markerLibrary, placesLibrary] = await Promise.all([
+      maps.importLibrary('maps'),
+      maps.importLibrary('marker'),
+      maps.importLibrary('places')
+    ]);
+
+    return {
+      ...maps,
+      ...mapsLibrary,
+      marker: markerLibrary,
+      places: placesLibrary
+    };
+  }
+
+  if (maps.Map && maps.marker && maps.places) return maps;
+  throw new Error('Las librerías de Google Maps no terminaron de inicializarse.');
+}
+
 export function loadGoogleMaps(apiKey) {
   if (!apiKey) {
     return Promise.reject(new Error('Clave API de Google Maps no configurada.'));
   }
 
-  if (window.google?.maps?.marker && window.google?.maps?.places) {
-    return Promise.resolve(window.google.maps);
+  if (window.google?.maps?.Map && window.google?.maps?.marker && window.google?.maps?.places) {
+    return loadLibraries();
   }
 
   if (googleMapsPromise) {
@@ -17,29 +45,31 @@ export function loadGoogleMaps(apiKey) {
     const existingScript = document.getElementById('google-maps-js-script');
 
     if (existingScript) {
-      if (window.google?.maps?.marker && window.google?.maps?.places) {
-        resolve(window.google.maps);
-        return;
-      }
-      existingScript.addEventListener('load', () => {
-        if (window.google?.maps) resolve(window.google.maps);
-        else reject(new Error('Google Maps JS API no disponible tras cargar script.'));
-      });
+      existingScript.addEventListener('load', () => loadLibraries().then(resolve).catch(reject));
       existingScript.addEventListener('error', (e) => reject(e));
       return;
     }
 
     const script = document.createElement('script');
     script.id = 'google-maps-js-script';
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=places,marker&language=es&loading=async&v=weekly`;
+    const callbackName = `__safeWalkGoogleMapsReady_${Date.now()}`;
+    window[callbackName] = () => {
+      loadLibraries()
+        .then(resolve)
+        .catch((error) => {
+          googleMapsPromise = null;
+          reject(error);
+        })
+        .finally(() => {
+          delete window[callbackName];
+        });
+    };
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=places,marker&language=es&loading=async&callback=${callbackName}&v=weekly`;
     script.async = true;
     script.defer = true;
-    script.onload = () => {
-      if (window.google?.maps) resolve(window.google.maps);
-      else reject(new Error('Google Maps JS API no disponible tras cargar script.'));
-    };
     script.onerror = (err) => {
       googleMapsPromise = null;
+      delete window[callbackName];
       reject(err);
     };
     document.head.appendChild(script);

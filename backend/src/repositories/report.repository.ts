@@ -12,6 +12,9 @@ export interface ReportRow extends RowDataPacket {
     id_ubicacion: number;
     id_administrador: number | null;
     estado_registro: "ACTIVO" | "INACTIVO";
+    precision_gps: number | null;
+    fecha_captura_gps: Date | null;
+    fecha_atencion: Date | null;
 }
 
 type CreateReportInput = {
@@ -30,7 +33,7 @@ class ReportRepository {
         const [rows] = await pool.query<ReportRow[]>(`
             SELECT r.id_reporte, r.descripcion, r.fecha_reporte, r.nivel_riesgo,
                    r.estado, r.tipo_reporte, r.id_usuario, r.id_ubicacion,
-                   r.id_administrador, r.precision_gps, r.fecha_captura_gps,
+                   r.id_administrador, r.precision_gps, r.fecha_captura_gps, r.fecha_atencion,
                    u.nombre, u.apellido, ub.nombre AS ubicacion, ub.direccion,
                    c.latitud, c.longitud
             FROM reporte r
@@ -49,7 +52,7 @@ class ReportRepository {
             SELECT r.id_reporte, r.descripcion, r.fecha_reporte, r.nivel_riesgo,
                    r.estado, r.tipo_reporte, r.id_usuario, r.id_ubicacion,
                    r.id_administrador, r.estado_registro,
-                   r.precision_gps, r.fecha_captura_gps,
+                   r.precision_gps, r.fecha_captura_gps, r.fecha_atencion,
                    u.nombre, u.apellido, ub.nombre AS ubicacion, ub.direccion,
                    c.latitud, c.longitud
             FROM reporte r
@@ -193,13 +196,38 @@ class ReportRepository {
         return rows;
     }
 
-    async createSOS(report: { descripcion: string; id_usuario: number; id_ubicacion: number }) {
-        const [result] = await pool.query<ResultSetHeader>(`
-            INSERT INTO reporte
-                (descripcion, nivel_riesgo, estado, tipo_reporte, id_usuario, id_ubicacion)
-            VALUES (?, 'ALTO', 'PENDIENTE', 'SOS_PANICO', ?, ?)
-        `, [report.descripcion, report.id_usuario, report.id_ubicacion]);
-        return result.insertId;
+    async createSOS(report: Omit<CreateReportInput, "nivel_riesgo">) {
+        const connection = await pool.getConnection();
+        try {
+            await connection.beginTransaction();
+            const capturedAt = new Date(report.fecha_captura_gps);
+            const locationName = `Alerta SOS ${capturedAt.toLocaleString("es-EC", { timeZone: "America/Guayaquil" })}`;
+            const [location] = await connection.query<ResultSetHeader>(`
+                INSERT INTO ubicacion (nombre, direccion, ciudad, radio_metros, tipo_zona)
+                VALUES (?, ?, 'Loja', ?, 'CALLE')
+            `, [
+                locationName,
+                report.direccion_aproximada?.trim() || "Dirección aproximada no disponible",
+                Math.max(5, Math.min(1000, Math.round(report.precision_gps)))
+            ]);
+            await connection.query(`
+                INSERT INTO coordenada (latitud, longitud, id_ubicacion, verificada, fuente)
+                VALUES (?, ?, ?, 0, 'GPS del dispositivo - SOS')
+            `, [report.latitud, report.longitud, location.insertId]);
+            const [result] = await connection.query<ResultSetHeader>(`
+                INSERT INTO reporte
+                    (descripcion, nivel_riesgo, estado, tipo_reporte, id_usuario, id_ubicacion,
+                     precision_gps, fecha_captura_gps)
+                VALUES (?, 'ALTO', 'PENDIENTE', 'SOS_PANICO', ?, ?, ?, ?)
+            `, [report.descripcion, report.id_usuario, location.insertId, report.precision_gps, capturedAt]);
+            await connection.commit();
+            return result.insertId;
+        } catch (error) {
+            await connection.rollback();
+            throw error;
+        } finally {
+            connection.release();
+        }
     }
 
     async cancelSOS(id: number) {
@@ -215,7 +243,7 @@ class ReportRepository {
     async resolveSOS(id: number, adminId: number) {
         const [result] = await pool.query<ResultSetHeader>(`
             UPDATE reporte
-            SET estado = 'VALIDADO', id_administrador = ?
+            SET estado = 'VALIDADO', id_administrador = ?, fecha_atencion = CURRENT_TIMESTAMP
             WHERE id_reporte = ? AND tipo_reporte = 'SOS_PANICO'
               AND estado = 'PENDIENTE' AND estado_registro = 'ACTIVO'
         `, [adminId, id]);

@@ -44,10 +44,15 @@ class ReportService {
         return report;
     }
 
-    async create(data: { descripcion: string; nivel_riesgo: "BAJO" | "MEDIO" | "ALTO"; id_ubicacion: number }, userId: number) {
-        if (!await reportRepository.locationExists(data.id_ubicacion)) {
-            throw new Error("La ubicación indicada no existe");
-        }
+    async create(data: {
+        descripcion: string;
+        nivel_riesgo: "BAJO" | "MEDIO" | "ALTO";
+        latitud: number;
+        longitud: number;
+        precision_gps: number;
+        fecha_captura_gps: string;
+        direccion_aproximada?: string;
+    }, userId: number) {
         const id = await reportRepository.create({ ...data, id_usuario: userId });
         return this.findById(id);
     }

@@ -33,10 +33,10 @@ export default function ResumenReporte() {
         && parsed.categoria.trim().length > 0
         && typeof parsed?.descripcion === 'string'
         && parsed.descripcion.trim().length >= 10
-        && typeof parsed?.ubicacion === 'string'
-        && parsed.ubicacion.trim().length > 0
-        && Number.isInteger(Number(parsed?.id_ubicacion))
-        && Number(parsed.id_ubicacion) > 0
+        && Number.isFinite(Number(parsed?.precision_gps))
+        && Number(parsed.precision_gps) > 0
+        && typeof parsed?.fecha_captura_gps === 'string'
+        && !Number.isNaN(Date.parse(parsed.fecha_captura_gps))
         && coordinatesAreValid;
 
       if (!draftIsValid) {
@@ -91,7 +91,11 @@ export default function ResumenReporte() {
         body: JSON.stringify({
           descripcion:  `[Categoría: ${report.categoria}] - ${report.descripcion}`,
           nivel_riesgo: report.nivel_riesgo ?? 'MEDIO',
-          id_ubicacion: report.id_ubicacion,
+          latitud: Number(report.coordenadas[0]),
+          longitud: Number(report.coordenadas[1]),
+          precision_gps: Number(report.precision_gps),
+          fecha_captura_gps: report.fecha_captura_gps,
+          direccion_aproximada: report.direccion_aproximada || undefined,
         }),
       });
 
@@ -183,11 +187,14 @@ export default function ResumenReporte() {
           </div>
 
           <div className="space-y-1">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Ubicación Asistida</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Ubicación GPS</span>
             <div className="text-xs font-bold text-purple-950 flex items-center gap-1.5">
               <span className="material-symbols-outlined text-[16px]">location_on</span>
-              <span>{report.ubicacion}</span>
+              <span>{report.direccion_aproximada}</span>
             </div>
+            <p className="mt-1 text-[10px] text-slate-500">
+              {Number(report.coordenadas[0]).toFixed(8)}, {Number(report.coordenadas[1]).toFixed(8)} · precisión ± {Math.round(Number(report.precision_gps))} m
+            </p>
           </div>
 
           <div className="space-y-1">

@@ -10,6 +10,7 @@ import dashboardRoutes from "./dashboard.routes.js";
 import contactoRoutes from "./contacto.routes.js";
 import servicioRoutes from "./servicio.routes.js";
 import lugarRoutes from "./lugar.routes.js";
+import placesProxyRoutes from "./places.routes.js";
 const router = Router();
 router.use(healthRoutes);
 router.use("/auth", authRoutes);
@@ -23,4 +24,6 @@ router.use("/dashboard", dashboardRoutes);
 router.use("/contacts", contactoRoutes);
 router.use("/services", servicioRoutes);
 router.use("/places", lugarRoutes);
+// Server-side proxy for Google Places — keeps API key out of the browser
+router.use("/maps/places", placesProxyRoutes);
 export default router;

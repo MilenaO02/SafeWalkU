@@ -6,11 +6,6 @@ import MapaInteractivo from './MapaInteractivo';
 const fallbackCenter = [-3.97245, -79.19933];
 const emptyForm = { nombre_ruta: '', descripcion: '', nivel_seguridad: 'ALTO', tiempo_estimado: 5, origen: '', destino: '' };
 
-function ClickCapture({ enabled, onAdd }) {
-  useMapEvents({ click: (event) => { if (enabled) onAdd([event.latlng.lat, event.latlng.lng]); } });
-  return null;
-}
-
 function distanceMeters(points) {
   const radians = (degrees) => degrees * Math.PI / 180;
   return points.slice(1).reduce((total, point, index) => {
@@ -55,8 +50,6 @@ export default function EditorRutas() {
     setPoints((current) => mode === 'origin' ? [point] : [...current, point]);
     setDrawing(mode === 'origin'); setError(null);
   };
-  const addPoint = (point) => setPoints((current) => [...current, point]);
-
   const save = async (event) => {
     event.preventDefault(); setError(null);
     if (!form.origen || !form.destino || form.origen === form.destino) { setError('Selecciona un origen y destino diferentes.'); return; }

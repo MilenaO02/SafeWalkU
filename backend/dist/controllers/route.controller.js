@@ -4,32 +4,22 @@ class RouteController {
     async getAll(req, res) {
         try {
             const routes = await routeService.findAll();
-            return res.status(200).json({
-                success: true,
-                data: routes
-            });
+            return res.status(200).json({ success: true, data: routes });
         }
         catch (error) {
-            return res.status(500).json({
-                success: false,
-                message: error.message
-            });
+            const msg = error instanceof Error ? error.message : "Error interno";
+            return res.status(500).json({ success: false, message: msg });
         }
     }
     async getById(req, res) {
         try {
             const id = Number(req.params.id);
             const route = await routeService.findById(id);
-            return res.status(200).json({
-                success: true,
-                data: route
-            });
+            return res.status(200).json({ success: true, data: route });
         }
         catch (error) {
-            return res.status(404).json({
-                success: false,
-                message: error.message
-            });
+            const msg = error instanceof Error ? error.message : "No encontrado";
+            return res.status(404).json({ success: false, message: msg });
         }
     }
     async create(req, res) {
@@ -38,14 +28,12 @@ class RouteController {
             return res.status(201).json({
                 success: true,
                 message: "Ruta creada correctamente",
-                data: route
+                data: route,
             });
         }
         catch (error) {
-            return res.status(400).json({
-                success: false,
-                message: error.message
-            });
+            const msg = error instanceof Error ? error.message : "Error al crear";
+            return res.status(400).json({ success: false, message: msg });
         }
     }
     async update(req, res) {
@@ -55,14 +43,12 @@ class RouteController {
             return res.status(200).json({
                 success: true,
                 message: "Ruta actualizada correctamente",
-                data: route
+                data: route,
             });
         }
         catch (error) {
-            return res.status(400).json({
-                success: false,
-                message: error.message
-            });
+            const msg = error instanceof Error ? error.message : "Error al actualizar";
+            return res.status(400).json({ success: false, message: msg });
         }
     }
     async delete(req, res) {
@@ -72,14 +58,44 @@ class RouteController {
             return res.status(200).json(result);
         }
         catch (error) {
-            return res.status(404).json({
-                success: false,
-                message: error.message
-            });
+            const msg = error instanceof Error ? error.message : "No encontrado";
+            return res.status(404).json({ success: false, message: msg });
         }
     }
+    /**
+     * GET /api/routes/trazar
+     *
+     * Modalidad 1 — registered destination:
+     *   ?origen_lat=&origen_lng=&destino_id=
+     *
+     * Modalidad 2 — external destination (Google Places or coords):
+     *   ?origen_lat=&origen_lng=&destino_lat=&destino_lng=
+     *   &destino_nombre=  (optional)
+     *   &destino_direccion=  (optional)
+     *   &place_id=  (optional)
+     *
+     * Returns 422 when:
+     *   - Required origin fields are missing or out of range
+     *   - Neither destino_id nor (destino_lat + destino_lng) are provided
+     *   - Both modalities are mixed together
+     */
     async trazarRuta(req, res) {
+        // ── 1. Validate & parse query params ──────────────────────────────
+        const parsed = traceRouteQuerySchema.safeParse(req.query);
+        if (!parsed.success) {
+            return res.status(422).json({
+                success: false,
+                message: "Parámetros geográficos inválidos.",
+                errors: parsed.error.issues.map((i) => ({
+                    path: i.path.join(".") || "query",
+                    message: i.message,
+                })),
+            });
+        }
+        const data = parsed.data;
+        // ── 2. Delegate to service ─────────────────────────────────────────
         try {
+<<<<<<< HEAD
             const parsed = traceRouteQuerySchema.safeParse(req.query);
             if (!parsed.success) {
                 return res.status(422).json({
@@ -92,11 +108,24 @@ class RouteController {
                 ? { mode: "REGISTERED", id: parsed.data.destino_id }
                 : { mode: "EXTERNAL", lat: parsed.data.destino_lat, lng: parsed.data.destino_lng, nombre: parsed.data.destino_nombre, direccion: parsed.data.destino_direccion, placeId: parsed.data.place_id };
             const result = await routeService.trazarRuta(parsed.data.origen_lat, parsed.data.origen_lng, destination);
+=======
+            const externalDestination = data.destino_lat !== undefined && data.destino_lng !== undefined
+                ? {
+                    lat: data.destino_lat,
+                    lng: data.destino_lng,
+                    nombre: data.destino_nombre,
+                    direccion: data.destino_direccion,
+                    place_id: data.place_id,
+                }
+                : undefined;
+            const result = await routeService.trazarRuta(data.origen_lat, data.origen_lng, data.destino_id, externalDestination);
+>>>>>>> origin/main
             return res.status(200).json({ success: true, data: result });
         }
         catch (error) {
-            const status = error.message === "Destino no encontrado" ? 404 : 500;
-            return res.status(status).json({ success: false, message: error.message });
+            const msg = error instanceof Error ? error.message : "Error al trazar la ruta";
+            const status = msg === "Destino no encontrado" ? 404 : 500;
+            return res.status(status).json({ success: false, message: msg });
         }
     }
 }

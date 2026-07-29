@@ -24,12 +24,11 @@ export default function Registro() {
     e.preventDefault();
     setError(null);
 
-    const nameRegex = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s'-]+$/;
-    if (!nameRegex.test(formData.nombre.trim())) {
+    if (!/^[\p{L}\p{M}]+(?:[ '\u2019-][\p{L}\p{M}]+)*$/u.test(formData.nombre.trim())) {
       setError('El nombre solo debe contener letras, espacios y tildes.');
       return;
     }
-    if (!nameRegex.test(formData.apellido.trim())) {
+    if (!/^[\p{L}\p{M}]+(?:[ '\u2019-][\p{L}\p{M}]+)*$/u.test(formData.apellido.trim())) {
       setError('El apellido solo debe contener letras, espacios y tildes.');
       return;
     }

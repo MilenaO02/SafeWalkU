@@ -3,17 +3,6 @@ import { request } from '../services/api';
 import { useAuth } from '../context/auth';
 import MapaInteractivo from './MapaInteractivo';
 
-function ClickToLocate({ onPoint }) {
-  useMapEvents({ click: ({ latlng }) => onPoint([latlng.lat, latlng.lng]) });
-  return null;
-}
-
-function CenterMap({ point }) {
-  const map = useMap();
-  useEffect(() => { if (point) map.setView(point, 18); }, [map, point]);
-  return null;
-}
-
 export default function EditorUbicaciones() {
   const { showToast } = useAuth();
   const [locations, setLocations] = useState([]);

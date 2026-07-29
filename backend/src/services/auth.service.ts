@@ -27,7 +27,7 @@ export class RoleNotAllowedError extends Error {
 }
 
 class AuthService {
-    private createToken(usuario: any, rol: UserRole) {
+    private createToken(usuario: { id_usuario: number; correo: string }, rol: UserRole): string {
         const signOptions: jwt.SignOptions = {
             algorithm: "HS256",
             expiresIn: (process.env.JWT_EXPIRES || "2h") as jwt.SignOptions["expiresIn"]
@@ -44,12 +44,22 @@ class AuthService {
         );
     }
 
-    private withoutPassword(usuario: any, rol: UserRole, roles: UserRole[]) {
+    private withoutPassword(
+        usuario: { contrasena?: string; [key: string]: unknown },
+        rol: UserRole,
+        roles: UserRole[]
+    ) {
         const { contrasena: _, ...usuarioSeguro } = usuario;
         return { ...usuarioSeguro, rol, roles };
     }
 
-    async register(data: any) {
+    async register(data: {
+        correo?:    string;
+        email?:     string;
+        contrasena: string;
+        nombre:     string;
+        apellido:   string;
+    }) {
         const correo = (data.correo ?? data.email ?? "").toString().trim().toLowerCase();
 
         if (!isValidUideEmail(correo)) {

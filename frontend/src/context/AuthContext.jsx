@@ -1,28 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { AuthContext } from './auth';
 import { buildApiUrl, request } from '../services/api';
 
+// ── Pure helpers (defined outside the component so they are never recreated) ──
+
 const normalizeRole = (role) => {
   const value = role?.toString().toUpperCase() ?? '';
-
-  if (value === 'ADMIN' || value === 'ADMINISTRADOR') {
-    return 'ADMINISTRADOR';
-  }
-
-  if (value === 'ESTUDIANTE' || value === 'STUDENT') {
-    return 'ESTUDIANTE';
-  }
-
+  if (value === 'ADMIN' || value === 'ADMINISTRADOR') return 'ADMINISTRADOR';
+  if (value === 'ESTUDIANTE' || value === 'STUDENT')   return 'ESTUDIANTE';
   return value;
 };
 
 const normalizeUser = (userData) => {
   if (!userData) return null;
-
   const rol = normalizeRole(userData.rol);
   const receivedRoles = Array.isArray(userData.roles) ? userData.roles : [rol];
   const roles = [...new Set(receivedRoles.map(normalizeRole).filter(Boolean))];
-
   return { ...userData, rol, roles };
 };
 
@@ -31,107 +24,132 @@ const isTokenInvalidOrExpired = (token) => {
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return true;
-    const base64Url = parts[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
     const payload = JSON.parse(atob(base64));
-    if (payload.exp && payload.exp * 1000 < Date.now()) {
-      return true;
-    }
+    if (payload.exp && payload.exp * 1000 < Date.now()) return true;
     return false;
   } catch {
     return true;
   }
 };
 
+const clearStorage = () => {
+  ['user', 'token'].forEach((key) => {
+    localStorage.removeItem(key);
+    sessionStorage.removeItem(key);
+  });
+};
+
 const getStoredSession = () => {
   try {
-    const storedUser = localStorage.getItem('user') || sessionStorage.getItem('user');
+    const storedUser  = localStorage.getItem('user')  || sessionStorage.getItem('user');
     const storedToken = localStorage.getItem('token') || sessionStorage.getItem('token');
-
     if (!storedUser || !storedToken || isTokenInvalidOrExpired(storedToken)) {
-      localStorage.removeItem('user');
-      localStorage.removeItem('token');
-      sessionStorage.removeItem('user');
-      sessionStorage.removeItem('token');
+      clearStorage();
       return { user: null, token: null };
     }
-
-    return {
-      user: JSON.parse(storedUser),
-      token: storedToken,
-    };
-  } catch (error) {
-    console.error('Error reading stored auth session', error);
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
-    sessionStorage.removeItem('user');
-    sessionStorage.removeItem('token');
+    return { user: JSON.parse(storedUser), token: storedToken };
+  } catch (err) {
+    console.error('Error reading stored auth session', err);
+    clearStorage();
     return { user: null, token: null };
   }
 };
 
+// ── Provider ──────────────────────────────────────────────────────────────────
+
 export const AuthProvider = ({ children }) => {
-  // Initialize state synchronously so PrivateRoute and components have data on first render
   const [initialSession] = useState(getStoredSession);
-  const [user, setUser] = useState(normalizeUser(initialSession.user));
-  const [token, setToken] = useState(initialSession.token);
-  const [toast, setToast] = useState(null);
+  const [user,         setUser]         = useState(() => normalizeUser(initialSession.user));
+  const [token,        setToken]        = useState(initialSession.token);
+  const [toast,        setToast]        = useState(null);
+  // sessionReady starts false only when we need to revalidate an existing token
   const [sessionReady, setSessionReady] = useState(!initialSession.token);
 
-  const login = (userData, authToken, storagePreference = 'localStorage') => {
-    const normalizedUser = normalizeUser(userData);
-    const targetStorage = storagePreference === 'localStorage' ? localStorage : sessionStorage;
-    const otherStorage = storagePreference === 'localStorage' ? sessionStorage : localStorage;
+  // ── Stable callbacks (will not change between renders) ──────────────────
 
-    targetStorage.setItem('user', JSON.stringify(normalizedUser));
-    targetStorage.setItem('token', authToken);
-    otherStorage.removeItem('user');
-    otherStorage.removeItem('token');
+  const logout = useCallback(() => {
+    setUser(null);
+    setToken(null);
+    setSessionReady(true);
+    clearStorage();
+  }, []);
 
-    setUser(normalizedUser);
+  const showToast = useCallback((message, type = 'info') => {
+    setToast({ message, type });
+  }, []);
+
+  const clearToast = useCallback(() => setToast(null), []);
+
+  const login = useCallback((userData, authToken, storagePreference = 'localStorage') => {
+    const normalized   = normalizeUser(userData);
+    const target = storagePreference === 'localStorage' ? localStorage : sessionStorage;
+    const other  = storagePreference === 'localStorage' ? sessionStorage : localStorage;
+    target.setItem('user',  JSON.stringify(normalized));
+    target.setItem('token', authToken);
+    other.removeItem('user');
+    other.removeItem('token');
+    setUser(normalized);
     setToken(authToken);
     setSessionReady(true);
-  };
+  }, []);
 
-  const switchRole = async (role) => {
+  const switchRole = useCallback(async (role) => {
     const normalizedRole = normalizeRole(role);
     const payload = await request('/auth/switch-role', {
       method: 'POST',
       body: JSON.stringify({ rol: normalizedRole }),
     });
     const storagePreference = localStorage.getItem('token') ? 'localStorage' : 'sessionStorage';
-    const normalizedUser = normalizeUser(payload.usuario);
-    const targetStorage = storagePreference === 'localStorage' ? localStorage : sessionStorage;
-    const otherStorage = storagePreference === 'localStorage' ? sessionStorage : localStorage;
+    const normalized = normalizeUser(payload.usuario);
+    const target = storagePreference === 'localStorage' ? localStorage : sessionStorage;
+    const other  = storagePreference === 'localStorage' ? sessionStorage : localStorage;
+    // Persist before React state update to avoid PrivateRoute race condition
+    target.setItem('user',  JSON.stringify(normalized));
+    target.setItem('token', payload.token);
+    other.removeItem('user');
+    other.removeItem('token');
+    return normalized;
+  }, []);
 
-    // Guardar primero la nueva sesión sin cambiar el estado de React en la
-    // ruta actual. Si el estado se actualiza mientras seguimos en /app o
-    // /admin, PrivateRoute interpreta momentáneamente el rol nuevo contra la
-    // ruta anterior y redirige a /403 antes de completar la navegación.
-    targetStorage.setItem('user', JSON.stringify(normalizedUser));
-    targetStorage.setItem('token', payload.token);
-    otherStorage.removeItem('user');
-    otherStorage.removeItem('token');
+  const updateUser = useCallback((updatedData) => {
+    const targetStorage = localStorage.getItem('user')
+      ? localStorage
+      : sessionStorage.getItem('user')
+      ? sessionStorage
+      : null;
+    if (!targetStorage) return;
+    const current = JSON.parse(targetStorage.getItem('user'));
+    const next    = normalizeUser({ ...current, ...updatedData });
+    targetStorage.setItem('user', JSON.stringify(next));
+    setUser(next);
+  }, []);
 
-    return normalizedUser;
-  };
+  // ── Session revalidation on mount ────────────────────────────────────────
+  useEffect(() => {
+    if (!initialSession.token) return;
+    let active = true;
 
-  const logout = () => {
-    setUser(null);
-    setToken(null);
-    setSessionReady(true);
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
-    sessionStorage.removeItem('user');
-    sessionStorage.removeItem('token');
-  };
+    fetch(buildApiUrl('/users/me'), {
+      headers: { Authorization: `Bearer ${initialSession.token}` },
+    })
+      .then(async (res) => {
+        if (!res.ok) throw new Error('invalid_session');
+        const payload = await res.json();
+        if (active && payload?.data) {
+          const validated = normalizeUser(payload.data);
+          setUser(validated);
+          const storage = localStorage.getItem('token') ? localStorage : sessionStorage;
+          storage.setItem('user', JSON.stringify(validated));
+        }
+      })
+      .catch(() => { if (active) logout(); })
+      .finally(() => { if (active) setSessionReady(true); });
 
-  const showToast = (message, type = 'info') => {
-    setToast({ message, type });
-  };
+    return () => { active = false; };
+  }, [initialSession.token, logout]);
 
-  const clearToast = () => setToast(null);
-
+  // ── Global 401 listener ──────────────────────────────────────────────────
   useEffect(() => {
     const handleUnauthorized = () => {
       logout();
@@ -139,44 +157,47 @@ export const AuthProvider = ({ children }) => {
     };
     window.addEventListener('safewalk:unauthorized', handleUnauthorized);
     return () => window.removeEventListener('safewalk:unauthorized', handleUnauthorized);
-  }, []);
+  }, [logout, showToast]);
 
-  useEffect(() => {
-    if (!initialSession.token) return;
-    let active = true;
-    fetch(buildApiUrl('/users/me'), { headers: { Authorization: `Bearer ${initialSession.token}` } })
-      .then(async (response) => {
-        if (!response.ok) throw new Error('invalid_session');
-        const payload = await response.json();
-        if (active && payload?.data) {
-          const validatedUser = normalizeUser(payload.data);
-          setUser(validatedUser);
-          const storage = localStorage.getItem('token') ? localStorage : sessionStorage;
-          storage.setItem('user', JSON.stringify(validatedUser));
-        }
-      })
-      .catch(() => {
-        if (active) logout();
-      })
-      .finally(() => { if (active) setSessionReady(true); });
-    return () => { active = false; };
-  }, [initialSession.token]);
+  // ── Derived values — memoized so downstream consumers only re-render when
+  //    the actual values change, not on every parent render ─────────────────
+  const isAuthenticated = useMemo(
+    () => Boolean(token && user && !isTokenInvalidOrExpired(token)),
+    [token, user]
+  );
 
-  const updateUser = (updatedData) => {
-    const targetStorage = localStorage.getItem('user') ? localStorage : (sessionStorage.getItem('user') ? sessionStorage : null);
-    if (!targetStorage) return;
-    const currentUser = JSON.parse(targetStorage.getItem('user'));
-    const newUser = normalizeUser({ ...currentUser, ...updatedData });
-    targetStorage.setItem('user', JSON.stringify(newUser));
-    setUser(newUser);
-  };
+  const isAdmin = useMemo(() => normalizeRole(user?.rol) === 'ADMINISTRADOR', [user]);
 
-  const isAuthenticated = Boolean(token && user && !isTokenInvalidOrExpired(token));
-  const isAdmin = normalizeRole(user?.rol) === 'ADMINISTRADOR';
-  const hasRole = (role) => normalizeRole(user?.rol) === normalizeRole(role);
+  const hasRole = useCallback(
+    (role) => normalizeRole(user?.rol) === normalizeRole(role),
+    [user]
+  );
+
+  // ── Context value — stable object reference when nothing changed ─────────
+  const contextValue = useMemo(
+    () => ({
+      user,
+      token,
+      login,
+      logout,
+      switchRole,
+      updateUser,
+      toast,
+      showToast,
+      clearToast,
+      sessionReady,
+      isAuthenticated,
+      isAdmin,
+      hasRole,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [user, token, toast, sessionReady, isAuthenticated, isAdmin]
+    // Stable callbacks (login, logout, switchRole, updateUser, showToast,
+    // clearToast, hasRole) are intentionally omitted — they never change.
+  );
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, switchRole, updateUser, toast, showToast, clearToast, sessionReady, isAuthenticated, isAdmin, hasRole }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

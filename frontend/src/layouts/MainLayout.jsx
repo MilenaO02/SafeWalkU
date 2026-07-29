@@ -4,6 +4,7 @@ import MapaInteractivo from '../components/MapaInteractivo';
 
 import { useAuth } from '../context/auth';
 import { MapContext } from '../context/map';
+import { useDarkMode } from '../hooks/useDarkMode';
 import logoClaro from '../assets/icon_modoclaro.png';
 import logoOscuro from '../assets/icon_modooscuro.png';
 import { request } from '../services/api';
@@ -32,19 +33,11 @@ export default function MainLayout() {
 
   const [mapConfig, setMapConfig] = useState(defaultMapConfig);
   const [campusPoint, setCampusPoint] = useState(defaultMapConfig.centro);
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const { isDarkMode, toggle: toggleDarkMode } = useDarkMode();
   const [isSwitchingRole, setIsSwitchingRole] = useState(false);
 
   const availableRoles = user?.roles || [user?.rol].filter(Boolean);
   const canSwitchRole = availableRoles.includes('ESTUDIANTE') && availableRoles.includes('ADMINISTRADOR');
-
-  useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [isDarkMode]);
 
   useEffect(() => {
     if (isAdminRoute) return;
@@ -56,8 +49,6 @@ export default function MainLayout() {
       setMapConfig((current) => ({ ...current, centro: point, markers: [{ position: point, title: campus.nombre, desc: campus.direccion }] }));
     }).catch(() => {});
   }, [isAdminRoute]);
-
-  const toggleDarkMode = () => setIsDarkMode(!isDarkMode);
 
   const handleLogout = () => {
     logout();
@@ -240,7 +231,18 @@ export default function MainLayout() {
   const handleCenterUser = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (pos) => setMapConfig(prev => ({ ...prev, centro: [pos.coords.latitude, pos.coords.longitude], zoom: 17 }))
+        (pos) => {
+          const point = [pos.coords.latitude, pos.coords.longitude];
+          setMapConfig(prev => ({
+            ...prev,
+            centro: point,
+            zoom: 17,
+            markers: [
+              ...prev.markers.filter((marker) => marker.kind !== 'user'),
+              { position: point, kind: 'user', title: 'Tu ubicación', desc: 'Ubicación GPS actual' }
+            ]
+          }));
+        }
       );
     }
   };

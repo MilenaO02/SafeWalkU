@@ -37,8 +37,7 @@ export default function ContactosEmergencia() {
     event.preventDefault();
     setError(null);
 
-    const nameRegex = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s'-]+$/;
-    if (!nameRegex.test(form.nombre.trim())) {
+    if (!/^[\p{L}\p{M}]+(?:[ '\u2019-][\p{L}\p{M}]+)*$/u.test(form.nombre.trim())) {
       setError('El nombre del contacto solo debe contener letras, espacios y tildes.');
       return;
     }

@@ -165,7 +165,13 @@ class RouteController {
             const result = await routeService.trazarRuta(parsed.data.origen_lat, parsed.data.origen_lng, destination);
             return res.status(200).json({ success: true, data: result });
         } catch (error: any) {
-            const status = error.message === "Destino no encontrado" ? 404 : 500;
+            const status = error.message === "Destino no encontrado"
+                ? 404
+                : error.message?.includes("no está configurado")
+                    ? 503
+                    : error.message?.includes("Google Routes")
+                        ? 502
+                        : 500;
             return res.status(status).json({ success: false, message: error.message });
         }
     }

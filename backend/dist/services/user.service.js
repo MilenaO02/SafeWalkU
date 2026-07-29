@@ -21,6 +21,9 @@ class UserService {
     async delete(id) {
         return repository.delete(id);
     }
+    async reactivate(id) {
+        return repository.reactivate(id);
+    }
     async updateFotoPerfil(id, foto_perfil) {
         return repository.updateFotoPerfil(id, foto_perfil);
     }

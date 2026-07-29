@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { request } from '../services/api';
 import { useAuth } from '../context/auth';
 import MapaInteractivo from './MapaInteractivo';
+import ConfirmDialog from './ConfirmDialog';
 
 const fallbackCenter = [-3.97245, -79.19933];
 const emptyForm = { nombre_ruta: '', descripcion: '', nivel_seguridad: 'ALTO', tiempo_estimado: 5, origen: '', destino: '' };
@@ -27,6 +28,7 @@ export default function EditorRutas() {
   const [drawing, setDrawing] = useState(false);
   const [status, setStatus] = useState('loading');
   const [error, setError] = useState(null);
+  const [pendingDelete, setPendingDelete] = useState(null);
 
   const load = async () => {
     setStatus('loading'); setError(null);
@@ -80,9 +82,15 @@ export default function EditorRutas() {
   };
 
   const remove = async (route) => {
-    if (!window.confirm(`¿Eliminar la ruta "${route.nombre_ruta}"?`)) return;
+    setPendingDelete(route);
+  };
+
+  const confirmRemove = async () => {
+    const route = pendingDelete;
+    if (!route) return;
     try { await request(`/routes/${route.id_ruta}`, { method: 'DELETE' }); showToast('Ruta eliminada.'); await load(); }
     catch (removeError) { setError(removeError.message); }
+    finally { setPendingDelete(null); }
   };
 
   return <div className="space-y-5">
@@ -105,7 +113,6 @@ export default function EditorRutas() {
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-3">
         <div className="h-[520px] min-h-[360px]">
           <MapaInteractivo
-            key={`${mapCenter[0]}-${mapCenter[1]}-${editingId || 'new'}`}
             centro={mapCenter}
             zoom={17}
             polyline={points}
@@ -119,5 +126,6 @@ export default function EditorRutas() {
       </section>
     </div>
     <section className="rounded-2xl border border-slate-200 bg-white p-5"><h3 className="font-black">Rutas registradas</h3><div className="mt-4 grid gap-3 md:grid-cols-2">{routes.map((route) => <article key={route.id_ruta} className="rounded-xl border border-slate-200 p-4"><div className="flex justify-between gap-3"><div><p className="font-bold">{route.nombre_ruta}</p><p className="mt-1 text-xs text-slate-500">{route.nivel_seguridad} · {route.tiempo_estimado} min · {route.total_puntos} puntos manuales</p></div><span className={`h-fit rounded-lg px-2 py-1 text-[10px] font-black ${Number(route.total_puntos) >= 2 ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>{Number(route.total_puntos) >= 2 ? 'TRAZADA' : 'REFERENCIAL'}</span></div><div className="mt-3 flex gap-2"><button onClick={() => edit(route)} className="min-h-11 flex-1 rounded-xl bg-purple-50 text-xs font-bold text-purple-900">Editar</button><button onClick={() => remove(route)} className="min-h-11 rounded-xl border border-red-200 px-4 text-xs font-bold text-red-700">Eliminar</button></div></article>)}{status === 'ready' && !routes.length && <p className="text-sm text-slate-500">No hay rutas registradas.</p>}</div></section>
+    <ConfirmDialog open={Boolean(pendingDelete)} title="Eliminar ruta" message={pendingDelete ? `¿Eliminar la ruta "${pendingDelete.nombre_ruta}"?` : ''} confirmText="Eliminar" danger onClose={() => setPendingDelete(null)} onConfirm={confirmRemove} />
   </div>;
 }

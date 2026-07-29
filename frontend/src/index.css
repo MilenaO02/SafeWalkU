@@ -25,6 +25,7 @@
 @layer base {
   body {
     @apply font-sans antialiased bg-slate-50 text-slate-900 transition-colors duration-500 dark:bg-[#3C3C40] dark:text-slate-200;
+    overflow-x: hidden;
   }
 
   :focus-visible {
@@ -36,6 +37,48 @@
   input:disabled,
   select:disabled {
     cursor: not-allowed;
+  }
+}
+
+@layer components {
+  .dark .admin-shell .bg-white {
+    background-color: #2b2b2f !important;
+  }
+
+  .dark .admin-shell .bg-slate-50,
+  .dark .admin-shell .bg-slate-100 {
+    background-color: #3c3c40 !important;
+  }
+
+  .dark .admin-shell .border-slate-100,
+  .dark .admin-shell .border-slate-200,
+  .dark .admin-shell .border-slate-300 {
+    border-color: #4a4a50 !important;
+  }
+
+  .dark .admin-shell .text-purple-950,
+  .dark .admin-shell .text-slate-900,
+  .dark .admin-shell .text-slate-800,
+  .dark .admin-shell .text-slate-700 {
+    color: #f1f5f9 !important;
+  }
+
+  .dark .admin-shell .text-slate-600,
+  .dark .admin-shell .text-slate-500 {
+    color: #cbd5e1 !important;
+  }
+
+  .dark .admin-shell input,
+  .dark .admin-shell select,
+  .dark .admin-shell textarea {
+    border-color: #4a4a50;
+    background-color: #242428;
+    color: #f8fafc;
+  }
+
+  .dark .admin-shell input::placeholder,
+  .dark .admin-shell textarea::placeholder {
+    color: #94a3b8;
   }
 }
 

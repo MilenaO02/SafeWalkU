@@ -22,7 +22,7 @@ export default function EditorUbicaciones() {
     if (!location) return;
     setForm({ nombre: location.nombre, direccion: location.direccion, latitud: String(location.latitud), longitud: String(location.longitud) });
   };
-  const point = Number.isFinite(Number(form.latitud)) && Number.isFinite(Number(form.longitud)) ? [Number(form.latitud), Number(form.longitud)] : [-3.97245, -79.19933];
+  const point = form.latitud !== '' && form.longitud !== '' && Number.isFinite(Number(form.latitud)) && Number.isFinite(Number(form.longitud)) ? [Number(form.latitud), Number(form.longitud)] : [-3.97245, -79.19933];
 
   const save = async (event) => {
     event.preventDefault();
@@ -31,12 +31,16 @@ export default function EditorUbicaciones() {
     const lat = Number(form.latitud);
     const lng = Number(form.longitud);
 
-    if (!Number.isFinite(lat) || lat < -90 || lat > 90) {
-      showToast('La latitud debe ser un número entre -90 y 90.');
+    if (!Number.isFinite(lat) || lat < -4.15 || lat > -3.80) {
+      showToast('La latitud debe estar dentro del rango válido de Loja (-4.15 a -3.80).');
       return;
     }
-    if (!Number.isFinite(lng) || lng < -180 || lng > 180) {
-      showToast('La longitud debe ser un número entre -180 y 180.');
+    if (!Number.isFinite(lng) || lng < -79.35 || lng > -79.05) {
+      showToast('La longitud debe estar dentro del rango válido de Loja (-79.35 a -79.05).');
+      return;
+    }
+    if (form.nombre.trim().length < 3 || form.direccion.trim().length < 3) {
+      showToast('El nombre y la dirección deben tener al menos 3 caracteres.');
       return;
     }
 
@@ -56,12 +60,12 @@ export default function EditorUbicaciones() {
     </section>
     <div className="grid gap-5 xl:grid-cols-[360px_1fr]">
       <form onSubmit={save} className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5">
-        <label className="block text-xs font-bold">Ubicación<select value={selectedId} onChange={(event) => choose(event.target.value)} className="mt-1 min-h-11 w-full rounded-xl border p-2"><option value="">Selecciona…</option>{locations.map((item) => <option key={item.id_ubicacion} value={item.id_ubicacion}>{item.nombre}</option>)}</select></label>
-        <label className="block text-xs font-bold">Nombre<input value={form.nombre} onChange={(event) => setForm((value) => ({ ...value, nombre: event.target.value }))} className="mt-1 min-h-11 w-full rounded-xl border px-3" /></label>
-        <label className="block text-xs font-bold">Dirección<input value={form.direccion} onChange={(event) => setForm((value) => ({ ...value, direccion: event.target.value }))} className="mt-1 min-h-11 w-full rounded-xl border px-3" /></label>
+        <label className="block text-xs font-bold">Ubicación<select required value={selectedId} onChange={(event) => choose(event.target.value)} className="mt-1 min-h-11 w-full rounded-xl border p-2"><option value="">Selecciona…</option>{locations.map((item) => <option key={item.id_ubicacion} value={item.id_ubicacion}>{item.nombre}</option>)}</select></label>
+        <label className="block text-xs font-bold">Nombre<input required minLength="3" maxLength="100" value={form.nombre} onChange={(event) => setForm((value) => ({ ...value, nombre: event.target.value }))} className="mt-1 min-h-11 w-full rounded-xl border px-3" /></label>
+        <label className="block text-xs font-bold">Dirección<input required minLength="3" maxLength="255" value={form.direccion} onChange={(event) => setForm((value) => ({ ...value, direccion: event.target.value }))} className="mt-1 min-h-11 w-full rounded-xl border px-3" /></label>
         <div className="grid grid-cols-2 gap-2">
-          <label className="text-xs font-bold">Latitud<input type="number" step="any" inputMode="decimal" value={form.latitud} onChange={(event) => setForm((value) => ({ ...value, latitud: event.target.value }))} className="mt-1 min-h-11 w-full rounded-xl border px-2" /></label>
-          <label className="text-xs font-bold">Longitud<input type="number" step="any" inputMode="decimal" value={form.longitud} onChange={(event) => setForm((value) => ({ ...value, longitud: event.target.value }))} className="mt-1 min-h-11 w-full rounded-xl border px-2" /></label>
+          <label className="text-xs font-bold">Latitud<input required type="number" step="any" min="-4.15" max="-3.80" inputMode="decimal" value={form.latitud} onChange={(event) => setForm((value) => ({ ...value, latitud: event.target.value }))} className="mt-1 min-h-11 w-full rounded-xl border px-2" /></label>
+          <label className="text-xs font-bold">Longitud<input required type="number" step="any" min="-79.35" max="-79.05" inputMode="decimal" value={form.longitud} onChange={(event) => setForm((value) => ({ ...value, longitud: event.target.value }))} className="mt-1 min-h-11 w-full rounded-xl border px-2" /></label>
         </div>
         <button disabled={!selectedId || saving} className="min-h-11 w-full rounded-xl bg-purple-900 font-bold text-white disabled:opacity-50">{saving ? 'Guardando…' : 'Guardar coordenadas'}</button>
       </form>

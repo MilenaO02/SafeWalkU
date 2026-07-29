@@ -33,7 +33,8 @@ export function loadGoogleMaps(apiKey) {
     return Promise.reject(new Error('Clave API de Google Maps no configurada.'));
   }
 
-  if (window.google?.maps?.Map && window.google?.maps?.marker && window.google?.maps?.places) {
+  if (typeof window.google?.maps?.importLibrary === 'function'
+      || (window.google?.maps?.Map && window.google?.maps?.marker && window.google?.maps?.places)) {
     return loadLibraries();
   }
 

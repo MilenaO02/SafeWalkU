@@ -64,6 +64,7 @@ router.put("/:id", auth, authorize("ADMINISTRADOR"), validate(updateUserSchema),
  *       - bearerAuth: []
  */
 router.delete("/:id", auth, authorize("ADMINISTRADOR"), controller.delete);
+router.patch("/:id/reactivate", auth, authorize("ADMINISTRADOR"), controller.reactivate);
 /**
  * @swagger
  * /users/{id}/foto:

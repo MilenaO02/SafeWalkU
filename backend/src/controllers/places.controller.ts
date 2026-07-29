@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { placeDetailsSchema, placesAutocompleteSchema } from "../schemas/places.schema.js";
 
 const PLACES_API_BASE = "https://places.googleapis.com/v1";
 const GOOGLE_KEY = () => process.env.GOOGLE_MAPS_SERVER_API_KEY || "";
@@ -26,6 +27,11 @@ class PlacesController {
             });
         }
 
+        const parsed = placesAutocompleteSchema.safeParse(req.body);
+        if (!parsed.success) {
+            return res.status(422).json({ success: false, message: "Parámetros de búsqueda inválidos", errors: parsed.error.issues });
+        }
+
         try {
             const upstream = await fetch(`${PLACES_API_BASE}/places:autocomplete`, {
                 method: "POST",
@@ -38,7 +44,7 @@ class PlacesController {
                         "suggestions.placePrediction.text," +
                         "suggestions.placePrediction.structuredFormat"
                 },
-                body: JSON.stringify(req.body),
+                body: JSON.stringify(parsed.data),
                 signal: AbortSignal.timeout(8000)
             });
 
@@ -64,7 +70,7 @@ class PlacesController {
     }
 
     /**
-     * GET /api/places/details/:placeResource(*)
+     * POST /api/maps/places/details
      * Fetches place details from Google Places API.
      * :placeResource is the resource path returned by autocomplete (e.g. "places/ChIJ...").
      */
@@ -77,17 +83,12 @@ class PlacesController {
             });
         }
 
-        // placeResource comes from url param after /details/ (e.g. "places/ChIJ...")
-        const placeResource = req.params[0];
-        if (!placeResource || !/^places\/[A-Za-z0-9_-]+$/.test(placeResource)) {
-            return res.status(400).json({
-                success: false,
-                message: "Identificador de lugar inválido."
-            });
+        const parsed = placeDetailsSchema.safeParse(req.body);
+        if (!parsed.success) {
+            return res.status(422).json({ success: false, message: "Identificador de lugar inválido", errors: parsed.error.issues });
         }
 
-        const sessionToken = typeof req.query.sessionToken === "string" ? req.query.sessionToken : "";
-        const languageCode = "es";
+        const { place: placeResource, sessionToken = "", languageCode } = parsed.data;
         const fieldMask = "id,displayName,formattedAddress,location";
 
         const url = new URL(`${PLACES_API_BASE}/${placeResource}`);

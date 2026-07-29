@@ -4,17 +4,19 @@ class UbicacionRepository {
         const [rows] = await pool.query(`
             SELECT u.*, c.latitud, c.longitud, c.verificada, c.fuente,
                    CASE
-                       WHEN l.id_lugar_seguro IS NOT NULL THEN 'LUGAR_SEGURO'
-                       WHEN s.id_servicio IS NOT NULL THEN 'SERVICIO_EMERGENCIA'
+                       WHEN COUNT(DISTINCT l.id_lugar_seguro) > 0 THEN 'LUGAR_SEGURO'
+                       WHEN COUNT(DISTINCT s.id_servicio) > 0 THEN 'SERVICIO_EMERGENCIA'
                        ELSE 'UBICACION_REGISTRADA'
                    END AS categoria,
-                   COALESCE(s.tipo, u.tipo_zona) AS tipo,
+                   COALESCE(MAX(s.tipo), u.tipo_zona) AS tipo,
                    CASE WHEN c.id_coordenada IS NULL THEN 'SIN_COORDENADAS'
                         WHEN c.verificada = 1 THEN 'VERIFICADA' ELSE 'PENDIENTE' END AS estado
             FROM ubicacion u
             LEFT JOIN coordenada c ON c.id_ubicacion = u.id_ubicacion
             LEFT JOIN lugarseguro l ON l.id_ubicacion = u.id_ubicacion
             LEFT JOIN servicioemergencia s ON s.id_ubicacion = u.id_ubicacion
+            GROUP BY u.id_ubicacion, u.nombre, u.direccion, u.ciudad, u.radio_metros, u.tipo_zona,
+                     c.id_coordenada, c.latitud, c.longitud, c.verificada, c.fuente
             ORDER BY u.nombre
         `);
         return rows;

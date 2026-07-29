@@ -185,6 +185,44 @@ export default function StudentApp() {
     }));
   };
 
+  const handleIniciarRuta = () => {
+    if (!routeSummary || !userPos) return;
+
+    const [originLat, originLng] = userPos;
+    let destParams = '';
+    
+    if (routeSummary.destino?.place_id) {
+      destParams = `&destination_place_id=${routeSummary.destino.place_id}&destination=${routeSummary.destino.latitud},${routeSummary.destino.longitud}`;
+    } else if (routeSummary.destino) {
+      destParams = `&destination=${routeSummary.destino.latitud},${routeSummary.destino.longitud}`;
+    } else {
+      // Fallback
+      destParams = `&destination=${routeSummary.coordinates[routeSummary.coordinates.length - 1][0]},${routeSummary.coordinates[routeSummary.coordinates.length - 1][1]}`;
+    }
+
+    const mapUrl = `https://www.google.com/maps/dir/?api=1&origin=${originLat},${originLng}${destParams}&travelmode=walking`;
+    
+    // Attempt native intent on mobile if we have navigator properties
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    const summaryText = `Resumen de la ruta:\n\n` +
+      `📍 Destino: ${routeSummary.destino?.nombre || routeSummary.nombre_ruta}\n` +
+      `📏 Distancia: ${routeSummary.distance_m || routeSummary.distancia_m} m\n` +
+      `⏱️ Duración: ${routeSummary.duration_min || routeSummary.tiempo_estimado} min\n` +
+      `🛡️ Tipo de ruta: ${routeSummary.safety?.classification || 'Desconocido'}\n\n` +
+      `Advertencias:\n` +
+      (routeSummary.safety?.reasons?.map(r => `- ${r}`).join('\n') || 'Ninguna') +
+      `\n\n¿Deseas abrir la navegación en Google Maps?`;
+
+    if (window.confirm(summaryText)) {
+      if (isMobile && navigator.share !== undefined) {
+        window.open(mapUrl, '_blank', 'noopener,noreferrer');
+      } else {
+        window.open(mapUrl, '_blank', 'noopener,noreferrer');
+      }
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Buscador de Destinos */}
@@ -364,13 +402,23 @@ export default function StudentApp() {
                 </details>
               )}
 
-              <button
-                type="button"
-                onClick={handleLimpiarRuta}
-                className="w-full rounded-xl border border-slate-200 dark:border-[#4A4A50] bg-white dark:bg-[#2B2B2F] py-2 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#3C3C40] transition-colors"
-              >
-                Limpiar ruta del mapa
-              </button>
+              <div className="flex flex-col sm:flex-row gap-2 mt-3">
+                <button
+                  type="button"
+                  onClick={handleIniciarRuta}
+                  className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-purple-900 py-3 text-xs font-bold text-white shadow-md hover:bg-purple-950 transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[18px]">explore</span>
+                  Iniciar Ruta (Google Maps)
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLimpiarRuta}
+                  className="sm:w-1/3 rounded-xl border border-slate-200 dark:border-[#4A4A50] bg-white dark:bg-[#2B2B2F] py-3 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#3C3C40] transition-colors"
+                >
+                  Limpiar mapa
+                </button>
+              </div>
             </div>
           </div>
         )}

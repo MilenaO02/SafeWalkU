@@ -5,7 +5,7 @@ import swaggerUi from "swagger-ui-express";
 import path from "path";
 import swaggerSpec from "./docs/swagger.js";
 import routes from "./routes/index.js";
-import limiter from "./middleware/rateLimiter.js";
+import globalLimiter from "./middleware/rateLimiter.js";
 import logger from "./middleware/logger.js";
 import errorHandler from "./middleware/errorHandler.js";
 import securityHeaders from "./middleware/securityHeaders.js";
@@ -32,7 +32,7 @@ app.use(express.json({ limit: "1mb" }));
 // ── Request logging ───────────────────────────────────────────────────────
 app.use(logger);
 // ── Global rate limiter ───────────────────────────────────────────────────
-app.use(limiter);
+app.use(globalLimiter);
 // ── Static uploads ────────────────────────────────────────────────────────
 app.use("/uploads", express.static(path.resolve(process.cwd(), "uploads")));
 // ── API docs ──────────────────────────────────────────────────────────────

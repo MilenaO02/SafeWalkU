@@ -45,6 +45,21 @@ export async function request(path, options = {}) {
         );
       }
 
+      if (response.status === 429) {
+        let retryAfter = data?.retryAfterSeconds;
+        if (!retryAfter) {
+            const header = response.headers.get('Retry-After');
+            if (header) retryAfter = parseInt(header, 10);
+        }
+        
+        let msg = data?.message || 'Demasiadas solicitudes.';
+        if (retryAfter) {
+            const minutes = Math.ceil(retryAfter / 60);
+            msg += ` Por favor intenta nuevamente en ${minutes} minuto(s).`;
+        }
+        throw new Error(msg);
+      }
+
       const fieldErrors = Array.isArray(data?.errors)
         ? data.errors.map((e) => e.message || e).filter(Boolean).join(', ')
         : '';

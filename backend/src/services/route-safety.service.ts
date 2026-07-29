@@ -19,6 +19,20 @@ export interface RiskZone {
     longitud: number;
 }
 
+export interface SafePlace {
+    id_lugar_seguro: number;
+    nombre: string;
+    latitud: number;
+    longitud: number;
+}
+
+export interface EmergencyService {
+    id_servicio: number;
+    nombre: string;
+    latitud: number;
+    longitud: number;
+}
+
 export interface SafetyEvaluationResult {
     classification: "SEGURA" | "PRECAUCION" | "NO_RECOMENDADA";
     score: number;
@@ -37,6 +51,9 @@ const LOW_RISK_REPORT_PENALTY = 5;
 const HIGH_RISK_ZONE_PENALTY = 30;
 const MEDIUM_RISK_ZONE_PENALTY = 15;
 const LOW_RISK_ZONE_PENALTY = 5;
+
+const SAFE_PLACE_BONUS = 5;
+const EMERGENCY_SERVICE_BONUS = 8;
 
 const NEARBY_THRESHOLD_METERS = 150;
 const SAFETY_WARNING_TEXT =
@@ -73,7 +90,9 @@ class RouteSafetyService {
     evaluate(
         routeCoordinates: Coordinate[],
         reports: IncidentReport[],
-        riskZones: RiskZone[]
+        riskZones: RiskZone[],
+        safePlaces: SafePlace[] = [],
+        emergencyServices: EmergencyService[] = []
     ): SafetyEvaluationResult {
         if (!routeCoordinates || routeCoordinates.length === 0) {
             return {
@@ -158,6 +177,32 @@ class RouteSafetyService {
             }
         }
 
+        // Evaluate safe places
+        let nearbySafePlaces = 0;
+        for (const place of safePlaces) {
+            const placeCoord: Coordinate = [Number(place.latitud), Number(place.longitud)];
+            if (!Number.isFinite(placeCoord[0]) || !Number.isFinite(placeCoord[1])) continue;
+            
+            const dist = minDistanceToRoute(placeCoord, routeCoordinates);
+            if (dist <= NEARBY_THRESHOLD_METERS) {
+                nearbySafePlaces++;
+                score += SAFE_PLACE_BONUS;
+            }
+        }
+
+        // Evaluate emergency services
+        let nearbyEmergencyServices = 0;
+        for (const service of emergencyServices) {
+            const serviceCoord: Coordinate = [Number(service.latitud), Number(service.longitud)];
+            if (!Number.isFinite(serviceCoord[0]) || !Number.isFinite(serviceCoord[1])) continue;
+            
+            const dist = minDistanceToRoute(serviceCoord, routeCoordinates);
+            if (dist <= NEARBY_THRESHOLD_METERS) {
+                nearbyEmergencyServices++;
+                score += EMERGENCY_SERVICE_BONUS;
+            }
+        }
+
         score = Math.max(0, Math.min(100, Math.round(score)));
 
         let classification: "SEGURA" | "PRECAUCION" | "NO_RECOMENDADA";
@@ -175,24 +220,29 @@ class RouteSafetyService {
         }
 
         if (highRiskZones > 0) {
-            reasons.push(`Atraviesa o bordea ${highRiskZones} zona(s) de riesgo ALTO activas.`);
+            reasons.push(`[Zona registrada] Atraviesa o bordea ${highRiskZones} zona(s) de riesgo ALTO activas.`);
         }
         if (mediumRiskZones > 0) {
-            reasons.push(`Pasa cerca de ${mediumRiskZones} zona(s) de riesgo MEDIO.`);
+            reasons.push(`[Zona registrada] Pasa cerca de ${mediumRiskZones} zona(s) de riesgo MEDIO.`);
         }
         if (highRiskReports > 0) {
-            reasons.push(`Registra ${highRiskReports} reporte(s) cercano(s) de nivel de riesgo ALTO.`);
+            reasons.push(`[Reporte validado] Registra ${highRiskReports} reporte(s) cercano(s) de nivel de riesgo ALTO.`);
         }
         if (mediumRiskReports > 0) {
-            reasons.push(`Registra ${mediumRiskReports} reporte(s) cercano(s) de nivel de riesgo MEDIO.`);
+            reasons.push(`[Reporte validado] Registra ${mediumRiskReports} reporte(s) cercano(s) de nivel de riesgo MEDIO.`);
         }
         if (lowRiskReports > 0 && highRiskReports === 0 && mediumRiskReports === 0) {
-            reasons.push(`Registra ${lowRiskReports} reporte(s) menor(es) en las cercanías.`);
+            reasons.push(`[Reporte validado] Registra ${lowRiskReports} reporte(s) menor(es) en las cercanías.`);
+        }
+        if (nearbySafePlaces > 0) {
+            reasons.push(`[Lugar seguro] Pasa cerca de ${nearbySafePlaces} lugar(es) seguro(s) registrado(s).`);
+        }
+        if (nearbyEmergencyServices > 0) {
+            reasons.push(`[Servicio emergencia] Existe ${nearbyEmergencyServices} servicio(s) de emergencia a pocos metros del recorrido.`);
         }
 
         if (reasons.length === 0) {
-            reasons.push("Esta ruta es considerada segura para ir caminando según los reportes y datos disponibles.");
-            reasons.push("La mayoría del recorrido transcurre libre de alertas activas.");
+            reasons.push("No existen alertas verificadas para este recorrido.");
         }
 
         return {

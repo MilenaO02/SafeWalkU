@@ -1,5 +1,6 @@
 import { Router } from "express";
 import pool from "../config/database.js";
+import { healthLimiter } from "../middleware/rateLimiter.js";
 
 const router = Router();
 
@@ -16,7 +17,7 @@ const router = Router();
  *       500:
  *         description: Error de conexión a la base de datos
  */
-router.get("/health", async (req, res) => {
+router.get("/health", healthLimiter, async (req, res) => {
     try {
         await pool.query("SELECT 1");
         return res.status(200).json({

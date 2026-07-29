@@ -2,6 +2,8 @@ import routeRepository from "../repositories/route.repository.js";
 import reportRepository from "../repositories/report.repository.js";
 import pedestrianRoutingService from "./pedestrian-routing.service.js";
 import routeSafetyService from "./route-safety.service.js";
+import lugarRepository from "../repositories/lugar.repository.js";
+import servicioRepository from "../repositories/servicio.repository.js";
 // ─────────────────────────────────────────────────────────────────────────────
 // Internal helpers
 // ─────────────────────────────────────────────────────────────────────────────
@@ -40,11 +42,25 @@ async function loadSafetyData(city) {
             latitud: Number(z.latitud),
             longitud: Number(z.longitud),
         }));
-        return { reports, zones };
+        const rawPlaces = await lugarRepository.findAll();
+        const safePlaces = rawPlaces.map((p) => ({
+            id_lugar_seguro: Number(p.id_lugar_seguro),
+            nombre: String(p.ubicacion_nombre || p.nombre || "Lugar Seguro"),
+            latitud: Number(p.latitud),
+            longitud: Number(p.longitud),
+        }));
+        const rawServices = await servicioRepository.findAll();
+        const emergencyServices = rawServices.map((s) => ({
+            id_servicio: Number(s.id_servicio),
+            nombre: String(s.ubicacion_nombre || s.nombre || "Servicio Emergencia"),
+            latitud: Number(s.latitud),
+            longitud: Number(s.longitud),
+        }));
+        return { reports, zones, safePlaces, emergencyServices };
     }
     catch (err) {
         console.warn("[RouteService] No fue posible cargar datos de seguridad de MySQL:", err instanceof Error ? err.message : err);
-        return { reports: [], zones: [] };
+        return { reports: [], zones: [], safePlaces: [], emergencyServices: [] };
     }
 }
 // ─────────────────────────────────────────────────────────────────────────────
@@ -137,11 +153,11 @@ class RouteService {
             recommended = null;
         }
         // ── Load active safety data for risk evaluation ─────────────────────
-        const { reports: activeReports, zones: riskZones } = await loadSafetyData("Loja");
+        const { reports: activeReports, zones: riskZones, safePlaces, emergencyServices } = await loadSafetyData("Loja");
         // ── Call pedestrianRoutingService.calculate (Google Routes WALK) ───
         const pedestrianRoute = await pedestrianRoutingService.calculate(originPoint, destPoint);
         if (pedestrianRoute && pedestrianRoute.coordinates.length >= 2) {
-            const safety = routeSafetyService.evaluate(pedestrianRoute.coordinates, activeReports, riskZones);
+            const safety = routeSafetyService.evaluate(pedestrianRoute.coordinates, activeReports, riskZones, safePlaces, emergencyServices);
             const safetyLevel = safety.classification === "SEGURA"
                 ? "BAJO"
                 : safety.classification === "PRECAUCION"
@@ -189,7 +205,7 @@ class RouteService {
         const fallbackCoords = [originPoint, destPoint];
         const fallbackDist = Math.round(straightLineMeters(originPoint, destPoint));
         const fallbackDur = walkingMinutes(fallbackDist);
-        const fallbackSafety = routeSafetyService.evaluate(fallbackCoords, activeReports, riskZones);
+        const fallbackSafety = routeSafetyService.evaluate(fallbackCoords, activeReports, riskZones, safePlaces, emergencyServices);
         return {
             // Modern response fields
             travel_mode: "WALK",

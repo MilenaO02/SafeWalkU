@@ -88,7 +88,10 @@ class RouteController {
                     errors: parsed.error.issues
                 });
             }
-            const result = await routeService.trazarRuta(parsed.data.origen_lat, parsed.data.origen_lng, parsed.data.destino_id);
+            const destination = parsed.data.destino_id !== undefined
+                ? { mode: "REGISTERED", id: parsed.data.destino_id }
+                : { mode: "EXTERNAL", lat: parsed.data.destino_lat, lng: parsed.data.destino_lng, nombre: parsed.data.destino_nombre, direccion: parsed.data.destino_direccion, placeId: parsed.data.place_id };
+            const result = await routeService.trazarRuta(parsed.data.origen_lat, parsed.data.origen_lng, destination);
             return res.status(200).json({ success: true, data: result });
         }
         catch (error) {

@@ -35,7 +35,15 @@ export default function StudentApp() {
         const next = [position.coords.latitude, position.coords.longitude];
         setUserPos(next);
         setGeoStatus('gps');
-        setMapConfig((previous) => ({ ...previous, centro: next, zoom: 16 }));
+        setMapConfig((previous) => ({
+          ...previous,
+          centro: next,
+          zoom: 16,
+          markers: [
+            ...previous.markers.filter((marker) => marker.kind !== 'user'),
+            { position: next, kind: 'user', title: 'Tu ubicación', desc: 'Ubicación GPS actual' }
+          ]
+        }));
       },
       (error) => {
         setGeoStatus('denied');
@@ -61,7 +69,15 @@ export default function StudentApp() {
     setUserPos([lat, lng]);
     setGeoStatus('manual');
     setGeoError(null);
-    setMapConfig((previous) => ({ ...previous, centro: [lat, lng], zoom: 16 }));
+    setMapConfig((previous) => ({
+      ...previous,
+      centro: [lat, lng],
+      zoom: 16,
+      markers: [
+        ...previous.markers.filter((marker) => marker.kind !== 'user'),
+        { position: [lat, lng], kind: 'user', title: 'Tu ubicación', desc: 'Ubicación manual seleccionada' }
+      ]
+    }));
   };
 
   // Fetch zonas de riesgo
@@ -103,62 +119,57 @@ export default function StudentApp() {
       setRouteStatus('loading');
       setGeoError(null);
       const [lat, lng] = userPos;
-      const isNumericId = Number.isInteger(Number(destino.id_ubicacion)) && Number(destino.id_ubicacion) > 0;
+      const isRegisteredDestination = Number.isInteger(Number(destino.id_ubicacion))
+        && Number(destino.id_ubicacion) > 0
+        && !destino.place_id;
 
-      if (isNumericId) {
-        const json = await request(`/routes/trazar?origen_lat=${lat}&origen_lng=${lng}&destino_id=${destino.id_ubicacion}`);
-        if (json.success) {
-          setRouteSummary(json.data);
-          setMapConfig((prev) => ({
-            ...prev,
-            polyline: json.data.coordenadas,
-            centro: json.data.coordenadas[Math.floor(json.data.coordenadas.length / 2)] || [lat, lng],
-            zoom: 16,
-            markers: [
-              ...prev.markers.filter((m) => m.title !== destino.nombre && m.title !== 'Tu ubicación'),
-              { position: [lat, lng], title: 'Tu ubicación', desc: 'Punto desde el que solicitaste la ruta' },
-              { position: [Number(destino.latitud), Number(destino.longitud)], title: destino.nombre, desc: destino.direccion }
-            ]
-          }));
-        }
+      const params = new URLSearchParams({
+        origen_lat: String(lat),
+        origen_lng: String(lng)
+      });
+
+      if (isRegisteredDestination) {
+        params.set('destino_id', String(destino.id_ubicacion));
       } else {
-        // Destino desde Google Places
         const destLat = Number(destino.latitud);
         const destLng = Number(destino.longitud);
-        const polyline = [[lat, lng], [destLat, destLng]];
-
-        // Cálculo de distancia haversine aproximada en metros
-        const rad = (d) => (d * Math.PI) / 180;
-        const R = 6371000;
-        const dLat = rad(destLat - lat);
-        const dLng = rad(destLng - lng);
-        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(rad(lat)) * Math.cos(rad(destLat)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
-        const distM = Math.round(2 * R * Math.asin(Math.sqrt(a)));
-        const estMin = Math.max(1, Math.ceil(distM / 80));
-
-        setRouteSummary({
-          nombre_ruta: `Camino a ${destino.nombre}`,
-          distancia_m: distM,
-          tiempo_estimado: estMin,
-          fuente_trazado: 'GOOGLE_MAPS',
-          aviso: 'Trayecto trazado hacia el lugar seleccionado en Google Maps.',
-          instrucciones: [
-            { instruction: `Avanza con dirección a ${destino.nombre} (${destino.direccion})`, distance_m: distM }
-          ]
-        });
-
-        setMapConfig((prev) => ({
-          ...prev,
-          polyline,
-          centro: [(lat + destLat) / 2, (lng + destLng) / 2],
-          zoom: 16,
-          markers: [
-            ...prev.markers.filter((m) => m.title !== destino.nombre && m.title !== 'Tu ubicación'),
-            { position: [lat, lng], title: 'Tu ubicación', desc: 'Punto desde el que solicitaste la ruta' },
-            { position: [destLat, destLng], title: destino.nombre, desc: destino.direccion }
-          ]
-        }));
+        if (!Number.isFinite(destLat) || destLat < -90 || destLat > 90
+          || !Number.isFinite(destLng) || destLng < -180 || destLng > 180) {
+          throw new Error('El destino no tiene coordenadas válidas.');
+        }
+        params.set('destino_lat', String(destLat));
+        params.set('destino_lng', String(destLng));
+        params.set('destino_nombre', destino.nombre || 'Destino');
+        params.set('destino_direccion', destino.direccion || '');
+        if (destino.place_id) params.set('place_id', destino.place_id);
       }
+
+      const json = await request("/routes/trazar?" + params.toString());
+      if (!json.success) throw new Error(json.message || 'No fue posible calcular la ruta.');
+      const coordinates = Array.isArray(json.data.coordenadas)
+        ? json.data.coordenadas.filter((point) => Array.isArray(point)
+          && point.length >= 2
+          && Number.isFinite(Number(point[0]))
+          && Number.isFinite(Number(point[1])))
+        : [];
+      if (coordinates.length < 2) throw new Error('La API no devolvió una geometría de ruta válida.');
+
+      setRouteSummary(json.data);
+      const destLat = Number(destino.latitud);
+      const destLng = Number(destino.longitud);
+      setMapConfig((prev) => ({
+        ...prev,
+        polyline: coordinates,
+        centro: coordinates[Math.floor(coordinates.length / 2)] || [lat, lng],
+        zoom: 16,
+        markers: [
+          ...prev.markers.filter((m) => m.title !== destino.nombre && m.kind !== 'user'),
+          { position: [lat, lng], kind: 'user', title: 'Tu ubicación', desc: 'Punto desde el que solicitaste la ruta' },
+          ...(Number.isFinite(destLat) && Number.isFinite(destLng)
+            ? [{ position: [destLat, destLng], title: destino.nombre, desc: destino.direccion }]
+            : [])
+        ]
+      }));
     } catch (e) {
       setGeoError(e instanceof Error ? e.message : 'No fue posible trazar la ruta.');
     } finally {
@@ -168,7 +179,7 @@ export default function StudentApp() {
 
   return (
     <div className="space-y-6">
-      
+
       {/* Buscador de Destinos */}
       <div className="bg-slate-50 dark:bg-[#2B2B2F] p-5 rounded-2xl border border-slate-100 dark:border-[#4A4A50] shadow-inner transition-colors duration-500">
         <BuscadorPrincipal
@@ -183,8 +194,12 @@ export default function StudentApp() {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="font-black">{routeSummary.nombre_ruta} · {routeSummary.distancia_m} m · {routeSummary.tiempo_estimado} min a pie</p>
             <span className="rounded-full bg-white/70 px-2 py-1 text-[9px] font-black">
-              {routeSummary.fuente_trazado === 'OPENROUTESERVICE' ? 'RUTA PEATONAL' : routeSummary.fuente_trazado === 'TRAZADO_MANUAL' ? 'RUTA VERIFICADA' : 'REFERENCIAL'}
-            </span>
+              {routeSummary.fuente_trazado === 'GOOGLE_ROUTES'
+                ? 'GOOGLE ROUTES'
+                : routeSummary.fuente_trazado === 'TRAZADO_MANUAL'
+                  ? 'RUTA VERIFICADA'
+                  : 'REFERENCIAL'}
+           </span>
           </div>
           <p className="mt-1">{routeSummary.aviso}</p>
           {routeSummary.instrucciones?.length > 0 && <details className="mt-2">
@@ -235,9 +250,9 @@ export default function StudentApp() {
       <section className="space-y-3">
         <h3 className="text-[11px] font-bold text-slate-400 dark:text-[#A0A0A5] tracking-wider uppercase">Herramientas de Seguridad</h3>
         <div className="grid grid-cols-2 gap-3">
-          
-          <button 
-            onClick={() => navigate('/reportar')} 
+
+          <button
+            onClick={() => navigate('/reportar')}
             className="group p-4 rounded-2xl border border-slate-200 dark:border-[#4A4A50] bg-white dark:bg-[#2B2B2F] hover:border-amber-300 dark:hover:border-[#5C5C60] hover:bg-amber-50/40 dark:hover:bg-[#3C3C40] transition-all text-left shadow-sm hover:shadow-md cursor-pointer flex flex-col gap-3"
           >
             <div className="p-2.5 rounded-xl shadow-sm bg-amber-50 dark:bg-[#3C3C40] text-amber-800 dark:text-[#E0E0E5] group-hover:bg-amber-500 dark:group-hover:bg-[#4A4A50] group-hover:text-white transition-colors">
@@ -249,8 +264,8 @@ export default function StudentApp() {
             </div>
           </button>
 
-          <button 
-            onClick={() => navigate('/contactos')} 
+          <button
+            onClick={() => navigate('/contactos')}
             className="group p-4 rounded-2xl border border-slate-200 dark:border-[#4A4A50] bg-white dark:bg-[#2B2B2F] hover:border-blue-300 dark:hover:border-[#5C5C60] hover:bg-blue-50/40 dark:hover:bg-[#3C3C40] transition-all text-left shadow-sm hover:shadow-md cursor-pointer flex flex-col gap-3"
           >
             <div className="p-2.5 rounded-xl shadow-sm bg-blue-50 dark:bg-[#3C3C40] text-blue-800 dark:text-[#E0E0E5] group-hover:bg-blue-600 dark:group-hover:bg-[#4A4A50] group-hover:text-white transition-colors">
@@ -262,8 +277,8 @@ export default function StudentApp() {
             </div>
           </button>
 
-          <button 
-            onClick={() => navigate('/sos')} 
+          <button
+            onClick={() => navigate('/sos')}
             className="col-span-2 group p-4 rounded-2xl border border-red-100 dark:border-[#4A4A50] bg-red-50/40 dark:bg-[#2B2B2F] hover:bg-red-50 dark:hover:bg-[#3C3C40] hover:border-red-300 dark:hover:border-[#5C5C60] transition-all text-left shadow-sm hover:shadow-md cursor-pointer flex items-center justify-between gap-4"
           >
             <div className="flex items-center gap-3">
@@ -288,9 +303,9 @@ export default function StudentApp() {
           <span className="text-[9px] text-red-600 dark:text-red-400 font-extrabold px-2.5 py-0.5 bg-red-100/80 dark:bg-red-500/10 rounded-full border border-red-200/50 dark:border-red-500/20">{zonasRiesgo.length} ACTIVAS</span>
         </div>
         <div className="space-y-2">
-          
+
           {zonasRiesgo.map(zona => (
-            <div 
+            <div
               key={zona.id_reporte}
               onClick={() => {
                 setMapConfig(prev => ({

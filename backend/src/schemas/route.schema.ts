@@ -47,5 +47,25 @@ export const updateRouteSchema = z.object({
 export const traceRouteQuerySchema = z.object({
     origen_lat: z.coerce.number().min(-90).max(90),
     origen_lng: z.coerce.number().min(-180).max(180),
-    destino_id: z.coerce.number().int().positive()
-}).strict();
+    destino_id: z.coerce.number().int().positive().optional(),
+    destino_lat: z.coerce.number().min(-90).max(90).optional(),
+    destino_lng: z.coerce.number().min(-180).max(180).optional(),
+    destino_nombre: z.string().trim().max(200).optional(),
+    destino_direccion: z.string().trim().max(255).optional(),
+    place_id: z.string().trim().min(1).max(255).optional()
+}).strict().superRefine((data, context) => {
+    const hasRegisteredDestination = data.destino_id !== undefined;
+    const hasLatitude = data.destino_lat !== undefined;
+    const hasLongitude = data.destino_lng !== undefined;
+    const hasExternalCoordinates = hasLatitude && hasLongitude;
+
+    if (hasLatitude !== hasLongitude) {
+        context.addIssue({ code: z.ZodIssueCode.custom, path: [hasLatitude ? "destino_lng" : "destino_lat"], message: "Debe enviar latitud y longitud del destino" });
+    }
+    if (hasRegisteredDestination && (hasLatitude || hasLongitude)) {
+        context.addIssue({ code: z.ZodIssueCode.custom, path: ["destino_id"], message: "destino_id y las coordenadas externas son modalidades excluyentes" });
+    }
+    if (!hasRegisteredDestination && !hasExternalCoordinates) {
+        context.addIssue({ code: z.ZodIssueCode.custom, path: ["destino_id"], message: "Debe indicar destino_id o destino_lat + destino_lng" });
+    }
+});

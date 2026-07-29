@@ -1,29 +1,40 @@
 import React, { useEffect, useRef, useState } from 'react';
 
 let googleMapsPromise = null;
+
 function loadGoogleMaps(apiKey) {
-  if (window.google?.maps) {
-    return Promise.resolve(window.google.maps);
-  }
+  if (window.google?.maps) return Promise.resolve(window.google.maps);
+  if (!apiKey) return Promise.reject(new Error('Clave API de Google Maps no configurada.'));
   if (!googleMapsPromise) {
     googleMapsPromise = new Promise((resolve, reject) => {
       const existingScript = document.getElementById('google-maps-js-script');
       if (existingScript) {
-        existingScript.addEventListener('load', () => resolve(window.google.maps));
-        existingScript.addEventListener('error', (e) => reject(e));
+        existingScript.addEventListener('load', () => resolve(window.google.maps), { once: true });
+        existingScript.addEventListener('error', reject, { once: true });
         return;
       }
       const script = document.createElement('script');
       script.id = 'google-maps-js-script';
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&language=es`;
+      script.src = 'https://maps.googleapis.com/maps/api/js?key='
+        + encodeURIComponent(apiKey)
+        + '&libraries=places,marker&language=es&loading=async&v=weekly';
       script.async = true;
       script.defer = true;
       script.onload = () => resolve(window.google.maps);
-      script.onerror = (err) => reject(err);
+      script.onerror = reject;
       document.head.appendChild(script);
     });
   }
   return googleMapsPromise;
+}
+
+function isValidCoordinate(value) {
+  return Array.isArray(value)
+    && value.length >= 2
+    && Number.isFinite(Number(value[0]))
+    && Number.isFinite(Number(value[1]))
+    && Number(value[0]) >= -90 && Number(value[0]) <= 90
+    && Number(value[1]) >= -180 && Number(value[1]) <= 180;
 }
 
 export default function MapaInteractivo({
@@ -36,82 +47,91 @@ export default function MapaInteractivo({
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const activeObjectsRef = useRef({ markers: [], circle: null, polyline: null });
+  const initialCenterRef = useRef(centro);
+  const initialZoomRef = useRef(zoom);
   const [mapError, setMapError] = useState(null);
-
+  const [mapReady, setMapReady] = useState(false);
   const googleApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
-  // Inicializar Google Map
   useEffect(() => {
-    if (!googleApiKey) {
-      setMapError('No se encontró VITE_GOOGLE_MAPS_API_KEY. Asegúrate de compilar el frontend con la clave en el archivo .env');
-      return;
+    if (!googleApiKey || !mapRef.current) {
+      if (!googleApiKey) setMapError('No se encontró VITE_GOOGLE_MAPS_API_KEY.');
+      return undefined;
     }
-    if (!mapRef.current) return;
 
     loadGoogleMaps(googleApiKey)
       .then((maps) => {
-        if (!mapInstanceRef.current && mapRef.current) {
-          mapInstanceRef.current = new maps.Map(mapRef.current, {
-            center: { lat: Number(centro[0]), lng: Number(centro[1]) },
-            zoom,
-            disableDefaultUI: true,
-            zoomControl: true
-          });
-          setMapError(null);
-        }
+        if (mapInstanceRef.current || !mapRef.current) return;
+        mapInstanceRef.current = new maps.Map(mapRef.current, {
+          center: { lat: Number(initialCenterRef.current[0]), lng: Number(initialCenterRef.current[1]) },
+          zoom: initialZoomRef.current,
+          mapId: import.meta.env.VITE_GOOGLE_MAPS_MAP_ID || 'DEMO_MAP_ID',
+          disableDefaultUI: true,
+          zoomControl: true
+        });
+        setMapReady(true);
+        setMapError(null);
       })
-      .catch((err) => {
-        console.error('Error al cargar Google Maps JS API:', err);
-        setMapError('Error al cargar Google Maps. Verifica la API Key y las restricciones de dominio en Google Cloud Console.');
+      .catch((error) => {
+        console.error('Error al cargar Google Maps JS API:', error);
+        setMapError('Error al cargar Google Maps. Verifica la API Key y sus restricciones.');
       });
+
+    return undefined;
   }, [googleApiKey]);
 
-  // Actualizar centro y zoom cuando cambien las props
   useEffect(() => {
-    if (mapInstanceRef.current && Array.isArray(centro) && centro.length === 2 && Number.isFinite(Number(centro[0])) && Number.isFinite(Number(centro[1]))) {
-      mapInstanceRef.current.setCenter({ lat: Number(centro[0]), lng: Number(centro[1]) });
-      if (zoom) mapInstanceRef.current.setZoom(zoom);
+    const map = mapInstanceRef.current;
+    if (map && isValidCoordinate(centro)) {
+      map.setCenter({ lat: Number(centro[0]), lng: Number(centro[1]) });
+      if (Number.isFinite(Number(zoom))) map.setZoom(Number(zoom));
     }
   }, [centro, zoom]);
 
-  // Dibujar Marcadores, Círculos y Polilíneas en Google Maps
   useEffect(() => {
     const map = mapInstanceRef.current;
-    if (!map || !window.google?.maps) return;
-    const gmaps = window.google.maps;
+    const gmaps = window.google?.maps;
+    const AdvancedMarkerElement = gmaps?.marker?.AdvancedMarkerElement;
+    if (!map || !gmaps || !AdvancedMarkerElement || !mapReady) return;
 
-    // Limpiar anteriores
-    activeObjectsRef.current.markers.forEach((m) => m.setMap(null));
+    activeObjectsRef.current.markers.forEach((marker) => { marker.map = null; });
     if (activeObjectsRef.current.circle) activeObjectsRef.current.circle.setMap(null);
     if (activeObjectsRef.current.polyline) activeObjectsRef.current.polyline.setMap(null);
 
     const newMarkers = [];
-
     markers.forEach((item) => {
-      if (!Array.isArray(item.position) || item.position.length < 2) return;
-      const lat = Number(item.position[0]);
-      const lng = Number(item.position[1]);
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
-
-      const marker = new gmaps.Marker({
-        position: { lat, lng },
+      if (!isValidCoordinate(item.position)) return;
+      const point = { lat: Number(item.position[0]), lng: Number(item.position[1]) };
+      const options = {
         map,
-        title: item.title
-      });
-
+        position: point,
+        title: item.title,
+        zIndex: item.kind === 'user' ? 1000 : undefined
+      };
+      if (item.kind === 'user' && gmaps.marker.PinElement) {
+        options.content = new gmaps.marker.PinElement({
+          background: '#2563eb',
+          borderColor: '#ffffff',
+          glyphColor: '#ffffff'
+        }).element;
+      }
+      const marker = new AdvancedMarkerElement(options);
       if (item.desc || item.title) {
         const infoWindow = new gmaps.InfoWindow({
-          content: `<div style="color:#000;font-size:12px;padding:4px;"><strong>${item.title}</strong><p style="margin:2px 0 0;">${item.desc || ''}</p></div>`
+          content: '<div style="color:#000;font-size:12px;padding:4px;"><strong>'
+            + (item.title || '')
+            + '</strong><p style="margin:2px 0 0;">'
+            + (item.desc || '')
+            + '</p></div>'
         });
-        marker.addListener('click', () => infoWindow.open(map, marker));
+        marker.addListener('click', () => infoWindow.open({ map, anchor: marker }));
       }
-
       newMarkers.push(marker);
     });
 
-    // Círculo de Zona de Riesgo
     let newCircle = null;
-    if (circle && Array.isArray(circle.center)) {
+    if (circle && isValidCoordinate(circle.center)) {
+      const radius = Number(circle.radius);
       newCircle = new gmaps.Circle({
         strokeColor: circle.color || '#ef4444',
         strokeOpacity: 0.8,
@@ -120,26 +140,29 @@ export default function MapaInteractivo({
         fillOpacity: 0.2,
         map,
         center: { lat: Number(circle.center[0]), lng: Number(circle.center[1]) },
-        radius: Number(circle.radius) || 90
+        radius: Number.isFinite(radius) && radius > 0 ? radius : 90
       });
     }
 
-    // Polilínea de Ruta
+    const validPolyline = Array.isArray(polyline) ? polyline.filter(isValidCoordinate) : [];
     let newPolyline = null;
-    if (Array.isArray(polyline) && polyline.length >= 2) {
-      const path = polyline.map((pt) => ({ lat: Number(pt[0]), lng: Number(pt[1]) }));
+    if (validPolyline.length >= 2) {
+      const path = validPolyline.map((point) => ({ lat: Number(point[0]), lng: Number(point[1]) }));
       newPolyline = new gmaps.Polyline({
         path,
-        geodesic: true,
+        geodesic: false,
         strokeColor: '#4a208c',
         strokeOpacity: 0.9,
         strokeWeight: 5,
         map
       });
+      const bounds = new gmaps.LatLngBounds();
+      path.forEach((point) => bounds.extend(point));
+      map.fitBounds(bounds, { top: 56, right: 56, bottom: 56, left: 56 });
     }
 
     activeObjectsRef.current = { markers: newMarkers, circle: newCircle, polyline: newPolyline };
-  }, [markers, circle, polyline]);
+  }, [markers, circle, polyline, mapReady]);
 
   return (
     <div className="relative z-0 h-full min-h-[300px] w-full bg-slate-100 dark:bg-[#2B2B2F]">
@@ -150,10 +173,7 @@ export default function MapaInteractivo({
           <p className="mt-2 max-w-[360px] text-xs leading-relaxed text-slate-200">{mapError}</p>
         </div>
       )}
-      
-      {/* Contenedor nativo de Google Maps */}
       <div ref={mapRef} className="absolute inset-0 h-full w-full overflow-hidden rounded-3xl shadow-inner" />
     </div>
   );
 }
-

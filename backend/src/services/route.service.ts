@@ -40,11 +40,10 @@ class RouteService {
         return { success: true, message: "Ruta eliminada correctamente" };
     }
 
-    async trazarRuta(originLat: number, originLng: number, destinationId: number) {
-        const destination = await routeRepository.findDestination(destinationId);
-        if (!destination) throw new Error("Destino no encontrado");
-
-        const recommended = await routeRepository.findRecommendedByDestination(destinationId);
+    async trazarRuta(originLat: number, originLng: number, destination: { mode: "REGISTERED"; id: number } | { mode: "EXTERNAL"; lat: number; lng: number; nombre?: string; direccion?: string; placeId?: string }) {
+        const registeredDestination = destination.mode === "REGISTERED" ? await routeRepository.findDestination(destination.id) : null;
+        if (destination.mode === "REGISTERED" && !registeredDestination) throw new Error("Destino no encontrado");
+        const recommended = destination.mode === "REGISTERED" ? await routeRepository.findRecommendedByDestination(destination.id) : null;
         const manualTrace: [number, number][] = recommended?.trazado?.map((point: any) => [
             Number(point.latitud), Number(point.longitud)
         ]) ?? [];
@@ -52,7 +51,9 @@ class RouteService {
             Number(point.latitud), Number(point.longitud)
         ]) ?? [];
         const origin: [number, number] = [originLat, originLng];
-        const destinationPoint: [number, number] = [Number(destination.latitud), Number(destination.longitud)];
+        const destinationPoint: [number, number] = destination.mode === "EXTERNAL"
+            ? [destination.lat, destination.lng]
+            : [Number(registeredDestination!.latitud), Number(registeredDestination!.longitud)];
         const anchorToOrigin = (points: [number, number][]) => {
             if (points.length < 2) return null;
             const startDistance = distanceMeters(origin, points[0]);
@@ -76,7 +77,7 @@ class RouteService {
         try {
             pedestrianRoute = await pedestrianRoutingService.calculate(
                 [originLat, originLng],
-                [Number(destination.latitud), Number(destination.longitud)]
+                destinationPoint
             );
         } catch (error) {
             routingError = true;
@@ -85,14 +86,14 @@ class RouteService {
 
         const coordinates = pedestrianRoute?.coordinates ?? fallbackCoordinates;
         const source = pedestrianRoute
-            ? "OPENROUTESERVICE"
+            ? "GOOGLE_ROUTES"
             : applicableManualTrace
                 ? "TRAZADO_MANUAL"
                 : "REFERENCIAL";
 
         return {
             id_ruta: recommended?.id_ruta ?? null,
-            nombre_ruta: recommended?.nombre_ruta ?? "Trayecto referencial al destino",
+            nombre_ruta: recommended?.nombre_ruta ?? (destination.mode === "EXTERNAL" && destination.nombre ? "Camino a " + destination.nombre : "Trayecto referencial al destino"),
             nivel_seguridad: recommended?.nivel_seguridad ?? null,
             tiempo_estimado: pedestrianRoute?.durationMinutes
                 ?? recommended?.tiempo_estimado

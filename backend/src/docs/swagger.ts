@@ -147,11 +147,15 @@ const swaggerSpec = {
                 }
             },
             ReportCreateRequest: {
-                type: "object", additionalProperties: false, required: ["descripcion", "nivel_riesgo", "id_ubicacion"],
+                type: "object", additionalProperties: false, required: ["descripcion", "nivel_riesgo", "latitud", "longitud", "precision_gps", "fecha_captura_gps"],
                 properties: {
                     descripcion: { type: "string", minLength: 5, maxLength: 500 },
                     nivel_riesgo: { type: "string", enum: ["BAJO", "MEDIO", "ALTO"] },
-                    id_ubicacion: { type: "integer", minimum: 1 }
+                    latitud: { type: "number", minimum: -90, maximum: 90 },
+                    longitud: { type: "number", minimum: -180, maximum: 180 },
+                    precision_gps: { type: "number", exclusiveMinimum: 0, maximum: 10000 },
+                    fecha_captura_gps: { type: "string", format: "date-time" },
+                    direccion_aproximada: { type: "string", minLength: 3, maxLength: 255 }
                 }
             },
             ReportUpdateRequest: {
@@ -176,7 +180,9 @@ const swaggerSpec = {
                     nivel_riesgo: { type: "string", enum: ["BAJO", "MEDIO", "ALTO"] },
                     estado: { type: "string", enum: ["PENDIENTE", "VALIDADO", "RECHAZADO", "DUPLICADO", "CANCELADO"] },
                     tipo_reporte: { type: "string", enum: ["INCIDENTE", "SOS_PANICO"] },
-                    id_usuario: { type: "integer" }, id_ubicacion: { type: "integer" }, id_administrador: { type: "integer", nullable: true }
+                    id_usuario: { type: "integer" }, id_ubicacion: { type: "integer" }, id_administrador: { type: "integer", nullable: true },
+                    latitud: { type: "number" }, longitud: { type: "number" },
+                    precision_gps: { type: "number", nullable: true }, fecha_captura_gps: { type: "string", format: "date-time", nullable: true }
                 }
             },
             ContactRequest: {
@@ -228,7 +234,7 @@ const swaggerSpec = {
                 type: "object", additionalProperties: false, required: ["nombre", "direccion", "latitud", "longitud"],
                 properties: {
                     nombre: { type: "string", minLength: 3, maxLength: 100 }, direccion: { type: "string", minLength: 3, maxLength: 255 },
-                    latitud: { type: "number", minimum: -4.15, maximum: -3.8 }, longitud: { type: "number", minimum: -79.35, maximum: -79.05 }
+                    latitud: { type: "number", minimum: -90, maximum: 90 }, longitud: { type: "number", minimum: -180, maximum: 180 }
                 }
             }
         }

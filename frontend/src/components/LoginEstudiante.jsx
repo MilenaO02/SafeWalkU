@@ -6,6 +6,7 @@ import { useDarkMode } from '../hooks/useDarkMode';
 
 import logoClaro from '../assets/icon_modoclaro.png';
 import logoOscuro from '../assets/icon_modooscuro.png';
+import campusUide from '../assets/campus-uide-loja.jpg';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -82,7 +83,13 @@ const Login = () => {
   };
 
   return (
-    <div className="bg-[#f7f9fb] dark:bg-[#1A1A1C] min-h-screen flex items-center justify-center p-4 relative overflow-hidden font-sans w-full transition-colors duration-500">
+    <div
+      className="min-h-screen w-full overflow-hidden bg-cover bg-center bg-no-repeat p-4 font-sans transition-colors duration-500 flex items-center justify-center relative"
+      style={{ backgroundImage: `url(${campusUide})` }}
+    >
+
+      <div className="fixed inset-0 z-0 bg-gradient-to-br from-slate-950/80 via-purple-950/55 to-slate-900/70 dark:from-black/90 dark:via-purple-950/75 dark:to-black/85" />
+      <div className="fixed inset-0 z-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.18),_transparent_42%)] animate-[fadeIn_0.8s_ease-out]" />
 
       {/* Dark-mode toggle */}
       <button
@@ -100,7 +107,7 @@ const Login = () => {
       </div>
 
       <main className="relative z-10 w-full max-w-[440px]">
-        <div className="bg-white dark:bg-[#3C3C40] border border-slate-200 dark:border-[#222226] rounded-3xl p-8 shadow-lg md:p-10 transition-colors duration-500">
+        <div className="border border-white/40 bg-white/95 dark:bg-[#242428]/95 dark:border-white/10 rounded-3xl p-8 shadow-2xl shadow-black/30 backdrop-blur-md md:p-10 transition-colors duration-500 animate-[fadeIn_0.55s_ease-out]">
 
           {/* Logo */}
           <div className="flex flex-col items-center mb-8">
@@ -271,7 +278,7 @@ const Login = () => {
                 : 'animate-pulse bg-amber-500'
             }`}
           />
-          <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+          <span className="text-[10px] font-bold text-white/90 uppercase tracking-widest drop-shadow-sm">
             {healthStatus === 'operational'
               ? 'Sistema operativo'
               : healthStatus === 'unavailable'

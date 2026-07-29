@@ -185,6 +185,7 @@ export default function StudentApp() {
         <BuscadorPrincipal
           onDestinoSelect={handleDestinoSelect}
           onTrazar={handleTrazarRuta}
+          origin={userPos}
           tracing={routeStatus === 'loading'}
           originLabel={userPos
             ? `${geoStatus === 'manual' ? 'Ubicación manual' : 'Ubicación GPS'}: ${userPos[0].toFixed(5)}, ${userPos[1].toFixed(5)}`

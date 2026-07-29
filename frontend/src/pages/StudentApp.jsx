@@ -177,6 +177,13 @@ export default function StudentApp() {
     }
   };
 
+  const selectRouteOption = (option) => {
+    const coordinates = Array.isArray(option?.coordenadas) ? option.coordenadas : [];
+    if (coordinates.length < 2) return;
+    setRouteSummary((current) => current ? { ...current, ...option, alternativas: current.alternativas } : current);
+    setMapConfig((current) => ({ ...current, polyline: coordinates }));
+  };
+
   return (
     <div className="space-y-6">
 
@@ -191,25 +198,20 @@ export default function StudentApp() {
             ? `${geoStatus === 'manual' ? 'Ubicación manual' : 'Ubicación GPS'}: ${userPos[0].toFixed(5)}, ${userPos[1].toFixed(5)}`
             : 'Ubicación pendiente'}
         />
-        {routeSummary && <div className={`mt-3 rounded-xl p-3 text-xs ${routeSummary.trazado_peatonal ? 'bg-green-50 text-green-800' : 'bg-amber-50 text-amber-800'}`}>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="font-black">{routeSummary.nombre_ruta} · {routeSummary.distancia_m} m · {routeSummary.tiempo_estimado} min a pie</p>
-            <span className="rounded-full bg-white/70 px-2 py-1 text-[9px] font-black">
-              {routeSummary.fuente_trazado === 'GOOGLE_ROUTES'
-                ? 'GOOGLE ROUTES'
-                : routeSummary.fuente_trazado === 'TRAZADO_MANUAL'
-                  ? 'RUTA VERIFICADA'
-                  : 'REFERENCIAL'}
-           </span>
-          </div>
-          <p className="mt-1">{routeSummary.aviso}</p>
-          {routeSummary.instrucciones?.length > 0 && <details className="mt-2">
-            <summary className="cursor-pointer font-bold">Ver indicaciones ({routeSummary.instrucciones.length})</summary>
-            <ol className="mt-2 max-h-40 list-decimal space-y-1 overflow-y-auto pl-5">
-              {routeSummary.instrucciones.map((step, index) => <li key={`${step.instruction}-${index}`}>{step.instruction} {step.distance_m > 0 ? `(${step.distance_m} m)` : ''}</li>)}
-            </ol>
-          </details>}
-        </div>}
+        {routeSummary && <section className="mt-3 space-y-3" aria-label="Comparación de rutas">
+          <p className="rounded-xl bg-purple-50 p-3 text-xs font-semibold text-purple-950 dark:bg-purple-950/30 dark:text-purple-100">{routeSummary.mensaje_alternativas}</p>
+          <div className="grid gap-3 xl:grid-cols-2">{(routeSummary.alternativas?.length ? routeSummary.alternativas : [routeSummary]).map((option, index) => {
+            const selected = option.id_alternativa === routeSummary.id_alternativa;
+            return <article key={option.id_alternativa || `route-${index}`} className={`rounded-2xl border p-4 text-xs ${selected ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/30' : 'border-slate-200 bg-white dark:border-[#4A4A50] dark:bg-[#242428]'}`}>
+              <div className="flex items-start justify-between gap-2"><div><h3 className="font-black text-purple-950 dark:text-purple-100">{option.etiqueta || (index === 0 ? 'Ruta recomendada' : 'Ruta alternativa')}</h3><p className="mt-1 text-slate-600 dark:text-slate-300">{option.distancia_m} m · {option.tiempo_estimado} min a pie</p></div><span className="rounded-full bg-white px-2 py-1 text-[9px] font-black text-purple-900">{option.puntuacion_seguridad ?? '—'} / 100</span></div>
+              <p className="mt-2 font-bold">Nivel estimado: {option.nivel_seguridad_estimado || 'Sin clasificación'}</p>
+              <ul className="mt-2 list-disc space-y-1 pl-4 text-slate-600 dark:text-slate-300">{(option.razones || []).slice(0, 3).map((reason) => <li key={reason}>{reason}</li>)}</ul>
+              <button type="button" onClick={() => selectRouteOption(option)} disabled={selected} className="mt-3 min-h-11 w-full rounded-xl bg-purple-900 px-4 font-bold text-white disabled:bg-purple-200 disabled:text-purple-900">{selected ? 'Ruta visible' : 'Ver esta ruta'}</button>
+              {selected && option.instrucciones?.length > 0 && <details className="mt-2"><summary className="cursor-pointer font-bold">Ver indicaciones ({option.instrucciones.length})</summary><ol className="mt-2 max-h-40 list-decimal space-y-1 overflow-y-auto pl-5">{option.instrucciones.map((step, stepIndex) => <li key={`${step.instruction}-${stepIndex}`}>{step.instruction} {step.distance_m > 0 ? `(${step.distance_m} m)` : ''}</li>)}</ol></details>}
+              <p className="mt-2 text-[10px] text-slate-500">{option.aviso}</p>
+            </article>;
+          })}</div>
+        </section>}
         <div className="mt-4 rounded-2xl border border-purple-100 dark:border-[#4A4A50] bg-white dark:bg-[#242428] p-4 space-y-3">
           <p className="text-xs text-slate-600 dark:text-slate-300">
             Tu ubicación se usa para calcular el trayecto mientras esta página está abierta. No se rastrea en segundo plano.

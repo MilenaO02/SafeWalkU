@@ -1,32 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-
-let googleMapsPromise = null;
-
-function loadGoogleMaps(apiKey) {
-  if (window.google?.maps) return Promise.resolve(window.google.maps);
-  if (!apiKey) return Promise.reject(new Error('Clave API de Google Maps no configurada.'));
-  if (!googleMapsPromise) {
-    googleMapsPromise = new Promise((resolve, reject) => {
-      const existingScript = document.getElementById('google-maps-js-script');
-      if (existingScript) {
-        existingScript.addEventListener('load', () => resolve(window.google.maps), { once: true });
-        existingScript.addEventListener('error', reject, { once: true });
-        return;
-      }
-      const script = document.createElement('script');
-      script.id = 'google-maps-js-script';
-      script.src = 'https://maps.googleapis.com/maps/api/js?key='
-        + encodeURIComponent(apiKey)
-        + '&libraries=places,marker&language=es&loading=async&v=weekly';
-      script.async = true;
-      script.defer = true;
-      script.onload = () => resolve(window.google.maps);
-      script.onerror = reject;
-      document.head.appendChild(script);
-    });
-  }
-  return googleMapsPromise;
-}
+import { loadGoogleMaps } from '../utils/googleMaps';
 
 function isValidCoordinate(value) {
   return Array.isArray(value)
@@ -46,9 +19,12 @@ export default function MapaInteractivo({
 }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
+  const mapsLibraryRef = useRef(null);
   const activeObjectsRef = useRef({ markers: [], circle: null, polyline: null });
   const initialCenterRef = useRef(centro);
   const initialZoomRef = useRef(zoom);
+  const viewportSignatureRef = useRef(null);
+  const fittedRouteSignatureRef = useRef(null);
   const [mapError, setMapError] = useState(null);
   const [mapReady, setMapReady] = useState(false);
   const googleApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
@@ -62,6 +38,7 @@ export default function MapaInteractivo({
     loadGoogleMaps(googleApiKey)
       .then((maps) => {
         if (mapInstanceRef.current || !mapRef.current) return;
+        mapsLibraryRef.current = maps;
         mapInstanceRef.current = new maps.Map(mapRef.current, {
           center: { lat: Number(initialCenterRef.current[0]), lng: Number(initialCenterRef.current[1]) },
           zoom: initialZoomRef.current,
@@ -82,15 +59,20 @@ export default function MapaInteractivo({
 
   useEffect(() => {
     const map = mapInstanceRef.current;
-    if (map && isValidCoordinate(centro)) {
+    const hasRoute = Array.isArray(polyline) && polyline.filter(isValidCoordinate).length >= 2;
+    const nextSignature = isValidCoordinate(centro)
+      ? `${Number(centro[0]).toFixed(6)}:${Number(centro[1]).toFixed(6)}:${Number(zoom)}`
+      : null;
+    if (map && nextSignature && !hasRoute && viewportSignatureRef.current !== nextSignature) {
       map.setCenter({ lat: Number(centro[0]), lng: Number(centro[1]) });
       if (Number.isFinite(Number(zoom))) map.setZoom(Number(zoom));
+      viewportSignatureRef.current = nextSignature;
     }
-  }, [centro, zoom]);
+  }, [centro, zoom, polyline]);
 
   useEffect(() => {
     const map = mapInstanceRef.current;
-    const gmaps = window.google?.maps;
+    const gmaps = mapsLibraryRef.current;
     const AdvancedMarkerElement = gmaps?.marker?.AdvancedMarkerElement;
     if (!map || !gmaps || !AdvancedMarkerElement || !mapReady) return;
 
@@ -156,13 +138,27 @@ export default function MapaInteractivo({
         strokeWeight: 5,
         map
       });
-      const bounds = new gmaps.LatLngBounds();
-      path.forEach((point) => bounds.extend(point));
-      map.fitBounds(bounds, { top: 56, right: 56, bottom: 56, left: 56 });
+      const routeSignature = path.map((point) => `${point.lat.toFixed(6)},${point.lng.toFixed(6)}`).join('|');
+      if (fittedRouteSignatureRef.current !== routeSignature) {
+        const bounds = new gmaps.LatLngBounds();
+        path.forEach((point) => bounds.extend(point));
+        map.fitBounds(bounds, { top: 56, right: 56, bottom: 56, left: 56 });
+        fittedRouteSignatureRef.current = routeSignature;
+      }
+    } else {
+      fittedRouteSignatureRef.current = null;
     }
 
     activeObjectsRef.current = { markers: newMarkers, circle: newCircle, polyline: newPolyline };
   }, [markers, circle, polyline, mapReady]);
+
+  useEffect(() => () => {
+    activeObjectsRef.current.markers.forEach((marker) => { marker.map = null; });
+    activeObjectsRef.current.circle?.setMap(null);
+    activeObjectsRef.current.polyline?.setMap(null);
+    mapInstanceRef.current = null;
+    mapsLibraryRef.current = null;
+  }, []);
 
   return (
     <div className="relative z-0 h-full min-h-[300px] w-full bg-slate-100 dark:bg-[#2B2B2F]">

@@ -43,8 +43,6 @@ class UserRepository {
 
         FROM usuario
 
-        WHERE estado='ACTIVO'
-
         ORDER BY id_usuario
 
         `);
@@ -138,6 +136,20 @@ class UserRepository {
         WHERE id_usuario=?
 
         AND estado='ACTIVO'
+
+        `, [id]);
+        return result.affectedRows === 1;
+    }
+    async reactivate(id) {
+        const [result] = await pool.query(`
+
+        UPDATE usuario
+
+        SET estado='ACTIVO'
+
+        WHERE id_usuario=?
+
+        AND estado='INACTIVO'
 
         `, [id]);
         return result.affectedRows === 1;

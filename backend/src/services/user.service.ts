@@ -53,6 +53,10 @@ class UserService {
         return repository.delete(id);
     }
 
+    async reactivate(id: number): Promise<boolean> {
+        return repository.reactivate(id);
+    }
+
     async updateFotoPerfil(id: number, foto_perfil: string): Promise<PublicUser | undefined> {
         return repository.updateFotoPerfil(id, foto_perfil);
     }

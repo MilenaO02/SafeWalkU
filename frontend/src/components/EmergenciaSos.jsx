@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useMapConfig } from '../context/map';
 import { request } from '../services/api';
+import ConfirmDialog from './ConfirmDialog';
 
 export default function EmergenciaSos() {
   const { setMapConfig, defaultMapConfig } = useMapConfig();
@@ -11,6 +12,7 @@ export default function EmergenciaSos() {
   const [activeId, setActiveId] = useState(null);
   const [status, setStatus] = useState('loading');
   const [error, setError] = useState(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   // ── Load contacts, locations and check for an existing active SOS ──────
   useEffect(() => {
@@ -92,7 +94,11 @@ export default function EmergenciaSos() {
       setError('Selecciona tu ubicación aproximada antes de activar el SOS.');
       return;
     }
-    if (!window.confirm('¿Activar la alerta SOS? La acción quedará registrada.')) return;
+    setConfirmOpen(true);
+  };
+
+  const confirmActivate = async () => {
+    setConfirmOpen(false);
 
     setStatus('submitting');
     setError(null);
@@ -218,6 +224,15 @@ export default function EmergenciaSos() {
           </p>
         )}
       </section>
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Activar alerta SOS"
+        message="La alerta quedará registrada y visible para el personal administrador."
+        confirmText="Activar SOS"
+        danger
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={confirmActivate}
+      />
     </div>
   );
 }

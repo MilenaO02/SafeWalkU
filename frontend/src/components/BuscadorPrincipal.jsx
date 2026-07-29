@@ -1,35 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { request } from '../services/api';
+import { loadGoogleMaps } from '../utils/googleMaps';
 
-// Helper singleton for loading Google Maps Script
-let googleMapsPromise = null;
-function loadGoogleMaps(apiKey) {
-  if (window.google?.maps?.places) {
-    return Promise.resolve(window.google.maps);
-  }
-  if (!apiKey) {
-    return Promise.reject(new Error('Clave API de Google Maps no configurada.'));
-  }
-  if (!googleMapsPromise) {
-    googleMapsPromise = new Promise((resolve, reject) => {
-      const existingScript = document.getElementById('google-maps-js-script');
-      if (existingScript) {
-        existingScript.addEventListener('load', () => resolve(window.google.maps));
-        existingScript.addEventListener('error', (e) => reject(e));
-        return;
-      }
-      const script = document.createElement('script');
-      script.id = 'google-maps-js-script';
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=places,marker&language=es&loading=async&v=weekly`;
-      script.async = true;
-      script.defer = true;
-      script.onload = () => resolve(window.google.maps);
-      script.onerror = (err) => reject(err);
-      document.head.appendChild(script);
-    });
-  }
-  return googleMapsPromise;
-}
+const newSessionToken = () =>
+  window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 export default function BuscadorPrincipal({ onDestinoSelect, onTrazar, originLabel = 'Selecciona tu ubicación', tracing = false }) {
   const [query, setQuery] = useState('');
@@ -37,19 +11,17 @@ export default function BuscadorPrincipal({ onDestinoSelect, onTrazar, originLab
   const [destinoSeleccionado, setDestinoSeleccionado] = useState(null);
   const [searchError, setSearchError] = useState(null);
   const [searching, setSearching] = useState(false);
-  const [googleLoaded, setGoogleLoaded] = useState(false);
   const [noResults, setNoResults] = useState(false);
 
   const wrapperRef = useRef(null);
+  const sessionTokenRef = useRef(newSessionToken());
 
   const googleApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
   // Cargar la API de Google Maps una sola vez; la búsqueda usa Places API (New) por HTTP.
   useEffect(() => {
     if (!googleApiKey) return;
-    loadGoogleMaps(googleApiKey)
-      .then(() => setGoogleLoaded(true))
-      .catch(() => setGoogleLoaded(false));
+    loadGoogleMaps(googleApiKey).catch(() => {});
   }, [googleApiKey]);
 
   // Cerrar sugerencias al hacer clic fuera del componente
@@ -78,50 +50,38 @@ export default function BuscadorPrincipal({ onDestinoSelect, onTrazar, originLab
       setSearchError(null);
       setNoResults(false);
 
-      // Places API (New), priorizada para Loja y Ecuador.
-      if (googleLoaded && googleApiKey) {
-        try {
-          const response = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Goog-Api-Key': googleApiKey,
-              'X-Goog-FieldMask': 'suggestions.placePrediction.place,suggestions.placePrediction.placeId,suggestions.placePrediction.text,suggestions.placePrediction.structuredFormat'
-            },
-            body: JSON.stringify({
-              input: trimmed,
-              includedRegionCodes: ['ec'],
-              languageCode: 'es',
-              regionCode: 'EC',
-              locationBias: { circle: { center: { latitude: -3.99324, longitude: -79.20422 }, radius: 15000 } }
-            })
-          });
-          if (!response.ok) throw new Error(`Places API respondió ${response.status}`);
-          const payload = await response.json();
-          const formatted = (payload.suggestions || [])
-            .map((item) => item.placePrediction)
-            .filter(Boolean)
-            .map((prediction) => ({
-              id_ubicacion: null,
-              nombre: prediction.structuredFormat?.mainText?.text || prediction.text?.text || 'Lugar',
-              direccion: prediction.structuredFormat?.secondaryText?.text || prediction.text?.text || '',
-              place_id: prediction.placeId,
-              place_resource: prediction.place,
-              fuente: 'GOOGLE_PLACES'
-            }));
-          setSearching(false);
-          setSugerencias(formatted);
-          setNoResults(formatted.length === 0);
-        } catch {
-          fetchLocalSearch(trimmed);
-        }
-      } else {
+      try {
+        const payload = await request('/maps/places/autocomplete', {
+          method: 'POST',
+          body: JSON.stringify({
+            input: trimmed,
+            includedRegionCodes: ['ec'],
+            languageCode: 'es',
+            regionCode: 'EC',
+            sessionToken: sessionTokenRef.current,
+            locationBias: { circle: { center: { latitude: -3.99324, longitude: -79.20422 }, radius: 15000 } }
+          })
+        });
+        const formatted = (payload?.data?.suggestions || [])
+          .map((item) => item.placePrediction)
+          .filter(Boolean)
+          .map((prediction) => ({
+            id_ubicacion: null,
+            nombre: prediction.structuredFormat?.mainText?.text || prediction.text?.text || 'Lugar',
+            direccion: prediction.structuredFormat?.secondaryText?.text || prediction.text?.text || '',
+            place_id: prediction.placeId,
+            place_resource: prediction.place,
+            fuente: 'GOOGLE_PLACES'
+          }));
+        setSugerencias(formatted);
+        setNoResults(formatted.length === 0);
+      } catch {
         fetchLocalSearch(trimmed);
       }
     }, 300);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [query, googleLoaded, googleApiKey]);
+  }, [query]);
 
   const fetchLocalSearch = async (searchTerm) => {
     try {
@@ -142,19 +102,18 @@ export default function BuscadorPrincipal({ onDestinoSelect, onTrazar, originLab
   };
 
   const handleSelect = (sug) => {
-    if (sug.fuente === 'GOOGLE_PLACES' && googleApiKey && sug.place_resource) {
+    if (sug.fuente === 'GOOGLE_PLACES' && sug.place_resource) {
       setSearching(true);
-      fetch(`https://places.googleapis.com/v1/${sug.place_resource}?languageCode=es`, {
-        headers: {
-          'X-Goog-Api-Key': googleApiKey,
-          'X-Goog-FieldMask': 'id,displayName,formattedAddress,location'
-        }
-      })
-        .then(async (response) => {
-          if (!response.ok) throw new Error(`Place Details respondió ${response.status}`);
-          return response.json();
+      request('/maps/places/details', {
+        method: 'POST',
+        body: JSON.stringify({
+          place: sug.place_resource,
+          languageCode: 'es',
+          sessionToken: sessionTokenRef.current
         })
-        .then((place) => {
+      })
+        .then((payload) => {
+          const place = payload?.data;
           if (!place.location) throw new Error('El lugar no devolvió coordenadas.');
           const selectedLocation = {
             id_ubicacion: null,
@@ -168,6 +127,7 @@ export default function BuscadorPrincipal({ onDestinoSelect, onTrazar, originLab
           setQuery(selectedLocation.nombre);
           setDestinoSeleccionado(selectedLocation);
           setSugerencias([]);
+          sessionTokenRef.current = newSessionToken();
           if (onDestinoSelect) onDestinoSelect(selectedLocation);
         })
         .catch((error) => setSearchError(error instanceof Error ? error.message : 'No se pudieron obtener las coordenadas de ese lugar.'))

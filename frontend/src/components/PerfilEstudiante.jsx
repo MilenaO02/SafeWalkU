@@ -78,6 +78,18 @@ export default function PerfilEstudiante() {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      setError('Selecciona una imagen JPEG, PNG o WEBP.');
+      event.target.value = '';
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError('La foto de perfil no puede superar 5 MB.');
+      event.target.value = '';
+      return;
+    }
+
     setStatus('saving');
     setError(null);
     const body = new FormData();
@@ -95,6 +107,8 @@ export default function PerfilEstudiante() {
     } catch (uploadError) {
       setError(uploadError.message);
       setStatus('error');
+    } finally {
+      event.target.value = '';
     }
   };
 

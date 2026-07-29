@@ -109,6 +109,13 @@ router.delete(
     controller.delete
 );
 
+router.patch(
+    "/:id/reactivate",
+    auth,
+    authorize("ADMINISTRADOR"),
+    controller.reactivate
+);
+
 /**
  * @swagger
  * /users/{id}/foto:

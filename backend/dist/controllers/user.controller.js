@@ -109,9 +109,37 @@ class UserController {
             });
         }
     }
+    async reactivate(req, res) {
+        try {
+            const id = Number(req.params.id);
+            if (!Number.isInteger(id) || id < 1) {
+                return res.status(400).json({ success: false, message: "ID de usuario inválido" });
+            }
+            const reactivated = await service.reactivate(id);
+            if (!reactivated) {
+                return res.status(404).json({ success: false, message: "Usuario inactivo no encontrado" });
+            }
+            return res.status(200).json({
+                success: true,
+                message: "Usuario reactivado correctamente"
+            });
+        }
+        catch (error) {
+            console.error("No fue posible reactivar el usuario:", error);
+            return res.status(500).json({
+                success: false,
+                message: "No fue posible reactivar el usuario"
+            });
+        }
+    }
     async uploadFoto(req, res) {
         try {
             const id = Number(req.params.id);
+            if (!Number.isInteger(id) || id < 1) {
+                if (req.file)
+                    await fs.promises.unlink(req.file.path).catch(() => undefined);
+                return res.status(400).json({ success: false, message: "ID de usuario inválido" });
+            }
             if (!req.file) {
                 return res.status(400).json({ success: false, message: "No se recibió ningún archivo." });
             }
@@ -119,12 +147,23 @@ class UserController {
                 await fs.promises.unlink(req.file.path);
                 return res.status(400).json({ success: false, message: "El contenido del archivo no corresponde a una imagen válida." });
             }
+            const currentUser = await service.getById(id);
+            if (!currentUser) {
+                await fs.promises.unlink(req.file.path).catch(() => undefined);
+                return res.status(404).json({ success: false, message: "Usuario no encontrado" });
+            }
             // Usar ruta relativa para evitar errores de Mixed Content en HTTPS
             const foto_url = `/uploads/${req.file.filename}`;
             const usuario = await service.updateFotoPerfil(id, foto_url);
+            if (currentUser.foto_perfil?.startsWith("/uploads/perfil-") && currentUser.foto_perfil !== foto_url) {
+                const previousPath = currentUser.foto_perfil.replace(/^\/uploads\//, "");
+                await fs.promises.unlink(`uploads/${previousPath}`).catch(() => undefined);
+            }
             res.json({ success: true, data: usuario, foto_url });
         }
         catch (error) {
+            if (req.file)
+                await fs.promises.unlink(req.file.path).catch(() => undefined);
             res.status(500).json({ success: false, message: error.message });
         }
     }

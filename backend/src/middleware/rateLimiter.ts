@@ -6,7 +6,13 @@ const limiter = rateLimit({
 
     max: 100,
 
+    standardHeaders: "draft-7",
+
+    legacyHeaders: false,
+
     message: {
+
+        success: false,
 
         message: "Demasiadas solicitudes."
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Outlet, useLocation, useNavigate, Link } from 'react-router-dom';
 import MapaInteractivo from '../components/MapaInteractivo';
 
@@ -7,21 +7,14 @@ import { MapContext } from '../context/map';
 import { useDarkMode } from '../hooks/useDarkMode';
 import logoClaro from '../assets/icon_modoclaro.png';
 import logoOscuro from '../assets/icon_modooscuro.png';
-import { request } from '../services/api';
 
 // Contexto para sincronizar el Mapa Interactivo en las vistas del estudiante
 
-// Configuración por defecto para el mapa (UIDE Loja — coordenadas exactas)
+// Centro inicial de Loja. El mapa inicia sin marcadores artificiales.
 const defaultMapConfig = {
   centro: [-3.97245, -79.19933],
   zoom: 17,
-  markers: [
-    { 
-      position: [-3.97245, -79.19933], 
-      title: "UIDE - Extensión Loja", 
-      desc: "Calle Agustín Carrión Palacios, entre Av. Salvador Bustamante Celi y Beethoven, Sector Jipiro" 
-    }
-  ],
+  markers: [],
   circle: null
 };
 
@@ -32,23 +25,11 @@ export default function MainLayout() {
   const { user, logout, switchRole, showToast } = useAuth();
 
   const [mapConfig, setMapConfig] = useState(defaultMapConfig);
-  const [campusPoint, setCampusPoint] = useState(defaultMapConfig.centro);
   const { isDarkMode, toggle: toggleDarkMode } = useDarkMode();
   const [isSwitchingRole, setIsSwitchingRole] = useState(false);
 
   const availableRoles = user?.roles || [user?.rol].filter(Boolean);
   const canSwitchRole = availableRoles.includes('ESTUDIANTE') && availableRoles.includes('ADMINISTRADOR');
-
-  useEffect(() => {
-    if (isAdminRoute) return;
-    request('/ubicaciones').then((response) => {
-      const campus = (response.data || []).find((item) => item.tipo_zona === 'UNIVERSIDAD' && Number.isFinite(Number(item.latitud)) && Number.isFinite(Number(item.longitud)));
-      if (!campus) return;
-      const point = [Number(campus.latitud), Number(campus.longitud)];
-      setCampusPoint(point);
-      setMapConfig((current) => ({ ...current, centro: point, markers: [{ position: point, title: campus.nombre, desc: campus.direccion }] }));
-    }).catch(() => {});
-  }, [isAdminRoute]);
 
   const handleLogout = () => {
     logout();
@@ -77,8 +58,8 @@ export default function MainLayout() {
   // VISTA ADMINISTRADOR
   // ----------------------------------------------------
   if (isAdminRoute) {
-    const activeClass = "bg-purple-100 text-purple-950 border-l-4 border-purple-900 font-bold";
-    const inactiveClass = "text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold";
+    const activeClass = "bg-purple-100 text-purple-950 border-l-4 border-purple-900 font-bold dark:bg-purple-500/20 dark:text-purple-200 dark:border-purple-400";
+    const inactiveClass = "text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white";
 
     const getAdminTitle = () => {
       switch (location.pathname) {
@@ -98,13 +79,13 @@ export default function MainLayout() {
     };
 
     return (
-      <div className="flex min-h-screen bg-slate-50 text-slate-800 antialiased font-sans">
+      <div className="admin-shell flex min-h-screen bg-slate-50 text-slate-800 antialiased font-sans transition-colors dark:bg-[#1A1A1C] dark:text-slate-200">
         
         {/* Barra lateral de Administración */}
-        <aside className="fixed left-0 top-0 hidden h-full w-64 bg-white border-r border-slate-200 md:flex flex-col py-6 z-30 shadow-sm transition-all duration-300">
+        <aside className="fixed left-0 top-0 hidden h-full w-64 bg-white border-r border-slate-200 md:flex flex-col py-6 z-30 shadow-sm transition-all duration-300 dark:bg-[#2B2B2F] dark:border-[#4A4A50]">
           <div className="px-6 mb-8 flex items-center justify-center">
             <img 
-              src={logoClaro} 
+              src={isDarkMode ? logoOscuro : logoClaro}
               alt="SafeWalk Admin Logo" 
               className="h-24 w-auto object-contain scale-125 drop-shadow-sm transition-all duration-300 mt-4"
             />
@@ -155,7 +136,7 @@ export default function MainLayout() {
             </Link>
           </nav>
 
-          <div className="px-3 pt-4 border-t border-slate-100">
+          <div className="px-3 pt-4 border-t border-slate-100 dark:border-[#4A4A50]">
             {canSwitchRole && (
               <button
                 onClick={handleSwitchRole}
@@ -181,11 +162,18 @@ export default function MainLayout() {
         {/* Contenedor de contenido de Administración */}
         <div className="md:ml-64 flex-1 flex flex-col min-h-screen min-w-0">
           {/* Header Superior Administrativo */}
-          <header className="flex justify-between items-center w-full px-4 md:px-8 min-h-16 bg-white border-b border-slate-200 shadow-sm sticky top-0 z-20">
-            <h2 className="text-base md:text-xl font-bold text-purple-950 tracking-tight">
+          <header className="flex justify-between items-center w-full px-4 md:px-8 min-h-16 bg-white border-b border-slate-200 shadow-sm sticky top-0 z-20 dark:bg-[#2B2B2F] dark:border-[#4A4A50]">
+            <h2 className="text-base md:text-xl font-bold text-purple-950 tracking-tight dark:text-purple-200">
               {getAdminTitle()}
             </h2>
             <div className="flex items-center gap-4">
+              <button
+                onClick={toggleDarkMode}
+                aria-label={isDarkMode ? 'Activar modo claro' : 'Activar modo oscuro'}
+                className="material-symbols-outlined flex h-11 w-11 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/10"
+              >
+                {isDarkMode ? 'light_mode' : 'dark_mode'}
+              </button>
               {canSwitchRole && (
                 <button
                   onClick={handleSwitchRole}
@@ -210,7 +198,7 @@ export default function MainLayout() {
           <main className="flex-1 p-4 md:p-8 overflow-y-auto pb-24 md:pb-8">
             <Outlet />
           </main>
-          <nav className="fixed bottom-0 left-0 right-0 z-30 grid grid-cols-6 border-t border-slate-200 bg-white px-1 pb-[calc(8px+env(safe-area-inset-bottom))] pt-2 md:hidden">
+          <nav className="fixed bottom-0 left-0 right-0 z-30 grid grid-cols-6 border-t border-slate-200 bg-white px-1 pb-[calc(8px+env(safe-area-inset-bottom))] pt-2 md:hidden dark:border-[#4A4A50] dark:bg-[#2B2B2F]">
             {[
               ['/admin', 'dashboard', 'Inicio'],
               ['/admin/usuarios', 'group', 'Usuarios'],
@@ -247,13 +235,8 @@ export default function MainLayout() {
     }
   };
 
-  const handleCenterUni = () => {
-    setMapConfig(prev => ({ ...prev, centro: campusPoint, zoom: 17 }));
-  };
-
   const studentLinks = [
     { path: '/app',      label: 'Inicio',       icon: 'my_location',   onClick: handleCenterUser },
-    { isAction: true,    label: 'Uni',          icon: 'school',        onClick: handleCenterUni },
     { path: '/reportar', label: 'Reportar',     icon: 'report_problem'},
     { path: '/sos',      label: 'SOS',          icon: 'emergency',     highlight: true },
     { path: '/contactos',label: 'Apoyo',        icon: 'contact_phone' },

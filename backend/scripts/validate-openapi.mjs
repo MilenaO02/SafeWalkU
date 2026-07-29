@@ -11,13 +11,14 @@ if (JSON.stringify(snapshot) !== JSON.stringify(runtimeSpec)) {
 const expectedOperations = [
   'GET /health',
   'POST /auth/register', 'POST /auth/login', 'POST /auth/switch-role',
-  'GET /users', 'GET /users/me', 'PUT /users/me', 'GET /users/{id}', 'PUT /users/{id}', 'DELETE /users/{id}', 'PUT /users/{id}/foto',
+  'GET /users', 'GET /users/me', 'PUT /users/me', 'GET /users/{id}', 'PUT /users/{id}', 'DELETE /users/{id}', 'PATCH /users/{id}/reactivate', 'PUT /users/{id}/foto',
   'GET /reports', 'POST /reports', 'GET /reports/zonas/riesgo', 'POST /reports/sos', 'PUT /reports/sos/{id}/cancelar', 'PUT /reports/sos/{id}/atender', 'GET /reports/{id}', 'PUT /reports/{id}', 'DELETE /reports/{id}',
   'GET /evidencias', 'POST /evidencias', 'GET /evidencias/{id}', 'PUT /evidencias/{id}', 'DELETE /evidencias/{id}',
   'GET /routes', 'POST /routes', 'GET /routes/trazar', 'GET /routes/{id}', 'PUT /routes/{id}', 'DELETE /routes/{id}',
   'GET /ubicaciones', 'GET /ubicaciones/buscar', 'PUT /ubicaciones/{id}/coordenadas',
   'GET /locations', 'GET /locations/buscar', 'PUT /locations/{id}/coordenadas',
   'GET /dashboard/metricas', 'GET /contacts', 'POST /contacts', 'PUT /contacts/{id}', 'DELETE /contacts/{id}',
+  'POST /maps/places/autocomplete', 'POST /maps/places/details',
   'GET /services', 'GET /places'
 ];
 

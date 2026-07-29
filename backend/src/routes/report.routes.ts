@@ -4,6 +4,7 @@ import reportController from "../controllers/report.controller.js";
 import auth from "../middleware/auth.js";
 import authorize from "../middleware/authorize.js";
 import validate from "../middleware/validate.js";
+import rateLimit from "express-rate-limit";
 
 import {
 
@@ -15,6 +16,13 @@ import {
 
 } from "../schemas/report.schema.js";
 const router = Router();
+const sosLimiter = rateLimit({
+    windowMs: 5 * 60 * 1000,
+    max: 6,
+    standardHeaders: "draft-7",
+    legacyHeaders: false,
+    message: { success: false, message: "Demasiados intentos de SOS. Si estás en peligro inmediato, llama al ECU 911." }
+});
 
 /**
  * @swagger
@@ -71,6 +79,7 @@ router.post(
     "/sos",
     auth,
     authorize("ESTUDIANTE", "ADMINISTRADOR"),
+    sosLimiter,
     validate(createSosSchema),
     reportController.createSOS
 );

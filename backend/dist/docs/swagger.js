@@ -127,11 +127,15 @@ const swaggerSpec = {
                 }
             },
             ReportCreateRequest: {
-                type: "object", additionalProperties: false, required: ["descripcion", "nivel_riesgo", "id_ubicacion"],
+                type: "object", additionalProperties: false, required: ["descripcion", "nivel_riesgo", "latitud", "longitud", "precision_gps", "fecha_captura_gps"],
                 properties: {
                     descripcion: { type: "string", minLength: 5, maxLength: 500 },
                     nivel_riesgo: { type: "string", enum: ["BAJO", "MEDIO", "ALTO"] },
-                    id_ubicacion: { type: "integer", minimum: 1 }
+                    latitud: { type: "number", minimum: -90, maximum: 90 },
+                    longitud: { type: "number", minimum: -180, maximum: 180 },
+                    precision_gps: { type: "number", exclusiveMinimum: 0, maximum: 10000 },
+                    fecha_captura_gps: { type: "string", format: "date-time" },
+                    direccion_aproximada: { type: "string", minLength: 3, maxLength: 255 }
                 }
             },
             ReportUpdateRequest: {
@@ -156,7 +160,9 @@ const swaggerSpec = {
                     nivel_riesgo: { type: "string", enum: ["BAJO", "MEDIO", "ALTO"] },
                     estado: { type: "string", enum: ["PENDIENTE", "VALIDADO", "RECHAZADO", "DUPLICADO", "CANCELADO"] },
                     tipo_reporte: { type: "string", enum: ["INCIDENTE", "SOS_PANICO"] },
-                    id_usuario: { type: "integer" }, id_ubicacion: { type: "integer" }, id_administrador: { type: "integer", nullable: true }
+                    id_usuario: { type: "integer" }, id_ubicacion: { type: "integer" }, id_administrador: { type: "integer", nullable: true },
+                    latitud: { type: "number" }, longitud: { type: "number" },
+                    precision_gps: { type: "number", nullable: true }, fecha_captura_gps: { type: "string", format: "date-time", nullable: true }
                 }
             },
             ContactRequest: {
@@ -208,7 +214,7 @@ const swaggerSpec = {
                 type: "object", additionalProperties: false, required: ["nombre", "direccion", "latitud", "longitud"],
                 properties: {
                     nombre: { type: "string", minLength: 3, maxLength: 100 }, direccion: { type: "string", minLength: 3, maxLength: 255 },
-                    latitud: { type: "number", minimum: -4.15, maximum: -3.8 }, longitud: { type: "number", minimum: -79.35, maximum: -79.05 }
+                    latitud: { type: "number", minimum: -90, maximum: 90 }, longitud: { type: "number", minimum: -180, maximum: 180 }
                 }
             }
         }
@@ -218,7 +224,7 @@ const swaggerSpec = {
         "/auth/register": { post: operation("Registrar estudiante institucional", { tags: ["Autenticacion"], public: true, requestBody: jsonBody({ $ref: "#/components/schemas/RegisterRequest" }), responses: { 201: response("Usuario registrado"), ...errors(400, 409, 422, 429, 500) } }) },
         "/auth/login": { post: operation("Iniciar sesion", { tags: ["Autenticacion"], public: true, requestBody: jsonBody({ $ref: "#/components/schemas/LoginRequest" }), responses: { 200: response("Sesion iniciada", { $ref: "#/components/schemas/AuthResponse" }), ...errors(400, 401, 422, 429, 500) } }) },
         "/auth/switch-role": { post: operation("Cambiar el modo activo de una cuenta con acceso dual", { tags: ["Autenticacion"], roles: ["ESTUDIANTE", "ADMINISTRADOR"], requestBody: jsonBody({ $ref: "#/components/schemas/SwitchRoleRequest" }), responses: { 200: response("Modo cambiado y JWT renovado", { $ref: "#/components/schemas/AuthResponse" }), ...errors(401, 403, 422, 500) } }) },
-        "/users": { get: operation("Listar usuarios activos", { tags: ["Usuarios"], roles: ["ADMINISTRADOR"], responses: { 200: response("Usuarios activos"), ...errors(401, 403, 500) } }) },
+        "/users": { get: operation("Listar usuarios activos y desactivados", { tags: ["Usuarios"], roles: ["ADMINISTRADOR"], responses: { 200: response("Usuarios"), ...errors(401, 403, 500) } }) },
         "/users/me": {
             get: operation("Consultar perfil actual", { tags: ["Usuarios"], roles: ["ESTUDIANTE", "ADMINISTRADOR"], responses: { 200: response("Perfil actual"), ...errors(401, 403, 404, 500) } }),
             put: operation("Actualizar perfil actual", { tags: ["Usuarios"], roles: ["ESTUDIANTE", "ADMINISTRADOR"], requestBody: jsonBody({ $ref: "#/components/schemas/UserUpdateRequest" }), responses: { 200: response("Perfil actualizado"), ...errors(400, 401, 403, 409, 422, 500) } })
@@ -229,6 +235,7 @@ const swaggerSpec = {
             delete: operation("Desactivar usuario mediante borrado logico", { tags: ["Usuarios"], roles: ["ADMINISTRADOR"], parameters: idParameter, responses: { 200: response("Usuario desactivado"), ...errors(400, 401, 403, 404, 409, 500) } })
         },
         "/users/{id}/foto": { put: operation("Actualizar fotografia propia o de un usuario", { tags: ["Usuarios"], roles: ["ESTUDIANTE", "ADMINISTRADOR"], parameters: idParameter, requestBody: multipartBody({ type: "object", required: ["imagen"], properties: { imagen: { type: "string", format: "binary" } } }), responses: { 200: response("Fotografia actualizada"), ...errors(400, 401, 403, 404, 413, 500) } }) },
+        "/users/{id}/reactivate": { patch: operation("Reactivar usuario desactivado", { tags: ["Usuarios"], roles: ["ADMINISTRADOR"], parameters: idParameter, responses: { 200: response("Usuario reactivado"), ...errors(400, 401, 403, 404, 500) } }) },
         "/reports": {
             get: operation("Listar reportes accesibles", { tags: ["Reportes"], roles: ["ESTUDIANTE", "ADMINISTRADOR"], responses: { 200: response("Reportes accesibles"), ...errors(401, 403, 500) } }),
             post: operation("Crear reporte de incidente", { tags: ["Reportes"], roles: ["ESTUDIANTE", "ADMINISTRADOR"], requestBody: jsonBody({ $ref: "#/components/schemas/ReportCreateRequest" }), responses: { 201: response("Reporte creado"), ...errors(400, 401, 403, 422, 500) } })
@@ -277,7 +284,9 @@ const swaggerSpec = {
             delete: operation("Eliminar contacto propio", { tags: ["Contactos"], roles: ["ESTUDIANTE", "ADMINISTRADOR"], parameters: idParameter, responses: { 200: response("Contacto eliminado"), ...errors(400, 401, 403, 404, 500) } })
         },
         "/services": { get: operation("Listar servicios de emergencia", { tags: ["Servicios"], roles: ["ESTUDIANTE", "ADMINISTRADOR"], responses: { 200: response("Servicios de emergencia"), ...errors(401, 403, 500) } }) },
-        "/places": { get: operation("Listar lugares seguros", { tags: ["Lugares"], roles: ["ESTUDIANTE", "ADMINISTRADOR"], responses: { 200: response("Lugares seguros"), ...errors(401, 403, 500) } }) }
+        "/places": { get: operation("Listar lugares seguros", { tags: ["Lugares"], roles: ["ESTUDIANTE", "ADMINISTRADOR"], responses: { 200: response("Lugares seguros"), ...errors(401, 403, 500) } }) },
+        "/maps/places/autocomplete": { post: operation("Buscar sugerencias con Google Places", { tags: ["Lugares"], roles: ["ESTUDIANTE", "ADMINISTRADOR"], requestBody: jsonBody({ type: "object", required: ["input"], properties: { input: { type: "string", minLength: 2, maxLength: 120 }, sessionToken: { type: "string" } } }), responses: { 200: response("Sugerencias de Google Places"), ...errors(401, 403, 422, 429, 502, 503) } }) },
+        "/maps/places/details": { post: operation("Consultar detalles de Google Places", { tags: ["Lugares"], roles: ["ESTUDIANTE", "ADMINISTRADOR"], requestBody: jsonBody({ type: "object", required: ["place"], properties: { place: { type: "string", example: "places/ChIJ..." }, languageCode: { type: "string", example: "es" }, sessionToken: { type: "string" } } }), responses: { 200: response("Detalles y coordenadas del lugar"), ...errors(401, 403, 422, 429, 502, 503) } }) }
     }
 };
 export default swaggerSpec;

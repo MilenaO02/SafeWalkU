@@ -4,22 +4,32 @@ class RouteController {
     async getAll(req, res) {
         try {
             const routes = await routeService.findAll();
-            return res.status(200).json({ success: true, data: routes });
+            return res.status(200).json({
+                success: true,
+                data: routes
+            });
         }
         catch (error) {
-            const msg = error instanceof Error ? error.message : "Error interno";
-            return res.status(500).json({ success: false, message: msg });
+            return res.status(500).json({
+                success: false,
+                message: error.message
+            });
         }
     }
     async getById(req, res) {
         try {
             const id = Number(req.params.id);
             const route = await routeService.findById(id);
-            return res.status(200).json({ success: true, data: route });
+            return res.status(200).json({
+                success: true,
+                data: route
+            });
         }
         catch (error) {
-            const msg = error instanceof Error ? error.message : "No encontrado";
-            return res.status(404).json({ success: false, message: msg });
+            return res.status(404).json({
+                success: false,
+                message: error.message
+            });
         }
     }
     async create(req, res) {
@@ -28,12 +38,14 @@ class RouteController {
             return res.status(201).json({
                 success: true,
                 message: "Ruta creada correctamente",
-                data: route,
+                data: route
             });
         }
         catch (error) {
-            const msg = error instanceof Error ? error.message : "Error al crear";
-            return res.status(400).json({ success: false, message: msg });
+            return res.status(400).json({
+                success: false,
+                message: error.message
+            });
         }
     }
     async update(req, res) {
@@ -43,12 +55,14 @@ class RouteController {
             return res.status(200).json({
                 success: true,
                 message: "Ruta actualizada correctamente",
-                data: route,
+                data: route
             });
         }
         catch (error) {
-            const msg = error instanceof Error ? error.message : "Error al actualizar";
-            return res.status(400).json({ success: false, message: msg });
+            return res.status(400).json({
+                success: false,
+                message: error.message
+            });
         }
     }
     async delete(req, res) {
@@ -85,11 +99,7 @@ class RouteController {
         if (!parsed.success) {
             return res.status(422).json({
                 success: false,
-                message: "Parámetros geográficos inválidos.",
-                errors: parsed.error.issues.map((i) => ({
-                    path: i.path.join(".") || "query",
-                    message: i.message,
-                })),
+                message: error.message
             });
         }
         const data = parsed.data;
@@ -119,9 +129,14 @@ class RouteController {
             return res.status(200).json({ success: true, data: result });
         }
         catch (error) {
-            const msg = error instanceof Error ? error.message : "Error al trazar la ruta";
-            const status = msg === "Destino no encontrado" ? 404 : 500;
-            return res.status(status).json({ success: false, message: msg });
+            const status = error.message === "Destino no encontrado"
+                ? 404
+                : error.message?.includes("no está configurado")
+                    ? 503
+                    : error.message?.includes("Google Routes")
+                        ? 502
+                        : 500;
+            return res.status(status).json({ success: false, message: error.message });
         }
     }
 }

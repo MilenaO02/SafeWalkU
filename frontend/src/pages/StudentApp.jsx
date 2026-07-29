@@ -48,11 +48,9 @@ export default function StudentApp() {
       },
       (error) => {
         setGeoStatus('denied');
-        setGeoError(
-          error.code === error.PERMISSION_DENIED
-            ? 'Permiso de ubicación rechazado. Puedes ingresar las coordenadas manualmente.'
-            : 'No fue posible obtener una ubicación precisa. Intenta nuevamente o usa el modo manual.'
-        );
+        setGeoError(error.code === error.PERMISSION_DENIED
+          ? 'Permiso de ubicación rechazado. Puedes ingresar las coordenadas manualmente.'
+          : 'No fue posible obtener una ubicación precisa. Intenta nuevamente o usa el modo manual.');
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
     );
@@ -83,7 +81,7 @@ export default function StudentApp() {
     }));
   };
 
-  // Cargar zonas de riesgo activas en Loja
+  // Fetch zonas de riesgo
   useEffect(() => {
     const fetchZonas = async () => {
       try {
@@ -107,8 +105,8 @@ export default function StudentApp() {
       centro: [lat, lng],
       zoom: 17,
       markers: [
-        ...prev.markers.filter((m) => m.kind !== 'destination'),
-        { position: [lat, lng], kind: 'destination', title: destino.nombre, desc: destino.direccion }
+        ...prev.markers.filter((m) => m.title !== destino.nombre && m.title !== 'Tu ubicación'),
+        { position: [lat, lng], title: destino.nombre, desc: destino.direccion }
       ]
     }));
   };
@@ -133,8 +131,9 @@ export default function StudentApp() {
       } else {
         const destLat = Number(destino.latitud);
         const destLng = Number(destino.longitud);
-        if (!Number.isFinite(destLat) || !Number.isFinite(destLng)) {
-          throw new Error('El destino no cuenta con coordenadas geográficas válidas.');
+        if (!Number.isFinite(destLat) || destLat < -90 || destLat > 90
+          || !Number.isFinite(destLng) || destLng < -180 || destLng > 180) {
+          throw new Error('El destino no tiene coordenadas válidas.');
         }
         params.set('destino_lat', String(destLat));
         params.set('destino_lng', String(destLng));
@@ -160,7 +159,6 @@ export default function StudentApp() {
       const polyline = json.data.coordenadas || json.data.coordinates || [];
       const destLat = Number(destino.latitud);
       const destLng = Number(destino.longitud);
-
       setMapConfig((prev) => ({
         ...prev,
         polyline,
@@ -228,6 +226,7 @@ export default function StudentApp() {
 
   return (
     <div className="space-y-6">
+
       {/* Buscador de Destinos */}
       <div className="bg-slate-50 dark:bg-[#2B2B2F] p-5 rounded-2xl border border-slate-100 dark:border-[#4A4A50] shadow-inner transition-colors duration-500">
         {/* Panel de Configuración de Ubicación del Usuario */}
@@ -244,29 +243,24 @@ export default function StudentApp() {
             <span className="material-symbols-outlined text-[18px]">my_location</span>
             {geoStatus === 'requesting' ? 'Solicitando ubicación…' : 'Usar mi ubicación GPS'}
           </button>
-
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <input
               inputMode="decimal"
               aria-label="Latitud manual"
-              placeholder="Latitud (ej. -3.9722)"
+              placeholder="Latitud"
               value={manualLocation.lat}
               onChange={(event) => setManualLocation((current) => ({ ...current, lat: event.target.value }))}
-              className="min-h-11 rounded-xl border border-slate-200 px-3 text-xs dark:bg-[#2B2B2F] dark:border-[#4A4A50] dark:text-slate-100"
+              className="min-h-11 rounded-xl border border-slate-200 px-3 text-xs dark:bg-[#2B2B2F]"
             />
             <input
               inputMode="decimal"
               aria-label="Longitud manual"
-              placeholder="Longitud (ej. -79.1989)"
+              placeholder="Longitud"
               value={manualLocation.lng}
               onChange={(event) => setManualLocation((current) => ({ ...current, lng: event.target.value }))}
-              className="min-h-11 rounded-xl border border-slate-200 px-3 text-xs dark:bg-[#2B2B2F] dark:border-[#4A4A50] dark:text-slate-100"
+              className="min-h-11 rounded-xl border border-slate-200 px-3 text-xs dark:bg-[#2B2B2F]"
             />
-            <button
-              type="button"
-              onClick={applyManualLocation}
-              className="min-h-11 rounded-xl border border-purple-300 px-3 text-xs font-bold text-purple-900 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
-            >
+            <button type="button" onClick={applyManualLocation} className="min-h-11 rounded-xl border border-purple-300 px-3 text-xs font-bold text-purple-900 dark:text-purple-300">
               Usar manual
             </button>
           </div>
@@ -491,12 +485,11 @@ export default function StudentApp() {
 
       </div>
 
-      {/* Herramientas de Acompañamiento y Seguridad */}
+      {/* Herramientas de Acompañamiento */}
       <section className="space-y-3">
-        <h3 className="text-[11px] font-bold text-slate-400 dark:text-[#A0A0A5] tracking-wider uppercase">
-          Herramientas de Seguridad
-        </h3>
+        <h3 className="text-[11px] font-bold text-slate-400 dark:text-[#A0A0A5] tracking-wider uppercase">Herramientas de Seguridad</h3>
         <div className="grid grid-cols-2 gap-3">
+
           <button
             onClick={() => navigate('/reportar')}
             className="group p-4 rounded-2xl border border-slate-200 dark:border-[#4A4A50] bg-white dark:bg-[#2B2B2F] hover:border-amber-300 dark:hover:border-[#5C5C60] hover:bg-amber-50/40 dark:hover:bg-[#3C3C40] transition-all text-left shadow-sm hover:shadow-md cursor-pointer flex flex-col gap-3"
@@ -536,46 +529,35 @@ export default function StudentApp() {
                 <p className="text-[10px] leading-tight text-slate-500 dark:text-[#A0A0A5] mt-0.5">Registra una alerta de emergencia para su seguimiento.</p>
               </div>
             </div>
-            <span className="material-symbols-outlined text-slate-400 dark:text-[#A0A0A5] group-hover:translate-x-1 transition-transform">
-              chevron_right
-            </span>
+            <span className="material-symbols-outlined text-slate-400 dark:text-[#A0A0A5] group-hover:translate-x-1 transition-transform">chevron_right</span>
           </button>
+
         </div>
       </section>
 
-      {/* Zonas de Riesgo Activas (Loja) */}
+      {/* Zonas de Riesgo Críticas */}
       <section className="space-y-3 pt-2">
         <div className="flex justify-between items-center">
-          <h3 className="text-[11px] font-bold text-slate-700 dark:text-[#A0A0A5] uppercase tracking-wider">
-            Zonas de Riesgo Activas (Loja)
-          </h3>
-          <span className="text-[9px] text-red-600 dark:text-red-400 font-extrabold px-2.5 py-0.5 bg-red-100/80 dark:bg-red-500/10 rounded-full border border-red-200/50 dark:border-red-500/20">
-            {zonasRiesgo.length} ACTIVAS
-          </span>
+          <h3 className="text-[11px] font-bold text-slate-700 dark:text-[#A0A0A5] uppercase tracking-wider">Zonas de Riesgo Activas (Loja)</h3>
+          <span className="text-[9px] text-red-600 dark:text-red-400 font-extrabold px-2.5 py-0.5 bg-red-100/80 dark:bg-red-500/10 rounded-full border border-red-200/50 dark:border-red-500/20">{zonasRiesgo.length} ACTIVAS</span>
         </div>
-
         <div className="space-y-2">
-          {zonasRiesgo.map((zona) => (
+
+          {zonasRiesgo.map(zona => (
             <div
               key={zona.id_reporte}
               onClick={() => {
-                setMapConfig((prev) => ({
-                  ...prev,
-                  centro: [Number(zona.latitud), Number(zona.longitud)],
-                  zoom: 18,
-                  circle: { center: [Number(zona.latitud), Number(zona.longitud)], radius: zona.radio_metros, color: '#ef4444' }
+                setMapConfig(prev => ({
+                    ...prev,
+                    centro: [Number(zona.latitud), Number(zona.longitud)],
+                    zoom: 18,
+                    circle: { center: [Number(zona.latitud), Number(zona.longitud)], radius: zona.radio_metros, color: '#ef4444' }
                 }));
                 navigate('/detalle-zona', { state: { zona } });
               }}
               className="p-3.5 bg-white dark:bg-[#2B2B2F] border border-slate-200 dark:border-[#4A4A50] rounded-2xl flex gap-3 items-start shadow-sm hover:shadow-md cursor-pointer hover:border-purple-300 dark:hover:border-[#5C5C60] transition-all"
             >
-              <span
-                className={`material-symbols-outlined text-[22px] mt-0.5 p-1.5 rounded-xl border ${
-                  zona.nivel_riesgo === 'ALTO'
-                    ? 'text-red-500 dark:text-red-400 bg-red-50 dark:bg-[#3C3C40] border-red-100 dark:border-red-500/20'
-                    : 'text-amber-500 dark:text-amber-400 bg-amber-50 dark:bg-[#3C3C40] border-amber-100 dark:border-amber-500/20'
-                }`}
-              >
+              <span className={`material-symbols-outlined text-[22px] mt-0.5 p-1.5 rounded-xl border ${zona.nivel_riesgo === 'ALTO' ? 'text-red-500 dark:text-red-400 bg-red-50 dark:bg-[#3C3C40] border-red-100 dark:border-red-500/20' : 'text-amber-500 dark:text-amber-400 bg-amber-50 dark:bg-[#3C3C40] border-amber-100 dark:border-amber-500/20'}`}>
                 {zona.nivel_riesgo === 'ALTO' ? 'warning' : 'visibility'}
               </span>
               <div>
@@ -586,15 +568,15 @@ export default function StudentApp() {
           ))}
 
           {zonasRiesgo.length === 0 && (
-            <div className="p-3.5 bg-green-50 dark:bg-[#2B2B2F] border border-green-100 dark:border-[#4A4A50] rounded-2xl flex gap-3 items-center shadow-sm">
-              <span className="material-symbols-outlined text-green-600 dark:text-green-400">check_circle</span>
-              <p className="text-xs text-green-800 dark:text-[#E0E0E5] font-medium">
-                No hay zonas de riesgo activas registradas en Loja en este momento.
-              </p>
-            </div>
+             <div className="p-3.5 bg-green-50 dark:bg-[#2B2B2F] border border-green-100 dark:border-[#4A4A50] rounded-2xl flex gap-3 items-center shadow-sm">
+             <span className="material-symbols-outlined text-green-600 dark:text-green-400">check_circle</span>
+             <p className="text-xs text-green-800 dark:text-[#E0E0E5] font-medium">No hay zonas de riesgo activas en Loja en este momento.</p>
+           </div>
           )}
+
         </div>
       </section>
+
     </div>
   );
 }

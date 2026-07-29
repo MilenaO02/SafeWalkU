@@ -3,12 +3,18 @@ import googleRoutesService, { GoogleRoute } from "./google-routes.service.js";
 export type Coordinate = [number, number];
 
 export type PedestrianRoute = {
+    id: string;
     coordinates: Coordinate[];
     distanceMeters: number;
     durationMinutes: number;
     encodedPolyline?: string;
     instructions: Array<{ instruction: string; distance_m: number; duration_min: number }>;
 };
+
+function durationToSeconds(value?: string): number {
+    const seconds = Number(value?.replace(/s$/, "") ?? 0);
+    return Number.isFinite(seconds) ? seconds : 0;
+}
 
 class PedestrianRoutingService {
     isConfigured(): boolean {

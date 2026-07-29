@@ -38,9 +38,6 @@ class ReportService {
         return report;
     }
     async create(data, userId) {
-        if (!await reportRepository.locationExists(data.id_ubicacion)) {
-            throw new Error("La ubicación indicada no existe");
-        }
         const id = await reportRepository.create({ ...data, id_usuario: userId });
         return this.findById(id);
     }

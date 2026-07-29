@@ -13,9 +13,21 @@ export interface UbicacionRow extends RowDataPacket {
 class UbicacionRepository {
     async findAll(): Promise<UbicacionRow[]> {
         const [rows] = await pool.query<UbicacionRow[]>(`
-            SELECT u.*, c.latitud, c.longitud, c.verificada, c.fuente
+            SELECT u.*, c.latitud, c.longitud, c.verificada, c.fuente,
+                   CASE
+                       WHEN COUNT(DISTINCT l.id_lugar_seguro) > 0 THEN 'LUGAR_SEGURO'
+                       WHEN COUNT(DISTINCT s.id_servicio) > 0 THEN 'SERVICIO_EMERGENCIA'
+                       ELSE 'UBICACION_REGISTRADA'
+                   END AS categoria,
+                   COALESCE(MAX(s.tipo), u.tipo_zona) AS tipo,
+                   CASE WHEN c.id_coordenada IS NULL THEN 'SIN_COORDENADAS'
+                        WHEN c.verificada = 1 THEN 'VERIFICADA' ELSE 'PENDIENTE' END AS estado
             FROM ubicacion u
             LEFT JOIN coordenada c ON c.id_ubicacion = u.id_ubicacion
+            LEFT JOIN lugarseguro l ON l.id_ubicacion = u.id_ubicacion
+            LEFT JOIN servicioemergencia s ON s.id_ubicacion = u.id_ubicacion
+            GROUP BY u.id_ubicacion, u.nombre, u.direccion, u.ciudad, u.radio_metros, u.tipo_zona,
+                     c.id_coordenada, c.latitud, c.longitud, c.verificada, c.fuente
             ORDER BY u.nombre
         `);
         return rows;
@@ -44,10 +56,14 @@ class UbicacionRepository {
         return rows;
     }
 
-    async updateCoordinates(id: number, data: { nombre: string; direccion: string; latitud: number; longitud: number }) {
+    async updateCoordinates(id: number, data: { nombre: string; direccion: string; latitud: number; longitud: number }, adminUserId: number) {
         const connection = await pool.getConnection();
         try {
             await connection.beginTransaction();
+            const [previousRows] = await connection.query<RowDataPacket[]>(
+                "SELECT latitud, longitud FROM coordenada WHERE id_ubicacion = ? FOR UPDATE",
+                [id]
+            );
             const [result] = await connection.query<ResultSetHeader>(
                 "UPDATE ubicacion SET nombre = ?, direccion = ? WHERE id_ubicacion = ?",
                 [data.nombre, data.direccion, id]
@@ -59,6 +75,18 @@ class UbicacionRepository {
                 ON DUPLICATE KEY UPDATE latitud = VALUES(latitud), longitud = VALUES(longitud),
                     verificada = 1, fuente = 'Editor administrativo SafeWalk U'
             `, [data.latitud, data.longitud, id]);
+            await connection.query(`
+                INSERT INTO auditoria_coordenada
+                    (id_ubicacion, id_usuario_admin, latitud_anterior, longitud_anterior, latitud_nueva, longitud_nueva)
+                VALUES (?, ?, ?, ?, ?, ?)
+            `, [
+                id,
+                adminUserId,
+                previousRows[0]?.latitud ?? null,
+                previousRows[0]?.longitud ?? null,
+                data.latitud,
+                data.longitud
+            ]);
             await connection.commit();
         } catch (error) {
             await connection.rollback();

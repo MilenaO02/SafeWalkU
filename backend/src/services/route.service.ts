@@ -133,12 +133,7 @@ async function loadSafetyData(city: string): Promise<{
 // ─────────────────────────────────────────────────────────────────────────────
 
 class RouteService {
-
-    // ── CRUD ─────────────────────────────────────────────────────────────────
-
-    findAll() {
-        return routeRepository.findAll();
-    }
+    findAll() { return routeRepository.findAll(); }
 
     async findById(id: number) {
         if (!Number.isInteger(id) || id < 1) throw new Error("ID de ruta inválido");
@@ -147,12 +142,12 @@ class RouteService {
         return route;
     }
 
-    async create(data: CreateRouteInput) {
+    async create(data: any) {
         const id = await routeRepository.create(data);
         return this.findById(id);
     }
 
-    async update(id: number, data: UpdateRouteInput) {
+    async update(id: number, data: any) {
         await this.findById(id);
         await routeRepository.update(id, data);
         return this.findById(id);
@@ -164,7 +159,11 @@ class RouteService {
         return { success: true, message: "Ruta eliminada correctamente" };
     }
 
-    // ── Pedestrian route tracing ──────────────────────────────────────────────
+    async trazarRuta(originLat: number, originLng: number, destination: Destination) {
+        const registeredDestination = destination.mode === "REGISTERED"
+            ? await routeRepository.findDestination(destination.id)
+            : null;
+        if (destination.mode === "REGISTERED" && !registeredDestination) throw new Error("Destino no encontrado");
 
     /**
      * trazarRuta
@@ -295,6 +294,8 @@ class RouteService {
                 ? findIntermediatePoint(route.coordinates)
                 : null;
 
+        const options = googleRoutes.map((route) => {
+            const safety = safetyAnalysisService.evaluate(route.coordinates, reports as any, riskZones as any);
             return {
                 label,
                 travel_mode: "WALK",
@@ -352,7 +353,11 @@ class RouteService {
                 // Legacy compat (first route)
                 ...this.legacyFields(recommended, originPoint, destName, locationId, destInfo),
             };
-        }
+        }).sort((left, right) =>
+            right.puntuacion_seguridad - left.puntuacion_seguridad
+            || left.tiempo_estimado - right.tiempo_estimado
+            || left.distancia_m - right.distancia_m
+        ).slice(0, 2);
 
         // ── Fallback: straight-line referencial ─────────────────────────────
         console.warn("[RouteService] Google Routes no devolvió trazados válidos. Devolviendo referencial.");

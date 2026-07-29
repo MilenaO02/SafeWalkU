@@ -67,13 +67,12 @@ async function loadSafetyData(city) {
 // RouteService
 // ─────────────────────────────────────────────────────────────────────────────
 class RouteService {
-    // ── CRUD ─────────────────────────────────────────────────────────────────
     findAll() {
         return routeRepository.findAll();
     }
     async findById(id) {
         if (!Number.isInteger(id) || id < 1)
-            throw new Error("ID de ruta inválido");
+            throw new Error("ID de ruta invÃ¡lido");
         const route = await routeRepository.findById(id);
         if (!route)
             throw new Error("Ruta no encontrada");

@@ -19,6 +19,6 @@ const router = Router();
 
 // All routes require authentication so anonymous users can't use the proxy
 router.post("/autocomplete", auth, placesLimiter, controller.autocomplete);
-router.get("/details/*", auth, placesLimiter, controller.details);
+router.post("/details", auth, placesLimiter, controller.details);
 
 export default router;

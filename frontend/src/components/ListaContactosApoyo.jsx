@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useMapConfig } from '../context/map';
 import { useAuth } from '../context/auth';
 import { request } from '../services/api';
+import ConfirmDialog from './ConfirmDialog';
 
 const emptyForm = { nombre: '', telefono: '', parentesco: 'OTRO' };
 const relationships = ['PADRE', 'MADRE', 'HERMANO', 'HERMANA', 'AMIGO', 'PAREJA', 'OTRO'];
@@ -16,6 +17,7 @@ export default function ContactosEmergencia() {
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState(null);
 
   const load = useCallback(async () => {
     const [contacts, services, places] = await Promise.all([request('/contacts'), request('/services'), request('/places')]);
@@ -57,9 +59,15 @@ export default function ContactosEmergencia() {
   };
   const edit = (contact) => { setEditingId(contact.id_contacto); setForm({ nombre: contact.nombre, telefono: contact.telefono, parentesco: contact.parentesco }); };
   const remove = async (contact) => {
-    if (!window.confirm(`¿Eliminar a ${contact.nombre} de tus contactos de emergencia?`)) return;
+    setPendingDelete(contact);
+  };
+
+  const confirmRemove = async () => {
+    const contact = pendingDelete;
+    if (!contact) return;
     try { await request(`/contacts/${contact.id_contacto}`, { method: 'DELETE' }); showToast('Contacto eliminado.'); if (editingId === contact.id_contacto) resetForm(); await load(); }
     catch (deleteError) { setError(deleteError instanceof Error ? deleteError.message : 'No fue posible eliminar el contacto.'); }
+    finally { setPendingDelete(null); }
   };
 
   return <div className="space-y-5">
@@ -78,5 +86,6 @@ export default function ContactosEmergencia() {
     <section className="space-y-3"><h3 className="text-sm font-black text-purple-950">Mis contactos</h3>{data.contactos.map((contact) => <article key={contact.id_contacto} className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex justify-between gap-3"><div><p className="text-xs font-bold text-slate-900">{contact.nombre}</p><p className="mt-1 text-[11px] text-slate-500">{contact.parentesco}</p></div><div className="flex gap-2"><button type="button" onClick={() => edit(contact)} className="min-h-11 rounded-xl border px-3 text-xs font-bold text-purple-900">Editar</button><button type="button" onClick={() => remove(contact)} className="min-h-11 rounded-xl border border-red-200 px-3 text-xs font-bold text-red-700">Eliminar</button></div></div><a href={phoneHref(contact.telefono)} className="mt-3 flex min-h-11 items-center justify-center rounded-xl bg-slate-900 px-4 text-xs font-bold text-white">Llamar {contact.telefono}</a></article>)}{status === 'ready' && data.contactos.length === 0 && <p className="rounded-2xl border border-slate-200 p-4 text-xs text-slate-600">Aún no has registrado contactos personales.</p>}</section>
     <section className="space-y-3"><h3 className="text-sm font-black text-purple-950">Servicios de emergencia</h3>{data.servicios.map((service) => <article key={service.id_servicio} className="rounded-2xl border border-red-100 bg-white p-4"><p className="text-xs font-bold text-slate-900">{service.nombre || service.tipo_servicio}</p><p className="mt-1 text-[11px] text-slate-500">{service.ubicacion_nombre || service.direccion}</p>{service.telefono && <a href={phoneHref(service.telefono)} className="mt-3 flex min-h-11 items-center justify-center rounded-xl bg-red-600 px-4 text-xs font-bold text-white">Llamar {service.telefono}</a>}</article>)}</section>
     <section className="space-y-3"><h3 className="text-sm font-black text-purple-950">Lugares seguros ({data.lugares.length})</h3>{data.lugares.map((place) => <article key={place.id_lugar_seguro} className="rounded-2xl border border-green-100 bg-green-50 p-4 text-xs"><strong>{place.nombre || place.ubicacion_nombre}</strong><p className="mt-1 text-slate-600">{place.descripcion || place.direccion}</p></article>)}</section>
+    <ConfirmDialog open={Boolean(pendingDelete)} title="Eliminar contacto" message={pendingDelete ? `¿Eliminar a ${pendingDelete.nombre} de tus contactos de emergencia?` : ''} confirmText="Eliminar" danger onClose={() => setPendingDelete(null)} onConfirm={confirmRemove} />
   </div>;
 }

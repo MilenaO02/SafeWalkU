@@ -1,114 +1,127 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { request } from '../services/api';
-import { loadGoogleMaps } from '../utils/googleMaps';
 
-// Session tokens rotate after each place-details call to get billing discounts.
-const newSessionToken = () =>
-  window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+const newSessionToken = () => window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-export default function BuscadorPrincipal({
-  onDestinoSelect,
-  onTrazar,
-  originLabel = 'Selecciona tu ubicación',
-  tracing = false,
-}) {
+function distanceKm(origin, destination) {
+  if (!origin || !Number.isFinite(Number(destination?.latitud)) || !Number.isFinite(Number(destination?.longitud))) return null;
+  const toRad = (value) => Number(value) * Math.PI / 180;
+  const lat1 = toRad(origin[0]);
+  const lat2 = toRad(destination.latitud);
+  const deltaLat = lat2 - lat1;
+  const deltaLng = toRad(destination.longitud) - toRad(origin[1]);
+  const value = Math.sin(deltaLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLng / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(value), Math.sqrt(1 - value));
+}
+
+function normalize(value = '') {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+export default function BuscadorPrincipal({ onDestinoSelect, onTrazar, origin = null, originLabel = 'Selecciona tu ubicación', tracing = false }) {
   const [query, setQuery] = useState('');
-  const [sugerencias, setSugerencias] = useState([]);
-  const [destinoSeleccionado, setDestinoSeleccionado] = useState(null);
+  const [suggestions, setSuggestions] = useState([]);
+  const [selected, setSelected] = useState(null);
   const [searchError, setSearchError] = useState(null);
   const [searching, setSearching] = useState(false);
   const [noResults, setNoResults] = useState(false);
-
   const wrapperRef = useRef(null);
+  const abortRef = useRef(null);
   const sessionTokenRef = useRef(newSessionToken());
 
-  // Load Google Maps JS API for the map renderer (not for Places calls —
-  // those now go through the backend proxy to keep the key server-side).
-  const googleApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-
   useEffect(() => {
-    if (!googleApiKey) return;
-    loadGoogleMaps(googleApiKey).catch(() => {});
-  }, [googleApiKey]);
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
-        setSugerencias([]);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    const close = (event) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) setSuggestions([]);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
   }, []);
 
-  // Autocomplete with 300 ms debounce
   useEffect(() => {
-    const timer = setTimeout(async () => {
-      const trimmed = query.trim();
-      if (trimmed.length < 2) {
-        setSugerencias([]);
-        setNoResults(false);
-        setSearching(false);
-        return;
-      }
+    const text = query.trim();
+    if (text.length < 2) {
+      abortRef.current?.abort();
+      setSuggestions([]);
+      setNoResults(false);
+      setSearching(false);
+      return undefined;
+    }
 
+    const timer = setTimeout(async () => {
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
       setSearching(true);
       setSearchError(null);
       setNoResults(false);
+      const center = origin && Number.isFinite(origin[0]) && Number.isFinite(origin[1]) ? origin : [-3.99324, -79.20422];
 
-      try {
-        // ── Backend proxy (keeps API key out of the browser) ──────────────
-        const json = await request('/maps/places/autocomplete', {
-          method: 'POST',
+      const [localResult, googleResult] = await Promise.allSettled([
+        request(`/ubicaciones/buscar?q=${encodeURIComponent(text)}`, { signal: controller.signal }),
+        request('/maps/places/autocomplete', {
+          method: 'POST', signal: controller.signal,
           body: JSON.stringify({
-            input: trimmed,
-            includedRegionCodes: ['ec'],
-            languageCode: 'es',
-            regionCode: 'EC',
+            input: text, includedRegionCodes: ['ec'], languageCode: 'es', regionCode: 'EC',
             sessionToken: sessionTokenRef.current,
-            locationBias: {
-              circle: {
-                center: { latitude: -3.99324, longitude: -79.20422 },
-                radius: 15000,
-              },
-            },
-          }),
-        });
+            locationBias: { circle: { center: { latitude: Number(center[0]), longitude: Number(center[1]) }, radius: 30000 } }
+          })
+        })
+      ]);
 
-        const suggestions = (json?.data?.suggestions || [])
-          .map((item) => item.placePrediction)
-          .filter(Boolean)
-          .map((prediction) => ({
+      if (controller.signal.aborted) return;
+      const local = localResult.status === 'fulfilled'
+        ? (localResult.value.data || []).map((item) => ({ ...item, fuente_resultado: 'SAFEWALK', distancia_km: distanceKm(origin, item) }))
+        : [];
+      const google = googleResult.status === 'fulfilled'
+        ? (googleResult.value.data?.suggestions || []).map((item) => item.placePrediction).filter(Boolean).map((prediction) => ({
             id_ubicacion: null,
             place_id: prediction.placeId,
-            nombre:
-              prediction.structuredFormat?.mainText?.text ||
-              prediction.text?.text ||
-              'Lugar en Loja',
-            direccion:
-              prediction.structuredFormat?.secondaryText?.text ||
-              prediction.text?.text ||
-              'Loja, Ecuador',
             place_resource: prediction.place,
-            fuente: 'GOOGLE_PLACES',
-          }));
+            nombre: prediction.structuredFormat?.mainText?.text || prediction.text?.text || 'Lugar',
+            direccion: prediction.structuredFormat?.secondaryText?.text || prediction.text?.text || '',
+            categoria: prediction.types?.[0] || 'LUGAR',
+            fuente_resultado: 'GOOGLE_PLACES',
+            distancia_km: null
+          }))
+        : [];
 
-        setSugerencias(suggestions);
-        setNoResults(suggestions.length === 0);
-      } catch {
-        // Fallback to local DB search if the proxy is unavailable
-        fetchLocalSearch(trimmed);
-        return;
-      } finally {
-        setSearching(false);
+      const deduplicated = [];
+      const seen = new Set();
+      [...local, ...google].forEach((item) => {
+        const key = normalize(`${item.nombre}|${item.direccion}`);
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        deduplicated.push(item);
+      });
+      deduplicated.sort((a, b) => {
+        if (a.distancia_km != null && b.distancia_km != null) return a.distancia_km - b.distancia_km;
+        if (a.distancia_km != null) return -1;
+        if (b.distancia_km != null) return 1;
+        return a.fuente_resultado === 'SAFEWALK' ? -1 : 1;
+      });
+      setSuggestions(deduplicated.slice(0, 15));
+      setNoResults(deduplicated.length === 0);
+      if (localResult.status === 'rejected' && googleResult.status === 'rejected') {
+        setSearchError('No fue posible consultar las ubicaciones en este momento.');
       }
+      setSearching(false);
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [query]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [query, origin]);
 
-  const fetchLocalSearch = async (searchTerm) => {
+  useEffect(() => () => abortRef.current?.abort(), []);
+
+  const selectSuggestion = async (item) => {
+    if (item.fuente_resultado !== 'GOOGLE_PLACES') {
+      setQuery(item.nombre);
+      setSelected(item);
+      setSuggestions([]);
+      onDestinoSelect?.(item);
+      return;
+    }
+    setSearching(true);
+    setSearchError(null);
     try {
       const response = await request(
         `/ubicaciones/buscar?q=${encodeURIComponent(searchTerm)}`
@@ -139,189 +152,21 @@ export default function BuscadorPrincipal({
     }
   };
 
-  const handleSelect = async (sug) => {
-    if (sug.fuente === 'GOOGLE_PLACES' && sug.place_resource) {
-      setSearching(true);
-      try {
-        // ── Backend proxy for place details ───────────────────────────────
-        const json = await request(
-          `/maps/places/details/${sug.place_resource}?sessionToken=${encodeURIComponent(
-            sessionTokenRef.current
-          )}`
-        );
-
-        const place = json?.data;
-        if (!place?.location) {
-          throw new Error('El lugar seleccionado no proporcionó coordenadas válidas.');
-        }
-
-        const selected = {
-          id_ubicacion: null,
-          place_id: place.id || sug.place_id,
-          nombre: place.displayName?.text || sug.nombre,
-          direccion: place.formattedAddress || sug.direccion,
-          latitud: place.location.latitude,
-          longitud: place.location.longitude,
-          fuente: 'GOOGLE_PLACES',
-        };
-
-        // Rotate session token after a completed autocomplete → details session
-        sessionTokenRef.current = newSessionToken();
-        setQuery(selected.nombre);
-        setDestinoSeleccionado(selected);
-        setSugerencias([]);
-        onDestinoSelect?.(selected);
-      } catch (error) {
-        setSearchError(
-          error instanceof Error
-            ? error.message
-            : 'No se pudieron obtener las coordenadas del lugar.'
-        );
-      } finally {
-        setSearching(false);
-      }
-    } else {
-      setQuery(sug.nombre);
-      setDestinoSeleccionado(sug);
-      setSugerencias([]);
-      onDestinoSelect?.(sug);
-    }
+  const submit = (event) => {
+    event.preventDefault();
+    if (selected) onTrazar?.(selected);
   };
 
-  const handleTrazar = (e) => {
-    e.preventDefault();
-    if (destinoSeleccionado) onTrazar?.(destinoSeleccionado);
-  };
-
-  return (
-    <div className="space-y-3" ref={wrapperRef}>
-      <div>
-        <h2 className="text-lg font-black text-purple-950 dark:text-slate-100 tracking-tight leading-tight mb-1">
-          ¿A dónde vas caminando?
-        </h2>
-        <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
-          Busca cualquier comercio, hospital, parque o lugar en Loja para evaluar su ruta
-          peatonal.
-        </p>
+  return <div className="space-y-3" ref={wrapperRef}>
+    <div><h2 className="mb-1 text-lg font-black leading-tight tracking-tight text-purple-950 dark:text-slate-100">¿A dónde vas?</h2><p className="text-[10px] font-medium text-slate-500 dark:text-slate-400">Busca lugares de SafeWalk U y Google Places cerca de ti.</p></div>
+    <form className="space-y-2.5" onSubmit={submit}>
+      {searchError && <p role="alert" className="rounded-xl bg-red-50 p-3 text-xs font-semibold text-red-700">{searchError}</p>}
+      <div className="relative"><span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[18px] text-slate-400">my_location</span><input className="min-h-11 w-full cursor-not-allowed rounded-xl border border-slate-200 bg-white py-3 pl-10 pr-4 text-xs font-semibold text-slate-700 opacity-80 shadow-sm dark:bg-[#2B2B2F]" value={originLabel} disabled readOnly /></div>
+      <div className="relative"><span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[18px] text-slate-400">search</span><input className="min-h-11 w-full rounded-xl border border-slate-200 bg-white py-3 pl-10 pr-20 text-xs font-semibold text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-200 dark:bg-[#2B2B2F]" placeholder="Hospital, parque, UIDE…" value={query} onChange={(event) => { setQuery(event.target.value); setSelected(null); }} autoComplete="off" role="combobox" aria-expanded={suggestions.length > 0 || noResults} aria-autocomplete="list" />{searching && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-purple-700">Buscando…</span>}
+        {suggestions.length > 0 && <ul role="listbox" className="absolute z-30 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border bg-white shadow-xl dark:bg-[#2B2B2F]">{suggestions.map((item) => <li key={item.id_ubicacion ? `db-${item.id_ubicacion}` : `google-${item.place_id}`}><button type="button" onClick={() => selectSuggestion(item)} className="min-h-11 w-full border-b px-4 py-2.5 text-left text-xs hover:bg-purple-50"><span className="flex items-center justify-between gap-2"><strong className="text-purple-950">{item.nombre}</strong><span className="rounded-full bg-purple-100 px-2 py-0.5 text-[8px] font-black text-purple-800">{item.fuente_resultado === 'GOOGLE_PLACES' ? 'GOOGLE' : item.categoria || item.categoria_segura}</span></span><span className="mt-0.5 block text-[10px] text-slate-500">{item.direccion}</span>{item.distancia_km != null && <span className="text-[9px] font-bold text-slate-400">Aprox. {item.distancia_km < 1 ? `${Math.round(item.distancia_km * 1000)} m` : `${item.distancia_km.toFixed(1)} km`}</span>}</button></li>)}</ul>}
+        {noResults && !searching && <div className="absolute z-30 mt-1 w-full rounded-xl border bg-white p-3 text-center text-xs text-slate-500 shadow-xl">Sin resultados para “{query}”.</div>}
       </div>
-
-      <form className="space-y-2.5" onSubmit={handleTrazar}>
-        {searchError && (
-          <p
-            role="alert"
-            className="rounded-xl bg-red-50 p-3 text-xs font-semibold text-red-700 dark:bg-red-950/40 dark:text-red-300"
-          >
-            {searchError}
-          </p>
-        )}
-
-        {/* Origin (read-only) */}
-        <div className="relative group">
-          <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[18px] text-slate-400 dark:text-slate-500">
-            my_location
-          </span>
-          <input
-            className="min-h-11 w-full bg-white dark:bg-[#2B2B2F] border border-slate-200 dark:border-[#4A4A50] rounded-xl py-3 pl-10 pr-4 text-xs font-semibold text-slate-700 dark:text-slate-300 placeholder-slate-400 dark:placeholder-slate-600 shadow-sm focus:outline-none opacity-85 cursor-not-allowed transition-colors"
-            value={originLabel}
-            disabled
-            type="text"
-            aria-label="Tu ubicación de origen"
-          />
-        </div>
-
-        {/* Destination search */}
-        <div className="relative group">
-          <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[18px] text-slate-400 dark:text-slate-500 group-focus-within:text-purple-600 dark:group-focus-within:text-purple-400 transition-colors">
-            search
-          </span>
-          <input
-            className="min-h-11 w-full bg-white dark:bg-[#2B2B2F] border border-slate-200 dark:border-[#4A4A50] rounded-xl py-3 pl-10 pr-4 text-xs font-semibold text-slate-800 dark:text-slate-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-200 dark:focus:ring-purple-500/30 focus:border-purple-600 dark:focus:border-purple-500/50 transition-colors"
-            placeholder="Busca un lugar (ej. Hospital Isidro Ayora, Parque Jipiro, UIDE)..."
-            type="text"
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setDestinoSeleccionado(null);
-            }}
-            autoComplete="off"
-            role="combobox"
-            aria-expanded={sugerencias.length > 0 || noResults}
-            aria-autocomplete="list"
-            aria-label="Buscar destino"
-          />
-          {searching && (
-            <span
-              aria-live="polite"
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-purple-700 dark:text-purple-400 animate-pulse"
-            >
-              Buscando…
-            </span>
-          )}
-
-          {/* Suggestions dropdown */}
-          {sugerencias.length > 0 && (
-            <ul
-              role="listbox"
-              aria-label="Sugerencias de destino"
-              className="absolute z-30 w-full bg-white dark:bg-[#2B2B2F] border border-slate-200 dark:border-[#4A4A50] rounded-xl mt-1 shadow-xl max-h-52 overflow-y-auto"
-            >
-              {sugerencias.map((sug, idx) => (
-                <li
-                  key={sug.place_id || sug.id_ubicacion || `sug-${idx}`}
-                  role="option"
-                  aria-selected={false}
-                  className="px-4 py-2.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 cursor-pointer border-b border-slate-50 dark:border-[#4A4A50] last:border-0 transition-colors"
-                  onClick={() => handleSelect(sug)}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-bold text-purple-950 dark:text-slate-100">
-                      {sug.nombre}
-                    </span>
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-[8px] font-black ${
-                        sug.fuente === 'GOOGLE_PLACES'
-                          ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300'
-                          : sug.categoria_segura === 'LUGAR_SEGURO'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-blue-100 text-blue-800'
-                      }`}
-                    >
-                      {sug.fuente === 'GOOGLE_PLACES'
-                        ? 'GOOGLE PLACES'
-                        : sug.categoria_segura === 'LUGAR_SEGURO'
-                        ? 'LUGAR SEGURO'
-                        : 'SERVICIO'}
-                    </span>
-                  </div>
-                  <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    {sug.direccion}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {/* No results message */}
-          {noResults && !searching && query.trim().length >= 2 && (
-            <div
-              role="status"
-              className="absolute z-30 w-full bg-white dark:bg-[#2B2B2F] border border-slate-200 dark:border-[#4A4A50] rounded-xl mt-1 p-3 shadow-xl text-center text-xs text-slate-500"
-            >
-              Sin resultados en Loja para &ldquo;{query}&rdquo;. Intenta con otro nombre o
-              dirección.
-            </div>
-          )}
-        </div>
-
-        <button
-          type="submit"
-          disabled={!destinoSeleccionado || tracing}
-          className="w-full bg-purple-900 hover:bg-purple-950 disabled:bg-slate-300 dark:disabled:bg-[#3C3C40] disabled:text-white/60 dark:disabled:text-[#808085] text-white text-xs font-semibold py-2.5 rounded-lg shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
-        >
-          <span className="material-symbols-outlined text-[16px]">directions_walk</span>
-          {tracing ? 'Calculando ruta peatonal segura…' : 'Trazar ruta a pie'}
-        </button>
-      </form>
-    </div>
-  );
+      <button type="submit" disabled={!selected || tracing} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-purple-900 px-4 text-xs font-bold text-white disabled:bg-slate-300"><span className="material-symbols-outlined text-[16px]">map</span>{tracing ? 'Calculando ruta a pie…' : 'Trazar camino seguro'}</button>
+    </form>
+  </div>;
 }

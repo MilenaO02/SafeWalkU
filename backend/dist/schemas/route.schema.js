@@ -1,33 +1,22 @@
 import { z } from "zod";
-// ─────────────────────────────────────────────────────────────────────────────
-// Shared sub-schemas for route CRUD
-// ─────────────────────────────────────────────────────────────────────────────
-const orderedLocations = z
-    .array(z.number().int().positive())
+const orderedLocations = z.array(z.number().int().positive())
     .min(2, "Una ruta debe incluir al menos dos ubicaciones")
     .max(50, "Una ruta no puede superar 50 puntos")
     .refine((ids) => new Set(ids).size === ids.length, "Las ubicaciones de una ruta no pueden repetirse");
-const routePoint = z
-    .object({
+const routePoint = z.object({
     latitud: z.number().min(-90).max(90),
     longitud: z.number().min(-180).max(180),
     tipo: z.enum(["INICIO", "INTERMEDIO", "CRUCE", "APOYO", "DESTINO"]).optional(),
-    observacion: z.string().trim().max(255).optional(),
-})
-    .strict();
-const tracedPoints = z
-    .array(routePoint)
+    observacion: z.string().trim().max(255).optional()
+}).strict();
+const tracedPoints = z.array(routePoint)
     .min(2, "El trazado debe incluir al menos dos puntos")
     .max(500, "El trazado no puede superar 500 puntos")
-    .superRefine((points, ctx) => {
-    for (let i = 1; i < points.length; i++) {
-        if (points[i].latitud === points[i - 1].latitud &&
-            points[i].longitud === points[i - 1].longitud) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: [i],
-                message: "No se permiten puntos consecutivos iguales",
-            });
+    .superRefine((points, context) => {
+    for (let index = 1; index < points.length; index += 1) {
+        if (points[index].latitud === points[index - 1].latitud
+            && points[index].longitud === points[index - 1].longitud) {
+            context.addIssue({ code: z.ZodIssueCode.custom, path: [index], message: "No se permiten puntos consecutivos iguales" });
         }
     }
 });
@@ -37,11 +26,10 @@ const routeFields = {
     nivel_seguridad: z.enum(["BAJO", "MEDIO", "ALTO"]),
     tiempo_estimado: z.number().int().positive().max(1440),
     ubicaciones: orderedLocations,
-    puntos: tracedPoints,
+    puntos: tracedPoints
 };
 export const createRouteSchema = z.object(routeFields).strict();
-export const updateRouteSchema = z
-    .object({
+export const updateRouteSchema = z.object({
     nombre_ruta: routeFields.nombre_ruta.optional(),
     descripcion: routeFields.descripcion,
     nivel_seguridad: routeFields.nivel_seguridad.optional(),
@@ -94,18 +82,10 @@ export const traceRouteQuerySchema = z
         });
         return;
     }
-    if (hasDestinoId && (hasLat || hasLng)) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "No puede enviar destino_id junto con destino_lat o destino_lng.",
-        });
-        return;
+    if (hasRegisteredDestination && (hasLatitude || hasLongitude)) {
+        context.addIssue({ code: z.ZodIssueCode.custom, path: ["destino_id"], message: "destino_id y las coordenadas externas son modalidades excluyentes" });
     }
-    if (!hasDestinoId && !hasCoords) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "Debe indicar únicamente destino_id (destino registrado) o las coordenadas del destino (destino_lat y destino_lng).",
-        });
-        return;
+    if (!hasRegisteredDestination && !hasExternalCoordinates) {
+        context.addIssue({ code: z.ZodIssueCode.custom, path: ["destino_id"], message: "Debe indicar destino_id o destino_lat + destino_lng" });
     }
 });

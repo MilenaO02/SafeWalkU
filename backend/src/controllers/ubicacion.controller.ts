@@ -22,7 +22,7 @@ class UbicacionController {
 
     async updateCoordinates(req: Request, res: Response) {
         try {
-            const location = await ubicacionService.updateCoordinates(Number(req.params.id), req.body);
+            const location = await ubicacionService.updateCoordinates(Number(req.params.id), req.body, req.user!.id_usuario);
             return res.json({ success: true, message: "Ubicacion actualizada", data: location });
         } catch (error) {
             const message = error instanceof Error ? error.message : "Error al actualizar ubicacion";

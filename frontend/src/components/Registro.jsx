@@ -1,246 +1,55 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { register } from '../services/api';
+import logoClaro from '../assets/icon_modoclaro.png';
+import logoOscuro from '../assets/icon_modooscuro.png';
+
+const namePattern = /^[\p{L}\p{M}]+(?:[ '\u2019-][\p{L}\p{M}]+)*$/u;
 
 export default function Registro() {
   const navigate = useNavigate();
+  const [formData, setFormData] = useState({ nombre: '', apellido: '', email: '', password: '', confirmPassword: '' });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(false);
 
-  const [formData, setFormData] = useState({
-    nombre: '',
-    apellido: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-  });
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState(null);
-  const [success, setSuccess]   = useState(false);
+  const handleChange = (event) => setFormData((current) => ({ ...current, [event.target.name]: event.target.value }));
 
-  const handleChange = (e) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     setError(null);
-
-    if (!/^[\p{L}\p{M}]+(?:[ '\u2019-][\p{L}\p{M}]+)*$/u.test(formData.nombre.trim())) {
-      setError('El nombre solo debe contener letras, espacios y tildes.');
-      return;
-    }
-    if (!/^[\p{L}\p{M}]+(?:[ '\u2019-][\p{L}\p{M}]+)*$/u.test(formData.apellido.trim())) {
-      setError('El apellido solo debe contener letras, espacios y tildes.');
-      return;
-    }
-
-    const emailTrimmed = formData.email.trim().toLowerCase();
-    if (!emailTrimmed.endsWith('@uide.edu.ec')) {
-      setError('Solo se permiten correos institucionales @uide.edu.ec.');
-      return;
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      setError('Las contraseñas no coinciden.');
-      return;
-    }
-    if (formData.password.length < 8 || !/[a-z]/.test(formData.password) || !/[A-Z]/.test(formData.password) || !/[0-9]/.test(formData.password)) {
-      setError('La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un número.');
-      return;
-    }
-
+    const nombre = formData.nombre.trim();
+    const apellido = formData.apellido.trim();
+    const correo = formData.email.trim().toLowerCase();
+    if (!namePattern.test(nombre)) return setError('El nombre solo debe contener letras, espacios y tildes.');
+    if (!namePattern.test(apellido)) return setError('El apellido solo debe contener letras, espacios y tildes.');
+    if (!/^[^\s@]+@uide\.edu\.ec$/i.test(correo)) return setError('Solo se permiten correos institucionales @uide.edu.ec.');
+    if (formData.password !== formData.confirmPassword) return setError('Las contraseñas no coinciden.');
+    if (formData.password.length < 8 || !/[a-z]/.test(formData.password) || !/[A-Z]/.test(formData.password) || !/[0-9]/.test(formData.password)) return setError('La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un número.');
     setLoading(true);
     try {
-      await register({
-        nombre: formData.nombre.trim(),
-        apellido: formData.apellido.trim(),
-        correo: formData.email.trim().toLowerCase(),
-        contrasena: formData.password
-      });
-
+      await register({ nombre, apellido, correo, contrasena: formData.password });
       setSuccess(true);
-      setTimeout(() => navigate('/'), 2000);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Error al registrar';
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
+      window.setTimeout(() => navigate('/'), 2000);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'No fue posible crear la cuenta.');
+    } finally { setLoading(false); }
   };
 
-  return (
-    <div className="bg-[#f7f9fb] min-h-screen flex items-center justify-center p-4 relative overflow-hidden font-sans w-full">
-      {/* Fondo decorativo */}
-      <div className="fixed inset-0 pointer-events-none z-0">
-        <div className="absolute top-[-10%] left-[-5%] w-[350px] h-[350px] bg-purple-900/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-[-10%] right-[-5%] w-[400px] h-[400px] bg-indigo-800/5 rounded-full blur-3xl" />
-      </div>
+  const field = (label, name, icon, type, placeholder, autoComplete) => <label className="block space-y-1 text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300" htmlFor={name}>{label}<div className="relative"><span className="material-symbols-outlined pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">{icon}</span><input id={name} name={name} type={type} required autoComplete={autoComplete} value={formData[name]} onChange={handleChange} placeholder={placeholder} className="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-3 pl-11 pr-4 text-sm font-medium text-slate-800 transition focus:border-purple-900 focus:outline-none focus:ring-2 focus:ring-purple-200 dark:border-[#4A4A50] dark:bg-black/20 dark:text-slate-100" /></div></label>;
 
-      <main className="relative z-10 w-full max-w-[440px]">
-        <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-lg md:p-10">
-
-          {/* Logo */}
-          <div className="flex flex-col items-center mb-7">
-            <div className="w-16 h-16 mb-3 flex items-center justify-center bg-purple-50 rounded-2xl border border-purple-100 shadow-sm">
-              <span className="material-symbols-outlined text-[36px] text-purple-900 font-bold block">person_add</span>
-            </div>
-            <h1 className="text-2xl font-black text-purple-950 tracking-tight">Crear cuenta</h1>
-            <p className="text-xs text-slate-500 mt-1 text-center font-medium">
-              Regístrate con tu correo institucional UIDE
-            </p>
-          </div>
-
-          {/* Error */}
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-semibold flex gap-2 items-center">
-              <span className="material-symbols-outlined text-[18px]">error</span>
-              {error}
-            </div>
-          )}
-
-          {/* Éxito */}
-          {success && (
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-xl text-xs font-semibold flex gap-2 items-center">
-              <span className="material-symbols-outlined text-[18px]">check_circle</span>
-              ¡Cuenta creada! Redirigiendo al Login...
-            </div>
-          )}
-
-          <form className="space-y-4" onSubmit={handleSubmit}>
-
-            {/* Nombre */}
-            <div className="space-y-1">
-              <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider">
-                Nombre
-              </label>
-              <div className="relative group">
-                <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-purple-900 transition-colors text-[20px]">
-                  person
-                </span>
-                <input
-                  name="nombre"
-                  type="text"
-                  required
-                  value={formData.nombre}
-                  onChange={handleChange}
-                  placeholder="Ej: Martín"
-                  className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-900 transition-all font-medium text-slate-800"
-                />
-              </div>
-            </div>
-
-            {/* Apellido */}
-            <div className="space-y-1">
-              <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider">
-                Apellido
-              </label>
-              <div className="relative group">
-                <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-purple-900 transition-colors text-[20px]">
-                  badge
-                </span>
-                <input
-                  name="apellido"
-                  type="text"
-                  required
-                  value={formData.apellido}
-                  onChange={handleChange}
-                  placeholder="Ej: Garcia"
-                  className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-900 transition-all font-medium text-slate-800"
-                />
-              </div>
-            </div>
-
-            {/* Email */}
-            <div className="space-y-1">
-              <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider">
-                Correo institucional
-              </label>
-              <div className="relative group">
-                <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-purple-900 transition-colors text-[20px]">
-                  alternate_email
-                </span>
-                <input
-                  name="email"
-                  type="email"
-                  required
-                  value={formData.email}
-                  onChange={handleChange}
-                  placeholder="usuario@uide.edu.ec"
-                  className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-900 transition-all font-medium text-slate-800"
-                />
-              </div>
-            </div>
-
-            {/* Password */}
-            <div className="space-y-1">
-              <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider">
-                Contraseña
-              </label>
-              <div className="relative group">
-                <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-purple-900 transition-colors text-[20px]">
-                  lock
-                </span>
-                <input
-                  name="password"
-                  type="password"
-                  required
-                  value={formData.password}
-                  onChange={handleChange}
-                  placeholder="8+ caracteres, mayúscula, minúscula y número"
-                  className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-900 transition-all font-medium text-slate-800"
-                />
-              </div>
-            </div>
-
-            {/* Confirmar password */}
-            <div className="space-y-1">
-              <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider">
-                Confirmar contraseña
-              </label>
-              <div className="relative group">
-                <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-purple-900 transition-colors text-[20px]">
-                  lock_reset
-                </span>
-                <input
-                  name="confirmPassword"
-                  type="password"
-                  required
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  placeholder="Repite tu contraseña"
-                  className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-900 transition-all font-medium text-slate-800"
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading || success}
-              className="w-full bg-purple-900 hover:bg-purple-950 text-white font-bold text-sm py-3.5 rounded-xl shadow-md hover:shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-70 cursor-pointer mt-2"
-            >
-              {loading ? (
-                <>
-                  <span className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
-                  Registrando...
-                </>
-              ) : (
-                <>
-                  Crear mi cuenta
-                  <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
-                </>
-              )}
-            </button>
-          </form>
-
-          <div className="mt-6 pt-4 border-t border-slate-100 text-center">
-            <p className="text-xs text-slate-500 font-medium">
-              ¿Ya tienes cuenta?{' '}
-              <Link to="/" className="text-purple-900 font-bold hover:underline">
-                Inicia sesión
-              </Link>
-            </p>
-          </div>
-        </div>
-      </main>
-    </div>
-  );
+  return <section className="rounded-3xl border border-white/40 bg-white/95 p-8 shadow-2xl shadow-black/30 backdrop-blur-md transition-colors duration-500 dark:border-white/10 dark:bg-[#242428]/95 md:p-10">
+    <div className="mb-7 flex flex-col items-center"><img src={logoClaro} alt="SafeWalk U" className="mb-2 h-[104px] w-auto object-contain drop-shadow-sm dark:hidden" /><img src={logoOscuro} alt="SafeWalk U" className="mb-2 hidden h-[104px] w-auto object-contain drop-shadow-sm dark:block" /><h1 className="mt-1 text-2xl font-black tracking-tight text-purple-950 dark:text-white">Crear cuenta</h1><p className="mt-1 text-center text-xs font-medium text-slate-500 dark:text-slate-400">Regístrate con tu correo institucional UIDE.</p></div>
+    {error && <div role="alert" className="mb-4 flex gap-2 rounded-xl border border-red-100 bg-red-50 p-3.5 text-xs font-semibold text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300"><span className="material-symbols-outlined text-[18px]">error</span>{error}</div>}
+    {success && <div role="status" className="mb-4 flex gap-2 rounded-xl border border-green-100 bg-green-50 p-3.5 text-xs font-semibold text-green-700 dark:border-green-500/20 dark:bg-green-500/10 dark:text-green-300"><span className="material-symbols-outlined text-[18px]">check_circle</span>¡Cuenta creada! Redirigiendo al inicio de sesión…</div>}
+    <form className="space-y-4" onSubmit={handleSubmit} noValidate>
+      {field('Nombre', 'nombre', 'person', 'text', 'Ej.: Martina', 'given-name')}
+      {field('Apellido', 'apellido', 'badge', 'text', 'Ej.: García', 'family-name')}
+      {field('Correo institucional', 'email', 'alternate_email', 'email', 'usuario@uide.edu.ec', 'email')}
+      {field('Contraseña', 'password', 'lock', 'password', '8+ caracteres, mayúscula, minúscula y número', 'new-password')}
+      {field('Confirmar contraseña', 'confirmPassword', 'lock_reset', 'password', 'Repite tu contraseña', 'new-password')}
+      <button type="submit" disabled={loading || success} className="mt-2 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-purple-900 px-6 py-3.5 text-sm font-bold text-white shadow-md transition hover:bg-purple-950 hover:shadow-lg active:scale-[0.98] disabled:opacity-70 dark:bg-purple-600 dark:hover:bg-purple-700">{loading ? <><span className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>Registrando…</> : <>Crear mi cuenta<span className="material-symbols-outlined text-[18px]">arrow_forward</span></>}</button>
+    </form>
+    <div className="mt-6 border-t border-slate-100 pt-4 text-center dark:border-[#4A4A50]"><p className="text-xs font-medium text-slate-500 dark:text-slate-400">¿Ya tienes cuenta? <Link to="/" className="font-bold text-purple-900 transition hover:underline dark:text-purple-300">Inicia sesión</Link></p></div>
+  </section>;
 }

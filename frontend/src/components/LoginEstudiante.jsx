@@ -1,19 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { checkHealth, login as loginRequest } from '../services/api';
 import { useAuth } from '../context/auth';
-import { useDarkMode } from '../hooks/useDarkMode';
-
 import logoClaro from '../assets/icon_modoclaro.png';
 import logoOscuro from '../assets/icon_modooscuro.png';
-import campusUide from '../assets/campus-uide-loja.jpg';
 
-const Login = () => {
+export default function LoginEstudiante() {
   const navigate = useNavigate();
   const { login: saveSession, showToast } = useAuth();
-  // Shared hook — keeps theme in sync across pages via localStorage
-  const { isDarkMode, toggle: toggleDarkMode } = useDarkMode();
-
   const [formData, setFormData] = useState({ email: '', password: '', remember: true });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -22,273 +16,46 @@ const Login = () => {
 
   useEffect(() => {
     let active = true;
-    checkHealth()
-      .then((response) => {
-        if (!active) return;
-        const operational =
-          response?.success === true &&
-          response?.api === 'online' &&
-          response?.database === 'connected';
-        setHealthStatus(operational ? 'operational' : 'unavailable');
-      })
-      .catch(() => {
-        if (active) setHealthStatus('unavailable');
-      });
+    checkHealth().then((response) => {
+      if (!active) return;
+      setHealthStatus(response?.success && response?.api === 'online' && response?.database === 'connected' ? 'operational' : 'unavailable');
+    }).catch(() => active && setHealthStatus('unavailable'));
     return () => { active = false; };
   }, []);
 
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+  const handleChange = (event) => {
+    const { name, value, type, checked } = event.target;
+    setFormData((current) => ({ ...current, [name]: type === 'checkbox' ? checked : value }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     setErrorAlert(null);
-
     const correo = formData.email.trim().toLowerCase();
-    if (!/^[^\s@]+@uide\.edu\.ec$/i.test(correo)) {
-      setErrorAlert('Solo se permiten correos institucionales con dominio @uide.edu.ec');
-      setLoading(false);
-      return;
-    }
-
+    if (!/^[^\s@]+@uide\.edu\.ec$/i.test(correo)) { setErrorAlert('Ingresa un correo institucional @uide.edu.ec válido.'); return; }
+    setLoading(true);
     try {
       const data = await loginRequest({ correo, contrasena: formData.password });
       const usuario = data.usuario ?? {};
-      const storagePreference = formData.remember ? 'localStorage' : 'sessionStorage';
-
-      saveSession(
-        {
-          id_usuario: usuario.id_usuario,
-          nombre: usuario.nombre,
-          apellido: usuario.apellido,
-          correo: usuario.correo ?? correo,
-          rol: usuario.rol ?? 'ESTUDIANTE',
-          roles: usuario.roles ?? [usuario.rol ?? 'ESTUDIANTE'],
-          foto_perfil: usuario.foto_perfil ?? null,
-        },
-        data.token,
-        storagePreference
-      );
-
+      saveSession({ id_usuario: usuario.id_usuario, nombre: usuario.nombre, apellido: usuario.apellido, correo: usuario.correo ?? correo, rol: usuario.rol ?? 'ESTUDIANTE', roles: usuario.roles ?? [usuario.rol ?? 'ESTUDIANTE'], foto_perfil: usuario.foto_perfil ?? null }, data.token, formData.remember ? 'localStorage' : 'sessionStorage');
       showToast('Sesión iniciada correctamente', 'success');
       navigate(usuario.rol === 'ADMINISTRADOR' ? '/admin' : '/app');
-    } catch (err) {
-      setErrorAlert(err.message || 'No fue posible iniciar sesión');
-    } finally {
-      setLoading(false);
-    }
+    } catch (error) { setErrorAlert(error.message || 'No fue posible iniciar sesión.'); }
+    finally { setLoading(false); }
   };
 
-  return (
-    <div
-      className="min-h-screen w-full overflow-hidden bg-cover bg-center bg-no-repeat p-4 font-sans transition-colors duration-500 flex items-center justify-center relative"
-      style={{ backgroundImage: `url(${campusUide})` }}
-    >
-
-      <div className="fixed inset-0 z-0 bg-gradient-to-br from-slate-950/80 via-purple-950/55 to-slate-900/70 dark:from-black/90 dark:via-purple-950/75 dark:to-black/85" />
-      <div className="fixed inset-0 z-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.18),_transparent_42%)] animate-[fadeIn_0.8s_ease-out]" />
-
-      {/* Dark-mode toggle */}
-      <button
-        onClick={toggleDarkMode}
-        aria-label={isDarkMode ? 'Activar modo claro' : 'Activar modo oscuro'}
-        className="absolute top-6 right-6 z-50 material-symbols-outlined text-slate-500 dark:text-zinc-400 hover:bg-white/50 dark:hover:bg-black/30 p-2.5 rounded-full backdrop-blur-sm transition-all text-[24px] shadow-sm border border-slate-200 dark:border-[#4A4A50]"
-      >
-        {isDarkMode ? 'light_mode' : 'dark_mode'}
-      </button>
-
-      {/* Background atmosphere */}
-      <div className="fixed inset-0 pointer-events-none z-0 opacity-100 dark:opacity-30 transition-opacity duration-500">
-        <div className="absolute top-[-10%] right-[-5%] w-[400px] h-[400px] bg-[#330071]/5 dark:bg-purple-600/10 rounded-full blur-3xl animate-[pulse_6s_ease-in-out_infinite]" />
-        <div className="absolute bottom-[-10%] left-[-5%] w-[500px] h-[500px] bg-[#3d5ca2]/5 dark:bg-blue-600/10 rounded-full blur-3xl animate-[pulse_6s_ease-in-out_infinite] [animation-delay:-3s]" />
-      </div>
-
-      <main className="relative z-10 w-full max-w-[440px]">
-        <div className="border border-white/40 bg-white/95 dark:bg-[#242428]/95 dark:border-white/10 rounded-3xl p-8 shadow-2xl shadow-black/30 backdrop-blur-md md:p-10 transition-colors duration-500 animate-[fadeIn_0.55s_ease-out]">
-
-          {/* Logo */}
-          <div className="flex flex-col items-center mb-8">
-            <img
-              src={isDarkMode ? logoOscuro : logoClaro}
-              alt="SafeWalk U Logo"
-              className="h-[140px] w-auto object-contain mb-2 drop-shadow-sm transition-all duration-300"
-            />
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 text-center font-medium leading-relaxed">
-              Inicia sesión con tu cuenta institucional de la UIDE para acompañamiento
-              preventivo.
-            </p>
-          </div>
-
-          {/* Error alert */}
-          {errorAlert && (
-            <div
-              role="alert"
-              className="p-3.5 bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 rounded-xl text-xs font-semibold flex items-center gap-2 mb-4 border border-red-100 dark:border-red-500/20"
-            >
-              <span className="material-symbols-outlined text-[18px]">error</span>
-              <span>{errorAlert}</span>
-            </div>
-          )}
-
-          <form className="space-y-4" onSubmit={handleSubmit} noValidate>
-            {/* Email */}
-            <div className="space-y-1">
-              <label
-                className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider"
-                htmlFor="email"
-              >
-                Correo institucional
-              </label>
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 dark:text-slate-500 group-focus-within:text-purple-900 dark:group-focus-within:text-purple-400 transition-colors">
-                  <span className="material-symbols-outlined text-[20px]">alternate_email</span>
-                </div>
-                <input
-                  className="w-full pl-11 pr-4 py-3 bg-slate-50/50 dark:bg-black/20 border border-slate-200 dark:border-[#4A4A50] rounded-xl text-sm text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-200 dark:focus:ring-purple-900/50 focus:border-purple-900 dark:focus:border-purple-400 transition-all font-medium"
-                  id="email"
-                  name="email"
-                  type="email"
-                  placeholder="usuario@uide.edu.ec"
-                  required
-                  autoComplete="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                />
-              </div>
-            </div>
-
-            {/* Password */}
-            <div className="space-y-1">
-              <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between">
-                <label
-                  className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider"
-                  htmlFor="password"
-                >
-                  Contraseña
-                </label>
-                <a
-                  className="text-xs font-semibold text-purple-900 dark:text-purple-400 hover:underline"
-                  href="mailto:soporte@uide.edu.ec?subject=Recuperación%20de%20cuenta%20SafeWalk%20U"
-                >
-                  Recuperar con Soporte TI
-                </a>
-              </div>
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 dark:text-slate-500 group-focus-within:text-purple-900 dark:group-focus-within:text-purple-400 transition-colors">
-                  <span className="material-symbols-outlined text-[20px]">lock</span>
-                </div>
-                <input
-                  className="w-full pl-11 pr-12 py-3 bg-slate-50/50 dark:bg-black/20 border border-slate-200 dark:border-[#4A4A50] rounded-xl text-sm text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-200 dark:focus:ring-purple-900/50 focus:border-purple-900 dark:focus:border-purple-400 transition-all font-medium"
-                  id="password"
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="••••••••"
-                  required
-                  autoComplete="current-password"
-                  value={formData.password}
-                  onChange={handleChange}
-                />
-                <button
-                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
-                  type="button"
-                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                  onClick={() => setShowPassword((v) => !v)}
-                >
-                  <span className="material-symbols-outlined text-[20px]">
-                    {showPassword ? 'visibility_off' : 'visibility'}
-                  </span>
-                </button>
-              </div>
-            </div>
-
-            {/* Remember me */}
-            <div className="flex min-h-11 items-center space-x-2 py-1">
-              <input
-                className="w-6 h-6 rounded border-slate-300 dark:border-slate-600 dark:bg-slate-700 text-purple-900 focus:ring-purple-900"
-                id="remember"
-                name="remember"
-                type="checkbox"
-                checked={formData.remember}
-                onChange={handleChange}
-              />
-              <label
-                className="text-xs font-bold text-slate-600 dark:text-slate-400 cursor-pointer select-none"
-                htmlFor="remember"
-              >
-                Mantener sesión iniciada
-              </label>
-            </div>
-
-            {/* Submit */}
-            <div className="pt-2">
-              <button
-                className="w-full bg-purple-900 dark:bg-purple-600 hover:bg-purple-950 dark:hover:bg-purple-700 text-white font-bold text-sm py-3.5 px-6 rounded-xl shadow-md hover:shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2 group disabled:opacity-70 disabled:pointer-events-none"
-                type="submit"
-                disabled={loading}
-              >
-                {loading ? (
-                  <>
-                    <span className="material-symbols-outlined animate-spin text-[18px]" aria-hidden="true">
-                      progress_activity
-                    </span>
-                    <span>Validando...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Iniciar sesión</span>
-                    <span className="material-symbols-outlined text-[18px] group-hover:translate-x-1 transition-transform" aria-hidden="true">
-                      arrow_forward
-                    </span>
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
-
-          <div className="mt-6 pt-4 border-t border-slate-100 dark:border-[#4A4A50] space-y-3 text-center">
-            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-              ¿No tienes cuenta?{' '}
-              <Link to="/registro" className="text-purple-900 dark:text-purple-400 font-bold hover:underline">
-                Regístrate aquí
-              </Link>
-            </p>
-            <p className="text-xs text-slate-400 dark:text-slate-500 font-medium">
-              ¿Problemas para acceder?{' '}
-              <a
-                className="text-slate-500 dark:text-slate-400 font-semibold hover:underline"
-                href="mailto:soporte@uide.edu.ec?subject=Soporte%20SafeWalk%20U"
-              >
-                Soporte TI
-              </a>
-            </p>
-          </div>
-        </div>
-
-        {/* System status */}
-        <div className="mt-4 flex items-center justify-center gap-2 opacity-70" role="status" aria-live="polite">
-          <div
-            className={`h-2 w-2 rounded-full ${
-              healthStatus === 'operational'
-                ? 'bg-green-500'
-                : healthStatus === 'unavailable'
-                ? 'bg-red-500'
-                : 'animate-pulse bg-amber-500'
-            }`}
-          />
-          <span className="text-[10px] font-bold text-white/90 uppercase tracking-widest drop-shadow-sm">
-            {healthStatus === 'operational'
-              ? 'Sistema operativo'
-              : healthStatus === 'unavailable'
-              ? 'Servicio temporalmente no disponible'
-              : 'Conectando...'}
-          </span>
-        </div>
-      </main>
-    </div>
-  );
-};
-
-export default Login;
+  return <div className="space-y-4">
+    <section className="rounded-3xl border border-white/40 bg-white/95 p-8 shadow-2xl shadow-black/30 backdrop-blur-md transition-colors duration-500 dark:border-white/10 dark:bg-[#242428]/95 md:p-10">
+      <div className="mb-8 flex flex-col items-center"><img src={logoClaro} alt="SafeWalk U" className="mb-2 h-[130px] w-auto object-contain drop-shadow-sm dark:hidden" /><img src={logoOscuro} alt="SafeWalk U" className="mb-2 hidden h-[130px] w-auto object-contain drop-shadow-sm dark:block" /><p className="mt-2 text-center text-xs font-medium leading-relaxed text-slate-500 dark:text-slate-400">Inicia sesión con tu cuenta institucional de la UIDE para acompañamiento preventivo.</p></div>
+      {errorAlert && <div role="alert" className="mb-4 flex gap-2 rounded-xl border border-red-100 bg-red-50 p-3.5 text-xs font-semibold text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300"><span className="material-symbols-outlined text-[18px]">error</span>{errorAlert}</div>}
+      <form className="space-y-4" onSubmit={handleSubmit} noValidate>
+        <label className="block space-y-1 text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Correo institucional<div className="relative"><span className="material-symbols-outlined pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">alternate_email</span><input id="email" name="email" type="email" required autoComplete="email" value={formData.email} onChange={handleChange} placeholder="usuario@uide.edu.ec" className="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-3 pl-11 pr-4 text-sm font-medium text-slate-800 transition focus:border-purple-900 focus:outline-none focus:ring-2 focus:ring-purple-200 dark:border-[#4A4A50] dark:bg-black/20 dark:text-slate-100" /></div></label>
+        <div className="space-y-1"><div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between"><label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300" htmlFor="password">Contraseña</label><a className="text-xs font-semibold text-purple-900 hover:underline dark:text-purple-300" href="mailto:soporte@uide.edu.ec?subject=Recuperación%20de%20cuenta%20SafeWalk%20U">Recuperar con Soporte TI</a></div><div className="relative"><span className="material-symbols-outlined pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">lock</span><input id="password" name="password" type={showPassword ? 'text' : 'password'} required autoComplete="current-password" value={formData.password} onChange={handleChange} placeholder="••••••••" className="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-3 pl-11 pr-12 text-sm font-medium text-slate-800 transition focus:border-purple-900 focus:outline-none focus:ring-2 focus:ring-purple-200 dark:border-[#4A4A50] dark:bg-black/20 dark:text-slate-100" /><button type="button" aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'} onClick={() => setShowPassword((value) => !value)} className="absolute inset-y-0 right-0 px-3.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"><span className="material-symbols-outlined text-[20px]">{showPassword ? 'visibility_off' : 'visibility'}</span></button></div></div>
+        <label className="flex min-h-11 items-center gap-2 py-1 text-xs font-bold text-slate-600 dark:text-slate-300"><input id="remember" name="remember" type="checkbox" checked={formData.remember} onChange={handleChange} className="h-5 w-5 rounded border-slate-300 text-purple-900 focus:ring-purple-900" />Mantener sesión iniciada</label>
+        <button type="submit" disabled={loading} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-purple-900 px-6 py-3.5 text-sm font-bold text-white shadow-md transition hover:bg-purple-950 hover:shadow-lg active:scale-[0.98] disabled:opacity-70 dark:bg-purple-600 dark:hover:bg-purple-700">{loading ? <><span className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>Validando…</> : <>Iniciar sesión<span className="material-symbols-outlined text-[18px]">arrow_forward</span></>}</button>
+      </form>
+      <div className="mt-6 space-y-3 border-t border-slate-100 pt-4 text-center dark:border-[#4A4A50]"><p className="text-xs font-medium text-slate-500 dark:text-slate-400">¿No tienes cuenta? <Link to="/registro" className="font-bold text-purple-900 transition hover:underline dark:text-purple-300">Regístrate aquí</Link></p><p className="text-xs font-medium text-slate-400 dark:text-slate-500">¿Problemas para acceder? <a className="font-semibold hover:underline" href="mailto:soporte@uide.edu.ec?subject=Soporte%20SafeWalk%20U">Soporte TI</a></p></div>
+    </section>
+    <div className="flex items-center justify-center gap-2 text-white/90" role="status" aria-live="polite"><span className={`h-2 w-2 rounded-full ${healthStatus === 'operational' ? 'bg-green-400' : healthStatus === 'unavailable' ? 'bg-red-400' : 'animate-pulse bg-amber-300'}`} /><span className="text-[10px] font-bold uppercase tracking-widest">{healthStatus === 'operational' ? 'Sistema operativo' : healthStatus === 'unavailable' ? 'Servicio temporalmente no disponible' : 'Conectando…'}</span></div>
+  </div>;
+}

@@ -61,7 +61,7 @@ export const updateRouteSchema = z
 //
 //   Modalidad 2 — external / Google Places destination (destino_lat + destino_lng)
 //     origen_lat, origen_lng, destino_lat, destino_lng
-//     + optional: destino_nombre, destino_direccion, place_id
+//     + optional: destino_nombre (max 150), destino_direccion (max 255), place_id (max 255)
 //
 // Rules enforced:
 //   ✔ origen_lat + origen_lng are always required
@@ -76,8 +76,8 @@ export const traceRouteQuerySchema = z
     destino_id: z.coerce.number().int().positive().optional(),
     destino_lat: z.coerce.number().min(-90).max(90).optional(),
     destino_lng: z.coerce.number().min(-180).max(180).optional(),
-    destino_nombre: z.string().trim().max(200).optional(),
-    destino_direccion: z.string().trim().max(300).optional(),
+    destino_nombre: z.string().trim().max(150).optional(),
+    destino_direccion: z.string().trim().max(255).optional(),
     place_id: z.string().trim().max(255).optional(),
 })
     .strict()

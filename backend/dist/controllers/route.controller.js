@@ -70,9 +70,9 @@ class RouteController {
      *
      * Modalidad 2 — external destination (Google Places or coords):
      *   ?origen_lat=&origen_lng=&destino_lat=&destino_lng=
-     *   &destino_nombre=  (optional)
-     *   &destino_direccion=  (optional)
-     *   &place_id=  (optional)
+     *   &destino_nombre=  (optional, max 150)
+     *   &destino_direccion=  (optional, max 255)
+     *   &place_id=  (optional, max 255)
      *
      * Returns 422 when:
      *   - Required origin fields are missing or out of range
@@ -80,7 +80,7 @@ class RouteController {
      *   - Both modalities are mixed together
      */
     async trazarRuta(req, res) {
-        // ── 1. Validate & parse query params ──────────────────────────────
+        // ── 1. Validate & parse query params via Zod ──────────────────────
         const parsed = traceRouteQuerySchema.safeParse(req.query);
         if (!parsed.success) {
             return res.status(422).json({
@@ -93,18 +93,29 @@ class RouteController {
             });
         }
         const data = parsed.data;
-        // ── 2. Delegate to service ─────────────────────────────────────────
-        try {
-            const externalDestination = data.destino_lat !== undefined && data.destino_lng !== undefined
+        // ── 2. Construct strongly-typed TraceRouteParams object ───────────
+        const traceParams = {
+            origin: {
+                lat: data.origen_lat,
+                lng: data.origen_lng,
+            },
+            destination: data.destino_id !== undefined
                 ? {
+                    type: "REGISTERED",
+                    id: data.destino_id,
+                }
+                : {
+                    type: "EXTERNAL",
                     lat: data.destino_lat,
                     lng: data.destino_lng,
-                    nombre: data.destino_nombre,
-                    direccion: data.destino_direccion,
-                    place_id: data.place_id,
-                }
-                : undefined;
-            const result = await routeService.trazarRuta(data.origen_lat, data.origen_lng, data.destino_id, externalDestination);
+                    name: data.destino_nombre,
+                    address: data.destino_direccion,
+                    placeId: data.place_id,
+                },
+        };
+        // ── 3. Delegate to service ─────────────────────────────────────────
+        try {
+            const result = await routeService.trazarRuta(traceParams);
             return res.status(200).json({ success: true, data: result });
         }
         catch (error) {

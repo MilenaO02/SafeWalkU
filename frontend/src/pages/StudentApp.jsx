@@ -120,29 +120,33 @@ export default function StudentApp() {
     try {
       setRouteStatus('loading');
       setGeoError(null);
-      const [lat, lng] = userPos;
-      const isNumericId = Number.isInteger(Number(destino.id_ubicacion)) && Number(destino.id_ubicacion) > 0;
+      const [originLat, originLng] = userPos;
 
-      let json = null;
-      if (isNumericId) {
-        json = await request(`/routes/trazar?origen_lat=${lat}&origen_lng=${lng}&destino_id=${destino.id_ubicacion}`);
+      const params = new URLSearchParams({
+        origen_lat: String(originLat),
+        origen_lng: String(originLng),
+      });
+
+      if (destino.id_ubicacion != null) {
+        params.set('destino_id', String(destino.id_ubicacion));
       } else {
         const destLat = Number(destino.latitud);
         const destLng = Number(destino.longitud);
         if (!Number.isFinite(destLat) || !Number.isFinite(destLng)) {
           throw new Error('El destino no cuenta con coordenadas geográficas válidas.');
         }
-        const params = new URLSearchParams({
-          origen_lat: String(lat),
-          origen_lng: String(lng),
-          destino_lat: String(destLat),
-          destino_lng: String(destLng),
-          destino_nombre: destino.nombre || 'Destino',
-          destino_direccion: destino.direccion || ''
-        });
-        if (destino.place_id) params.append('place_id', destino.place_id);
-        json = await request(`/routes/trazar?${params.toString()}`);
+        params.set('destino_lat', String(destLat));
+        params.set('destino_lng', String(destLng));
+        params.set('destino_nombre', destino.nombre || 'Destino');
+        if (destino.direccion) {
+          params.set('destino_direccion', destino.direccion);
+        }
+        if (destino.place_id) {
+          params.set('place_id', destino.place_id);
+        }
       }
+
+      const json = await request(`/routes/trazar?${params.toString()}`);
 
       if (!json?.success || !json?.data) {
         throw new Error(json?.message || 'No fue posible calcular la ruta peatonal.');
@@ -151,18 +155,18 @@ export default function StudentApp() {
       const routeData = json.data;
       setRouteSummary(routeData);
 
-      const polyline = routeData.coordinates || routeData.coordenadas || [];
+      const polyline = json.data.coordenadas || json.data.coordinates || [];
       const destLat = Number(destino.latitud);
       const destLng = Number(destino.longitud);
 
       setMapConfig((prev) => ({
         ...prev,
         polyline,
-        centro: polyline[Math.floor(polyline.length / 2)] || [lat, lng],
+        centro: polyline[Math.floor(polyline.length / 2)] || [originLat, originLng],
         zoom: 16,
         markers: [
           ...prev.markers.filter((m) => m.kind !== 'user' && m.kind !== 'destination'),
-          { position: [lat, lng], kind: 'user', title: 'Tu ubicación', desc: 'Punto de inicio del recorrido' },
+          { position: [originLat, originLng], kind: 'user', title: 'Tu ubicación', desc: 'Punto de inicio del recorrido' },
           { position: [destLat, destLng], kind: 'destination', title: destino.nombre, desc: destino.direccion }
         ]
       }));
@@ -247,11 +251,25 @@ export default function StudentApp() {
             {/* Clasificación de Seguridad y Razones */}
             <div className="p-4 space-y-3">
               {(() => {
+                const isReferencial = routeSummary.source === 'REFERENCIAL' || routeSummary.fuente_trazado === 'REFERENCIAL';
                 const safety = routeSummary.safety || {};
-                const classification = safety.classification || (routeSummary.nivel_seguridad === 'ALTO' ? 'NO_RECOMENDADA' : routeSummary.nivel_seguridad === 'MEDIO' ? 'PRECAUCIÓN' : 'SEGURA');
-                const score = safety.score ?? (classification === 'SEGURA' ? 85 : classification === 'PRECAUCIÓN' ? 60 : 30);
-                const reasons = safety.reasons || [routeSummary.aviso || 'Ruta calculada'];
-                const warning = safety.warning || 'Mantente atento a tu entorno durante la caminata.';
+                const classification = isReferencial
+                  ? 'PRECAUCION'
+                  : safety.classification || (routeSummary.nivel_seguridad === 'ALTO' ? 'NO_RECOMENDADA' : routeSummary.nivel_seguridad === 'MEDIO' ? 'PRECAUCION' : 'SEGURA');
+                const score = isReferencial ? 40 : (safety.score ?? (classification === 'SEGURA' ? 85 : classification === 'PRECAUCION' ? 60 : 30));
+                const reasons = isReferencial
+                  ? ['No fue posible calcular una ruta peatonal real. La referencia directa no debe utilizarse como navegación. Por favor intenta nuevamente.']
+                  : (safety.reasons || [routeSummary.aviso || 'Ruta calculada']);
+                
+                const mainSafetyText = isReferencial
+                  ? 'No fue posible calcular la ruta peatonal real con Google Routes.'
+                  : classification === 'SEGURA'
+                  ? 'Esta ruta es considerada segura para ir caminando según los reportes y datos disponibles.'
+                  : classification === 'PRECAUCION'
+                  ? 'Esta ruta presenta condiciones que requieren precaución.'
+                  : 'Esta ruta atraviesa o se acerca a zonas de riesgo y no se recomienda en este momento.';
+
+                const disclaimerText = 'Esta recomendación no garantiza la ausencia de riesgos. Mantente alerta a las condiciones reales del entorno.';
 
                 const config = {
                   SEGURA: {
@@ -262,12 +280,12 @@ export default function StudentApp() {
                     label: 'RUTA SEGURA',
                     icon: 'verified_user'
                   },
-                  PRECAUCIÓN: {
+                  PRECAUCION: {
                     bg: 'bg-amber-50 dark:bg-amber-950/30',
                     border: 'border-amber-200 dark:border-amber-800',
                     text: 'text-amber-900 dark:text-amber-200',
                     badge: 'bg-amber-600 text-white',
-                    label: 'PRECAUCIÓN',
+                    label: isReferencial ? 'REFERENCIAL (VOLVER A INTENTAR)' : 'PRECAUCIÓN',
                     icon: 'warning'
                   },
                   NO_RECOMENDADA: {
@@ -280,7 +298,7 @@ export default function StudentApp() {
                   }
                 };
 
-                const currentStyle = config[classification] || config.PRECAUCIÓN;
+                const currentStyle = isReferencial ? config.PRECAUCION : (config[classification] || config.PRECAUCION);
 
                 return (
                   <div className={`rounded-xl border p-3.5 ${currentStyle.bg} ${currentStyle.border}`}>
@@ -298,9 +316,13 @@ export default function StudentApp() {
                       </span>
                     </div>
 
-                    <div className="mt-2.5 space-y-1">
+                    <p className="mt-2 text-xs font-semibold text-slate-800 dark:text-slate-200">
+                      {mainSafetyText}
+                    </p>
+
+                    <div className="mt-2 space-y-1">
                       <p className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                        Evaluación de seguridad SafeWalk U:
+                        Detalles de la evaluación:
                       </p>
                       <ul className="list-disc pl-4 text-[11px] space-y-0.5 text-slate-600 dark:text-slate-400">
                         {reasons.map((r, idx) => (
@@ -310,7 +332,7 @@ export default function StudentApp() {
                     </div>
 
                     <p className="mt-2.5 text-[10px] italic leading-tight text-slate-500 dark:text-slate-400 border-t border-slate-200/60 dark:border-slate-700/60 pt-2">
-                      ⚠️ {warning}
+                      ⚠️ {disclaimerText}
                     </p>
                   </div>
                 );

@@ -1,10 +1,10 @@
 import routeRepository from "../repositories/route.repository.js";
 import reportRepository from "../repositories/report.repository.js";
-import googleRoutesService from "./google-routes.service.js";
-import safetyAnalysisService, {
+import pedestrianRoutingService from "./pedestrian-routing.service.js";
+import routeSafetyService, {
     IncidentReport,
     RiskZone,
-} from "./safety-analysis.service.js";
+} from "./route-safety.service.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public input types
@@ -26,13 +26,24 @@ export interface CreateRouteInput {
 
 export type UpdateRouteInput = Partial<CreateRouteInput>;
 
-/** External destination (Modalidad 2 — Google Places or coordinate pair). */
-export interface ExternalDestination {
-    lat: number;
-    lng: number;
-    nombre?: string;
-    direccion?: string;
-    place_id?: string;
+export interface TraceRouteParams {
+    origin: {
+        lat: number;
+        lng: number;
+    };
+    destination:
+        | {
+              type: "REGISTERED";
+              id: number;
+          }
+        | {
+              type: "EXTERNAL";
+              lat: number;
+              lng: number;
+              name?: string;
+              address?: string;
+              placeId?: string;
+          };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -88,7 +99,7 @@ async function loadSafetyData(city: string): Promise<{
         return { reports, zones };
     } catch (err) {
         console.warn(
-            "[RouteService] No fue posible cargar datos de seguridad:",
+            "[RouteService] No fue posible cargar datos de seguridad de MySQL:",
             err instanceof Error ? err.message : err
         );
         return { reports: [], zones: [] };
@@ -136,70 +147,72 @@ class RouteService {
     /**
      * trazarRuta
      *
-     * Two mutually-exclusive calling modalities:
+     * Accepts a strongly-typed TraceRouteParams object with two modalities:
      *
-     *   Modalidad 1 — registered destination (destino_id supplied)
-     *     • Looks up the destination in MySQL to get name / coords.
-     *     • Tries to find a catalogued route ending there.
+     *   REGISTERED destination:
+     *     - Fetches destination from MySQL database.
+     *     - Obtains coordinates and catalogued route (if available).
      *
-     *   Modalidad 2 — external destination (externalDestination supplied)
-     *     • Uses the coordinates supplied directly — no DB lookup required.
-     *     • id_ruta = null, ruta_catalogada = false always.
-     *     • nombre_ruta = externalDestination.nombre or "Ruta peatonal".
+     *   EXTERNAL destination:
+     *     - Does not query MySQL for location.
+     *     - Uses coordinates supplied directly.
+     *     - id_ruta = null, ruta_catalogada = false always.
+     *     - nombre_ruta = destination.name || "Ruta peatonal".
      *
-     * In BOTH modalities:
-     *   1. Calls Google Routes API for a real pedestrian path (travelMode: WALK).
-     *   2. Devolves fuente_trazado: "GOOGLE_ROUTES" when Google responds.
-     *   3. Falls back to "REFERENCIAL" ONLY when Google Routes genuinely fails.
+     * In BOTH cases:
+     *   - Executes pedestrianRoutingService.calculate(originPoint, destPoint) with Google Routes.
+     *   - On Google Routes success: fuente_trazado = "GOOGLE_ROUTES", trazado_peatonal = true.
+     *   - Returns "REFERENCIAL" ONLY when Google Routes genuinely fails.
      */
-    async trazarRuta(
-        originLat: number,
-        originLng: number,
-        destinationId?: number,
-        externalDestination?: ExternalDestination
-    ) {
-        const origin: [number, number] = [originLat, originLng];
+    async trazarRuta(params: TraceRouteParams) {
+        const { origin, destination } = params;
+        const originPoint: [number, number] = [origin.lat, origin.lng];
 
         // ── Resolve destination ─────────────────────────────────────────────
         let destPoint: [number, number];
         let destName: string;
         let destAddress: string;
+        let locationId: number | null = null;
+        let placeId: string | null = null;
+        let sourceTag: "BASE_DATOS" | "GOOGLE_PLACES" = "GOOGLE_PLACES";
         let recommended: Awaited<ReturnType<typeof routeRepository.findRecommendedByDestination>> | null = null;
 
-        if (destinationId) {
-            // Modalidad 1 — registered destination
-            const dbDest = await routeRepository.findDestination(destinationId);
+        if (destination.type === "REGISTERED") {
+            const dbDest = await routeRepository.findDestination(destination.id);
             if (!dbDest) throw new Error("Destino no encontrado");
 
             destPoint = [Number(dbDest.latitud), Number(dbDest.longitud)];
-            destName = String(dbDest.nombre ?? "Destino");
+            destName = String(dbDest.nombre ?? "Destino registrado");
             destAddress = String(dbDest.direccion ?? "Loja, Ecuador");
+            locationId = destination.id;
+            placeId = null;
+            sourceTag = "BASE_DATOS";
 
             try {
-                recommended = (await routeRepository.findRecommendedByDestination(destinationId)) ?? null;
+                recommended = (await routeRepository.findRecommendedByDestination(destination.id)) ?? null;
             } catch {
                 recommended = null;
             }
-        } else if (externalDestination) {
-            // Modalidad 2 — external / Google Places destination
-            destPoint = [externalDestination.lat, externalDestination.lng];
-            destName = externalDestination.nombre?.trim() || "Ruta peatonal";
-            destAddress = externalDestination.direccion?.trim() || "Loja, Ecuador";
-            recommended = null;
         } else {
-            throw new Error("Destino no encontrado");
+            // EXTERNAL destination
+            destPoint = [destination.lat, destination.lng];
+            destName = destination.name?.trim() || "Ruta peatonal";
+            destAddress = destination.address?.trim() || "Loja, Ecuador";
+            locationId = null;
+            placeId = destination.placeId?.trim() || null;
+            sourceTag = "GOOGLE_PLACES";
+            recommended = null;
         }
 
-        // ── Load safety data (best-effort, does not block routing) ──────────
+        // ── Load active safety data for risk evaluation ─────────────────────
         const { reports: activeReports, zones: riskZones } = await loadSafetyData("Loja");
 
-        // ── Call Google Routes API (travelMode WALK) ────────────────────────
-        const googleRoute = await googleRoutesService.calculate(origin, destPoint);
+        // ── Call pedestrianRoutingService.calculate (Google Routes WALK) ───
+        const pedestrianRoute = await pedestrianRoutingService.calculate(originPoint, destPoint);
 
-        if (googleRoute && googleRoute.coordinates.length >= 2) {
-            // ── Happy path: real pedestrian route from Google Routes ───────────
-            const safety = safetyAnalysisService.evaluate(
-                googleRoute.coordinates,
+        if (pedestrianRoute && pedestrianRoute.coordinates.length >= 2) {
+            const safety = routeSafetyService.evaluate(
+                pedestrianRoute.coordinates,
                 activeReports,
                 riskZones
             );
@@ -207,84 +220,77 @@ class RouteService {
             const safetyLevel =
                 safety.classification === "SEGURA"
                     ? "BAJO"
-                    : safety.classification === "PRECAUCIÓN"
+                    : safety.classification === "PRECAUCION"
                     ? "MEDIO"
                     : "ALTO";
 
             return {
                 // Modern response fields
-                route_id: recommended?.id_ruta ?? null,
-                source: "GOOGLE_ROUTES",
                 travel_mode: "WALK",
-                origin: { lat: originLat, lng: originLng },
-                destination: {
-                    location_id: destinationId ?? null,
-                    place_id: externalDestination?.place_id ?? null,
-                    name: destName,
-                    address: destAddress,
-                    lat: destPoint[0],
-                    lng: destPoint[1],
+                destino: {
+                    id_ubicacion: locationId,
+                    place_id: placeId,
+                    nombre: destName,
+                    direccion: destAddress,
+                    latitud: destPoint[0],
+                    longitud: destPoint[1],
+                    fuente: sourceTag,
                 },
-                distance_m: googleRoute.distanceMeters,
-                duration_min: googleRoute.durationMinutes,
-                encoded_polyline: googleRoute.encodedPolyline,
-                coordinates: googleRoute.coordinates,
-                steps: googleRoute.instructions,
+                source: "GOOGLE_ROUTES",
+                origin: { lat: origin.lat, lng: origin.lng },
+                distance_m: pedestrianRoute.distanceMeters,
+                duration_min: pedestrianRoute.durationMinutes,
+                encoded_polyline: pedestrianRoute.encodedPolyline ?? "",
+                coordinates: pedestrianRoute.coordinates,
+                steps: pedestrianRoute.instructions,
                 safety,
 
                 // Legacy compatibility fields
-                id_ruta: destinationId ? (recommended?.id_ruta ?? null) : null,
-                nombre_ruta: destinationId ? (recommended?.nombre_ruta ?? destName) : (externalDestination?.nombre?.trim() || "Ruta peatonal"),
-                nivel_seguridad: destinationId ? (recommended?.nivel_seguridad ?? safetyLevel) : safetyLevel,
-                tiempo_estimado: googleRoute.durationMinutes,
-                distancia_m: googleRoute.distanceMeters,
-                ruta_catalogada: destinationId ? Boolean(recommended) : false,
+                id_ruta: locationId ? (recommended?.id_ruta ?? null) : null,
+                nombre_ruta: locationId ? (recommended?.nombre_ruta ?? destName) : (destination.type === "EXTERNAL" ? (destination.name?.trim() || "Ruta peatonal") : destName),
+                nivel_seguridad: locationId ? (recommended?.nivel_seguridad ?? safetyLevel) : null,
+                tiempo_estimado: pedestrianRoute.durationMinutes,
+                distancia_m: pedestrianRoute.distanceMeters,
+                ruta_catalogada: locationId ? Boolean(recommended) : false,
                 trazado_manual: false,
                 trazado_peatonal: true,
                 fuente_trazado: "GOOGLE_ROUTES",
-                instrucciones: googleRoute.instructions,
-                origen_usuario: origin,
-                coordenadas: googleRoute.coordinates,
+                instrucciones: pedestrianRoute.instructions,
+                origen_usuario: originPoint,
+                coordenadas: pedestrianRoute.coordinates,
                 aviso: "Trayecto peatonal calculado con Google Routes. Las condiciones de seguridad se evalúan con los datos del sistema.",
             };
         }
 
-        // ── Fallback: straight-line referencial (only when Google fails) ────
+        // ── Fallback: straight-line referencial (ONLY when Google fails) ────
         console.warn(
             "[RouteService] Google Routes no devolvió un trazado válido. " +
-            "Usando trayecto referencial directo de respaldo."
+            "Devolviendo trazado referencial directo de respaldo."
         );
 
-        const fallbackCoords: [number, number][] = [origin, destPoint];
-        const fallbackDist = Math.round(straightLineMeters(origin, destPoint));
+        const fallbackCoords: [number, number][] = [originPoint, destPoint];
+        const fallbackDist = Math.round(straightLineMeters(originPoint, destPoint));
         const fallbackDur = walkingMinutes(fallbackDist);
-        const fallbackSafety = safetyAnalysisService.evaluate(
+        const fallbackSafety = routeSafetyService.evaluate(
             fallbackCoords,
             activeReports,
             riskZones
         );
 
-        const fallbackSafetyLevel =
-            fallbackSafety.classification === "SEGURA"
-                ? "BAJO"
-                : fallbackSafety.classification === "PRECAUCIÓN"
-                ? "MEDIO"
-                : "ALTO";
-
         return {
             // Modern response fields
-            route_id: recommended?.id_ruta ?? null,
-            source: "REFERENCIAL",
             travel_mode: "WALK",
-            origin: { lat: originLat, lng: originLng },
-            destination: {
-                location_id: destinationId ?? null,
-                place_id: externalDestination?.place_id ?? null,
-                name: destName,
-                address: destAddress,
-                lat: destPoint[0],
-                lng: destPoint[1],
+            destino: {
+                id_ubicacion: locationId,
+                place_id: placeId,
+                nombre: destName,
+                direccion: destAddress,
+                latitud: destPoint[0],
+                longitud: destPoint[1],
+                fuente: sourceTag,
             },
+            source: "REFERENCIAL",
+            origin: { lat: origin.lat, lng: origin.lng },
             distance_m: fallbackDist,
             duration_min: fallbackDur,
             encoded_polyline: "",
@@ -299,12 +305,12 @@ class RouteService {
             safety: fallbackSafety,
 
             // Legacy compatibility fields
-            id_ruta: destinationId ? (recommended?.id_ruta ?? null) : null,
-            nombre_ruta: destinationId ? (recommended?.nombre_ruta ?? destName) : (externalDestination?.nombre?.trim() || "Ruta peatonal"),
-            nivel_seguridad: destinationId ? (recommended?.nivel_seguridad ?? fallbackSafetyLevel) : fallbackSafetyLevel,
+            id_ruta: locationId ? (recommended?.id_ruta ?? null) : null,
+            nombre_ruta: locationId ? (recommended?.nombre_ruta ?? destName) : (destination.type === "EXTERNAL" ? (destination.name?.trim() || "Ruta peatonal") : destName),
+            nivel_seguridad: null,
             tiempo_estimado: fallbackDur,
             distancia_m: fallbackDist,
-            ruta_catalogada: destinationId ? Boolean(recommended) : false,
+            ruta_catalogada: locationId ? Boolean(recommended) : false,
             trazado_manual: false,
             trazado_peatonal: false,
             fuente_trazado: "REFERENCIAL",
@@ -315,11 +321,9 @@ class RouteService {
                     duration_min: fallbackDur,
                 },
             ],
-            origen_usuario: origin,
+            origen_usuario: originPoint,
             coordenadas: fallbackCoords,
-            aviso:
-                "No fue posible obtener la ruta de Google Routes. Se muestra un trayecto referencial directo. " +
-                "Verifica el entorno antes de caminar.",
+            aviso: "No fue posible calcular una ruta peatonal real. La referencia directa no debe utilizarse como navegación.",
         };
     }
 }

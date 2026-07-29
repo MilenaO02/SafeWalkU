@@ -114,7 +114,16 @@ export default function BuscadorPrincipal({
         `/ubicaciones/buscar?q=${encodeURIComponent(searchTerm)}`
       );
       if (response.success && Array.isArray(response.data) && response.data.length > 0) {
-        setSugerencias(response.data);
+        const localDestinations = response.data.map((item) => ({
+          id_ubicacion: Number(item.id_ubicacion),
+          place_id: null,
+          nombre: item.nombre,
+          direccion: item.direccion,
+          latitud: Number(item.latitud),
+          longitud: Number(item.longitud),
+          fuente: 'BASE_DATOS',
+        }));
+        setSugerencias(localDestinations);
         setNoResults(false);
       } else {
         setSugerencias([]);

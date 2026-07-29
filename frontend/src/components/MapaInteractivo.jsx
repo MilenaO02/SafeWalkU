@@ -170,10 +170,7 @@ export default function MapaInteractivo({
 
       const bounds = new gmaps.LatLngBounds();
       path.forEach((point) => bounds.extend(point));
-      newMarkers.forEach((m) => {
-        if (m.position) bounds.extend(m.position);
-      });
-      map.fitBounds(bounds, { top: 50, right: 50, bottom: 50, left: 50 });
+      map.fitBounds(bounds, 40);
     }
 
     activeObjectsRef.current = { markers: newMarkers, circle: newCircle, polyline: newPolyline };

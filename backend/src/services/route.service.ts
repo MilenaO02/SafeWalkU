@@ -197,159 +197,236 @@ class RouteService {
         let locationId: number | null = null;
         let placeId: string | null = null;
         let sourceTag: "BASE_DATOS" | "GOOGLE_PLACES" = "GOOGLE_PLACES";
-        let recommended: Awaited<ReturnType<typeof routeRepository.findRecommendedByDestination>> | null = null;
 
         if (destination.type === "REGISTERED") {
             const dbDest = await routeRepository.findDestination(destination.id);
             if (!dbDest) throw new Error("Destino no encontrado");
-
             destPoint = [Number(dbDest.latitud), Number(dbDest.longitud)];
             destName = String(dbDest.nombre ?? "Destino registrado");
             destAddress = String(dbDest.direccion ?? "Loja, Ecuador");
             locationId = destination.id;
-            placeId = null;
             sourceTag = "BASE_DATOS";
-
-            try {
-                recommended = (await routeRepository.findRecommendedByDestination(destination.id)) ?? null;
-            } catch {
-                recommended = null;
-            }
         } else {
-            // EXTERNAL destination
             destPoint = [destination.lat, destination.lng];
             destName = destination.name?.trim() || "Ruta peatonal";
             destAddress = destination.address?.trim() || "Loja, Ecuador";
-            locationId = null;
             placeId = destination.placeId?.trim() || null;
             sourceTag = "GOOGLE_PLACES";
-            recommended = null;
         }
 
-        // ── Load active safety data for risk evaluation ─────────────────────
+        // ── Load active safety data ─────────────────────────────────────────
         const { reports: activeReports, zones: riskZones, safePlaces, emergencyServices } = await loadSafetyData("Loja");
 
-        // ── Call pedestrianRoutingService.calculate (Google Routes WALK) ───
-        const pedestrianRoute = await pedestrianRoutingService.calculate(originPoint, destPoint);
+        // ── Request all alternative routes from Google ───────────────────────
+        const allRoutes = await pedestrianRoutingService.calculateAll(originPoint, destPoint);
 
-        if (pedestrianRoute && pedestrianRoute.coordinates.length >= 2) {
+        const destInfo = {
+            id_ubicacion: locationId,
+            place_id: placeId,
+            nombre: destName,
+            direccion: destAddress,
+            latitud: destPoint[0],
+            longitud: destPoint[1],
+            fuente: sourceTag,
+        };
+
+        // ── Walking assessment thresholds ────────────────────────────────────
+        const MAX_WALKING_METERS = 2000;
+        const MAX_WALKING_MINUTES = 30;
+
+        // ── Helper: find nearest safe place to a coordinate ──────────────────
+        const findIntermediatePoint = (coords: [number, number][]) => {
+            if (coords.length < 4) return null;
+            const midIdx = Math.floor(coords.length / 2);
+            const midPoint = coords[midIdx];
+
+            let best: { place: SafePlace; dist: number } | null = null;
+            for (const place of safePlaces) {
+                const placeCoord: [number, number] = [Number(place.latitud), Number(place.longitud)];
+                if (!Number.isFinite(placeCoord[0]) || !Number.isFinite(placeCoord[1])) continue;
+                const dist = straightLineMeters(midPoint, placeCoord);
+                if (dist <= 500 && (!best || dist < best.dist)) {
+                    best = { place, dist };
+                }
+            }
+            // Also try emergency services
+            for (const svc of emergencyServices) {
+                const svcCoord: [number, number] = [Number(svc.latitud), Number(svc.longitud)];
+                if (!Number.isFinite(svcCoord[0]) || !Number.isFinite(svcCoord[1])) continue;
+                const dist = straightLineMeters(midPoint, svcCoord);
+                if (dist <= 500 && (!best || dist < best.dist)) {
+                    best = { place: { id_lugar_seguro: svc.id_servicio, nombre: svc.nombre, latitud: svc.latitud, longitud: svc.longitud }, dist };
+                }
+            }
+            if (!best) return null;
+            return {
+                nombre: best.place.nombre,
+                latitud: best.place.latitud,
+                longitud: best.place.longitud,
+                distancia_desde_origen_m: Math.round(straightLineMeters(originPoint, [best.place.latitud, best.place.longitud])),
+                motivo: "Punto intermedio seguro recomendado antes de continuar el recorrido.",
+                fuente: "SafeWalk U (Base de datos)",
+            };
+        };
+
+        // ── Build alternative objects ────────────────────────────────────────
+        const buildAlternative = (route: typeof allRoutes[0], label: string) => {
             const safety = routeSafetyService.evaluate(
-                pedestrianRoute.coordinates,
+                route.coordinates,
                 activeReports,
                 riskZones,
                 safePlaces,
                 emergencyServices
             );
 
-            const safetyLevel =
-                safety.classification === "SEGURA"
-                    ? "BAJO"
-                    : safety.classification === "PRECAUCION"
-                    ? "MEDIO"
-                    : "ALTO";
+            const walkingNotRecommended = route.distanceMeters > MAX_WALKING_METERS || route.durationMinutes > MAX_WALKING_MINUTES;
+            const walkingAdvisory: string[] = [];
+
+            if (walkingNotRecommended) {
+                walkingAdvisory.push(
+                    `Este trayecto mide ${route.distanceMeters} m y tomaría aproximadamente ${route.durationMinutes} min a pie. No se recomienda completamente a pie por su distancia y duración.`
+                );
+                walkingAdvisory.push(
+                    "Se recomienda continuar desde un punto intermedio mediante un medio de transporte disponible."
+                );
+            }
+
+            const intermediatePoint = walkingNotRecommended || safety.classification === "NO_RECOMENDADA"
+                ? findIntermediatePoint(route.coordinates)
+                : null;
 
             return {
-                // Modern response fields
+                label,
                 travel_mode: "WALK",
-                destino: {
-                    id_ubicacion: locationId,
-                    place_id: placeId,
-                    nombre: destName,
-                    direccion: destAddress,
-                    latitud: destPoint[0],
-                    longitud: destPoint[1],
-                    fuente: sourceTag,
-                },
                 source: "GOOGLE_ROUTES",
+                destino: destInfo,
                 origin: { lat: origin.lat, lng: origin.lng },
-                distance_m: pedestrianRoute.distanceMeters,
-                duration_min: pedestrianRoute.durationMinutes,
-                encoded_polyline: pedestrianRoute.encodedPolyline ?? "",
-                coordinates: pedestrianRoute.coordinates,
-                steps: pedestrianRoute.instructions,
+                distance_m: route.distanceMeters,
+                duration_min: route.durationMinutes,
+                encoded_polyline: route.encodedPolyline ?? "",
+                coordinates: route.coordinates,
+                steps: route.instructions,
                 safety,
+                walking_not_recommended: walkingNotRecommended,
+                walking_advisory: walkingAdvisory,
+                intermediate_point: intermediatePoint,
+            };
+        };
 
-                // Legacy compatibility fields
-                id_ruta: locationId ? (recommended?.id_ruta ?? null) : null,
-                nombre_ruta: locationId ? (recommended?.nombre_ruta ?? destName) : (destination.type === "EXTERNAL" ? (destination.name?.trim() || "Ruta peatonal") : destName),
-                nivel_seguridad: locationId ? (recommended?.nivel_seguridad ?? safetyLevel) : null,
-                tiempo_estimado: pedestrianRoute.durationMinutes,
-                distancia_m: pedestrianRoute.distanceMeters,
-                ruta_catalogada: locationId ? Boolean(recommended) : false,
-                trazado_manual: false,
-                trazado_peatonal: true,
-                fuente_trazado: "GOOGLE_ROUTES",
-                instrucciones: pedestrianRoute.instructions,
-                origen_usuario: originPoint,
-                coordenadas: pedestrianRoute.coordinates,
-                aviso: "Trayecto peatonal calculado con Google Routes. Las condiciones de seguridad se evalúan con los datos del sistema.",
+        if (allRoutes.length >= 1) {
+            // Evaluate all alternatives
+            const evaluated = allRoutes.map((r, i) =>
+                buildAlternative(r, i === 0 ? "RUTA_A" : `RUTA_${String.fromCharCode(66 + i - 1)}`)
+            );
+
+            // Sort: best safety score = recommended, lowest duration = fastest
+            const sorted = [...evaluated].sort((a, b) => b.safety.score - a.safety.score);
+            const recommended = sorted[0];
+            recommended.label = "RECOMENDADA";
+
+            let fastest: typeof recommended | null = null;
+            if (evaluated.length > 1) {
+                const sortedByTime = [...evaluated].sort((a, b) => a.duration_min - b.duration_min);
+                fastest = sortedByTime[0];
+                if (fastest === recommended) {
+                    fastest = sortedByTime[1] || null;
+                }
+                if (fastest) {
+                    fastest.label = "MAS_RAPIDA";
+                }
+            }
+
+            const alternatives = [recommended];
+            if (fastest && fastest !== recommended) {
+                alternatives.push(fastest);
+            }
+
+            const isSingleRoute = alternatives.length === 1;
+
+            return {
+                single_route: isSingleRoute,
+                single_route_message: isSingleRoute
+                    ? "Google Routes devolvió una única alternativa; esta es la más rápida y la mejor evaluada con los datos disponibles."
+                    : null,
+                alternatives,
+                // Legacy compat (first route)
+                ...this.legacyFields(recommended, originPoint, destName, locationId, destInfo),
             };
         }
 
-        // ── Fallback: straight-line referencial (ONLY when Google fails) ────
-        console.warn(
-            "[RouteService] Google Routes no devolvió un trazado válido. " +
-            "Devolviendo trazado referencial directo de respaldo."
-        );
-
+        // ── Fallback: straight-line referencial ─────────────────────────────
+        console.warn("[RouteService] Google Routes no devolvió trazados válidos. Devolviendo referencial.");
         const fallbackCoords: [number, number][] = [originPoint, destPoint];
         const fallbackDist = Math.round(straightLineMeters(originPoint, destPoint));
         const fallbackDur = walkingMinutes(fallbackDist);
-        const fallbackSafety = routeSafetyService.evaluate(
-            fallbackCoords,
-            activeReports,
-            riskZones,
-            safePlaces,
-            emergencyServices
-        );
+        const fallbackSafety = routeSafetyService.evaluate(fallbackCoords, activeReports, riskZones, safePlaces, emergencyServices);
+
+        const fallbackAlt = {
+            label: "RECOMENDADA" as string,
+            travel_mode: "WALK",
+            source: "REFERENCIAL",
+            destino: destInfo,
+            origin: { lat: origin.lat, lng: origin.lng },
+            distance_m: fallbackDist,
+            duration_min: fallbackDur,
+            encoded_polyline: "",
+            coordinates: fallbackCoords,
+            steps: [{ instruction: `Dirígete en línea recta hacia ${destName}`, distance_m: fallbackDist, duration_min: fallbackDur }],
+            safety: fallbackSafety,
+            walking_not_recommended: false,
+            walking_advisory: [] as string[],
+            intermediate_point: null,
+        };
 
         return {
-            // Modern response fields
+            single_route: true,
+            single_route_message: null,
+            alternatives: [fallbackAlt],
+            // Legacy compat
             travel_mode: "WALK",
-            destino: {
-                id_ubicacion: locationId,
-                place_id: placeId,
-                nombre: destName,
-                direccion: destAddress,
-                latitud: destPoint[0],
-                longitud: destPoint[1],
-                fuente: sourceTag,
-            },
+            destino: destInfo,
             source: "REFERENCIAL",
             origin: { lat: origin.lat, lng: origin.lng },
             distance_m: fallbackDist,
             duration_min: fallbackDur,
             encoded_polyline: "",
             coordinates: fallbackCoords,
-            steps: [
-                {
-                    instruction: `Dirígete en línea recta hacia ${destName}`,
-                    distance_m: fallbackDist,
-                    duration_min: fallbackDur,
-                },
-            ],
+            steps: fallbackAlt.steps,
             safety: fallbackSafety,
-
-            // Legacy compatibility fields
-            id_ruta: locationId ? (recommended?.id_ruta ?? null) : null,
-            nombre_ruta: locationId ? (recommended?.nombre_ruta ?? destName) : (destination.type === "EXTERNAL" ? (destination.name?.trim() || "Ruta peatonal") : destName),
+            nombre_ruta: destName,
             nivel_seguridad: null,
             tiempo_estimado: fallbackDur,
             distancia_m: fallbackDist,
-            ruta_catalogada: locationId ? Boolean(recommended) : false,
-            trazado_manual: false,
-            trazado_peatonal: false,
             fuente_trazado: "REFERENCIAL",
-            instrucciones: [
-                {
-                    instruction: `Dirígete en línea recta hacia ${destName}`,
-                    distance_m: fallbackDist,
-                    duration_min: fallbackDur,
-                },
-            ],
+            instrucciones: fallbackAlt.steps,
             origen_usuario: originPoint,
             coordenadas: fallbackCoords,
-            aviso: "No fue posible calcular una ruta peatonal real. La referencia directa no debe utilizarse como navegación.",
+            aviso: "No fue posible calcular una ruta peatonal real.",
+        };
+    }
+
+    /** Build legacy-compat top-level fields from the recommended alternative */
+    private legacyFields(alt: any, originPoint: [number, number], destName: string, locationId: number | null, destInfo: any) {
+        return {
+            travel_mode: "WALK",
+            destino: destInfo,
+            source: alt.source,
+            origin: alt.origin,
+            distance_m: alt.distance_m,
+            duration_min: alt.duration_min,
+            encoded_polyline: alt.encoded_polyline,
+            coordinates: alt.coordinates,
+            steps: alt.steps,
+            safety: alt.safety,
+            nombre_ruta: destName,
+            nivel_seguridad: alt.safety.classification === "SEGURA" ? "BAJO" : alt.safety.classification === "PRECAUCION" ? "MEDIO" : "ALTO",
+            tiempo_estimado: alt.duration_min,
+            distancia_m: alt.distance_m,
+            fuente_trazado: alt.source,
+            instrucciones: alt.steps,
+            origen_usuario: originPoint,
+            coordenadas: alt.coordinates,
+            aviso: "Trayecto peatonal calculado con Google Routes.",
         };
     }
 }

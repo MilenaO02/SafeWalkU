@@ -16,7 +16,8 @@ class PedestrianRoutingService {
     }
 
     async calculate(origin: Coordinate, destination: Coordinate): Promise<PedestrianRoute | null> {
-        const route: GoogleRoute | null = await googleRoutesService.calculate(origin, destination);
+        const routes: GoogleRoute[] = await googleRoutesService.calculate(origin, destination);
+        const route = routes[0];
         if (!route) return null;
 
         return {
@@ -26,6 +27,17 @@ class PedestrianRoutingService {
             encodedPolyline: route.encodedPolyline,
             instructions: route.instructions,
         };
+    }
+
+    async calculateAll(origin: Coordinate, destination: Coordinate): Promise<PedestrianRoute[]> {
+        const routes: GoogleRoute[] = await googleRoutesService.calculate(origin, destination);
+        return routes.map((route) => ({
+            coordinates: route.coordinates,
+            distanceMeters: route.distanceMeters,
+            durationMinutes: route.durationMinutes,
+            encodedPolyline: route.encodedPolyline,
+            instructions: route.instructions,
+        }));
     }
 }
 

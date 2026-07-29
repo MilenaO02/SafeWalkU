@@ -67,11 +67,11 @@ class GoogleRoutesService {
         return Boolean(process.env.GOOGLE_MAPS_SERVER_API_KEY?.trim());
     }
 
-    async calculate(origin: Coordinate, destination: Coordinate): Promise<GoogleRoute | null> {
+    async calculate(origin: Coordinate, destination: Coordinate): Promise<GoogleRoute[]> {
         const apiKey = process.env.GOOGLE_MAPS_SERVER_API_KEY?.trim();
         if (!apiKey) {
             console.warn("GOOGLE_MAPS_SERVER_API_KEY no está configurada en las variables de entorno.");
-            return null;
+            return [];
         }
 
         const controller = new AbortController();
@@ -91,6 +91,7 @@ class GoogleRoutesService {
                     destination: { location: { latLng: { latitude: destination[0], longitude: destination[1] } } },
                     travelMode: "WALK",
                     routingPreference: "TRAFFIC_UNAWARE",
+                    computeAlternativeRoutes: true,
                     languageCode: "es"
                 }),
                 signal: controller.signal
@@ -102,32 +103,34 @@ class GoogleRoutesService {
             }
 
             const payload = (await response.json()) as GoogleRouteResponse;
-            const route = payload.routes?.[0];
-            const rawPolyline = route?.polyline?.encodedPolyline ?? "";
-            const coordinates = rawPolyline ? decodePolyline(rawPolyline) : [];
+            const results: GoogleRoute[] = [];
 
-            if (!route || coordinates.length < 2 || !route.distanceMeters) {
-                throw new Error("Google Routes API no devolvió un trazado válido.");
+            for (const route of payload.routes ?? []) {
+                const rawPolyline = route?.polyline?.encodedPolyline ?? "";
+                const coordinates = rawPolyline ? decodePolyline(rawPolyline) : [];
+                if (coordinates.length < 2 || !route.distanceMeters) continue;
+
+                const instructions: GoogleRouteStep[] = (route.legs ?? []).flatMap((leg) =>
+                    (leg.steps ?? []).map((step) => ({
+                        instruction: step.navigationInstruction?.instructions ?? "Continúa por el trayecto peatonal",
+                        distance_m: Math.round(step.distanceMeters ?? 0),
+                        duration_min: Math.max(0, Math.round((durationSeconds(step.staticDuration) / 60) * 10) / 10)
+                    }))
+                );
+
+                results.push({
+                    coordinates,
+                    distanceMeters: Math.round(route.distanceMeters),
+                    durationMinutes: Math.max(1, Math.ceil(durationSeconds(route.duration) / 60)),
+                    encodedPolyline: rawPolyline,
+                    instructions
+                });
             }
 
-            const instructions: GoogleRouteStep[] = (route.legs ?? []).flatMap((leg) =>
-                (leg.steps ?? []).map((step) => ({
-                    instruction: step.navigationInstruction?.instructions ?? "Continúa por el trayecto peatonal",
-                    distance_m: Math.round(step.distanceMeters ?? 0),
-                    duration_min: Math.max(0, Math.round((durationSeconds(step.staticDuration) / 60) * 10) / 10)
-                }))
-            );
-
-            return {
-                coordinates,
-                distanceMeters: Math.round(route.distanceMeters),
-                durationMinutes: Math.max(1, Math.ceil(durationSeconds(route.duration) / 60)),
-                encodedPolyline: rawPolyline,
-                instructions
-            };
+            return results;
         } catch (error) {
             console.warn("Error al consultar Google Routes API:", error instanceof Error ? error.message : error);
-            return null;
+            return [];
         } finally {
             clearTimeout(timeout);
         }

@@ -14,6 +14,7 @@ export default function StudentApp() {
   const [manualLocation, setManualLocation] = useState({ lat: '', lng: '' });
   const [routeSummary, setRouteSummary] = useState(null);
   const [routeStatus, setRouteStatus] = useState('idle');
+  const [selectedAlt, setSelectedAlt] = useState(0);
   const watchIdRef = useRef(null);
 
   useEffect(() => {
@@ -154,6 +155,7 @@ export default function StudentApp() {
 
       const routeData = json.data;
       setRouteSummary(routeData);
+      setSelectedAlt(0);
 
       const polyline = json.data.coordenadas || json.data.coordinates || [];
       const destLat = Number(destino.latitud);
@@ -179,6 +181,7 @@ export default function StudentApp() {
 
   const handleLimpiarRuta = () => {
     setRouteSummary(null);
+    setSelectedAlt(0);
     setMapConfig((prev) => ({
       ...prev,
       polyline: null
@@ -187,17 +190,18 @@ export default function StudentApp() {
 
   const handleIniciarRuta = () => {
     if (!routeSummary || !userPos) return;
+    const currentAlt = routeSummary.alternatives ? routeSummary.alternatives[selectedAlt] : routeSummary;
 
     const [originLat, originLng] = userPos;
     let destParams = '';
     
-    if (routeSummary.destino?.place_id) {
-      destParams = `&destination_place_id=${routeSummary.destino.place_id}&destination=${routeSummary.destino.latitud},${routeSummary.destino.longitud}`;
-    } else if (routeSummary.destino) {
-      destParams = `&destination=${routeSummary.destino.latitud},${routeSummary.destino.longitud}`;
+    if (currentAlt.destino?.place_id) {
+      destParams = `&destination_place_id=${currentAlt.destino.place_id}&destination=${currentAlt.destino.latitud},${currentAlt.destino.longitud}`;
+    } else if (currentAlt.destino) {
+      destParams = `&destination=${currentAlt.destino.latitud},${currentAlt.destino.longitud}`;
     } else {
       // Fallback
-      destParams = `&destination=${routeSummary.coordinates[routeSummary.coordinates.length - 1][0]},${routeSummary.coordinates[routeSummary.coordinates.length - 1][1]}`;
+      destParams = `&destination=${currentAlt.coordinates[currentAlt.coordinates.length - 1][0]},${currentAlt.coordinates[currentAlt.coordinates.length - 1][1]}`;
     }
 
     const mapUrl = `https://www.google.com/maps/dir/?api=1&origin=${originLat},${originLng}${destParams}&travelmode=walking`;
@@ -206,19 +210,18 @@ export default function StudentApp() {
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     
     const summaryText = `Resumen de la ruta:\n\n` +
-      `📍 Destino: ${routeSummary.destino?.nombre || routeSummary.nombre_ruta}\n` +
-      `📏 Distancia: ${routeSummary.distance_m || routeSummary.distancia_m} m\n` +
-      `⏱️ Duración: ${routeSummary.duration_min || routeSummary.tiempo_estimado} min\n` +
-      `🛡️ Tipo de ruta: ${routeSummary.safety?.classification || 'Desconocido'}\n\n` +
+      `📍 Destino: ${currentAlt.destino?.nombre || currentAlt.nombre_ruta}\n` +
+      `📏 Distancia: ${currentAlt.distance_m || currentAlt.distancia_m} m\n` +
+      `⏱️ Duración: ${currentAlt.duration_min || currentAlt.tiempo_estimado} min\n` +
+      `🛡️ Tipo de ruta: ${currentAlt.safety?.classification || 'Desconocido'}\n\n` +
       `Advertencias:\n` +
-      (routeSummary.safety?.reasons?.map(r => `- ${r}`).join('\n') || 'Ninguna') +
-      `\n\n¿Deseas abrir la navegación en Google Maps?`;
+      (currentAlt.safety?.reasons?.map(r => `- ${r}`).join('\n') || '- Ruta trazada');
 
-    if (window.confirm(summaryText)) {
-      if (isMobile && navigator.share !== undefined) {
-        window.open(mapUrl, '_blank', 'noopener,noreferrer');
+    if (window.confirm(summaryText + '\n\n¿Abrir navegación en Google Maps?')) {
+      if (isMobile) {
+        window.location.href = mapUrl;
       } else {
-        window.open(mapUrl, '_blank', 'noopener,noreferrer');
+        window.open(mapUrl, '_blank');
       }
     }
   };
@@ -227,214 +230,19 @@ export default function StudentApp() {
     <div className="space-y-6">
       {/* Buscador de Destinos */}
       <div className="bg-slate-50 dark:bg-[#2B2B2F] p-5 rounded-2xl border border-slate-100 dark:border-[#4A4A50] shadow-inner transition-colors duration-500">
-        <BuscadorPrincipal
-          onDestinoSelect={handleDestinoSelect}
-          onTrazar={handleTrazarRuta}
-          tracing={routeStatus === 'loading'}
-          originLabel={
-            userPos
-              ? `${geoStatus === 'manual' ? 'Ubicación manual' : 'Ubicación GPS'}: ${userPos[0].toFixed(
-                  5
-                )}, ${userPos[1].toFixed(5)}`
-              : 'Ubicación pendiente'
-          }
-        />
-
-        {/* Panel de Resumen de Ruta Peatonal y Evaluación de Seguridad */}
-        {routeSummary && (
-          <div className="mt-4 overflow-hidden rounded-2xl border border-purple-200 bg-white shadow-lg transition-all dark:border-[#4A4A50] dark:bg-[#242428]">
-            {/* Encabezado del modo de navegación "A pie" */}
-            <div className="bg-purple-950 p-4 text-white">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-amber-400 text-xl font-black">directions_walk</span>
-                  <span className="text-xs font-black tracking-wider uppercase text-purple-200">
-                    Modo: Caminando (A pie)
-                  </span>
-                </div>
-                <span className="rounded-full bg-white/20 px-2.5 py-0.5 text-[10px] font-black tracking-wide text-white backdrop-blur-sm">
-                  {routeSummary.source === 'GOOGLE_ROUTES' || routeSummary.fuente_trazado === 'GOOGLE_ROUTES'
-                    ? 'GOOGLE ROUTES'
-                    : 'REFERENCIAL'}
-                </span>
-              </div>
-              <h3 className="mt-2 text-base font-black leading-snug">
-                {routeSummary.destination?.name || routeSummary.nombre_ruta || 'Ruta Peatonal'}
-              </h3>
-              <p className="text-[11px] text-purple-200 line-clamp-1">
-                {routeSummary.destination?.address || 'Loja, Ecuador'}
-              </p>
-            </div>
-
-            {/* Metadatos de Distancia y Duración */}
-            <div className="grid grid-cols-2 divide-x divide-slate-100 border-b border-slate-100 bg-slate-50 p-3 text-center dark:divide-[#4A4A50] dark:border-[#4A4A50] dark:bg-[#2B2B2F]">
-              <div>
-                <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  Distancia total
-                </span>
-                <span className="text-sm font-black text-slate-800 dark:text-slate-100">
-                  {routeSummary.distance_m || routeSummary.distancia_m} m
-                </span>
-              </div>
-              <div>
-                <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  Tiempo estimado
-                </span>
-                <span className="text-sm font-black text-purple-700 dark:text-purple-300">
-                  {routeSummary.duration_min || routeSummary.tiempo_estimado} min a pie
-                </span>
-              </div>
-            </div>
-
-            {/* Clasificación de Seguridad y Razones */}
-            <div className="p-4 space-y-3">
-              {(() => {
-                const isReferencial = routeSummary.source === 'REFERENCIAL' || routeSummary.fuente_trazado === 'REFERENCIAL';
-                const safety = routeSummary.safety || {};
-                const classification = isReferencial
-                  ? 'PRECAUCION'
-                  : safety.classification || (routeSummary.nivel_seguridad === 'ALTO' ? 'NO_RECOMENDADA' : routeSummary.nivel_seguridad === 'MEDIO' ? 'PRECAUCION' : 'SEGURA');
-                const score = isReferencial ? 40 : (safety.score ?? (classification === 'SEGURA' ? 85 : classification === 'PRECAUCION' ? 60 : 30));
-                const reasons = isReferencial
-                  ? ['No fue posible calcular una ruta peatonal real. La referencia directa no debe utilizarse como navegación. Por favor intenta nuevamente.']
-                  : (safety.reasons || [routeSummary.aviso || 'Ruta calculada']);
-                
-                const mainSafetyText = isReferencial
-                  ? 'No fue posible calcular la ruta peatonal real con Google Routes.'
-                  : classification === 'SEGURA'
-                  ? 'Esta ruta es considerada segura para ir caminando según los reportes y datos disponibles.'
-                  : classification === 'PRECAUCION'
-                  ? 'Esta ruta presenta condiciones que requieren precaución.'
-                  : 'Esta ruta atraviesa o se acerca a zonas de riesgo y no se recomienda en este momento.';
-
-                const disclaimerText = 'Esta recomendación no garantiza la ausencia de riesgos. Mantente alerta a las condiciones reales del entorno.';
-
-                const config = {
-                  SEGURA: {
-                    bg: 'bg-emerald-50 dark:bg-emerald-950/30',
-                    border: 'border-emerald-200 dark:border-emerald-800',
-                    text: 'text-emerald-900 dark:text-emerald-200',
-                    badge: 'bg-emerald-600 text-white',
-                    label: 'RUTA SEGURA',
-                    icon: 'verified_user'
-                  },
-                  PRECAUCION: {
-                    bg: 'bg-amber-50 dark:bg-amber-950/30',
-                    border: 'border-amber-200 dark:border-amber-800',
-                    text: 'text-amber-900 dark:text-amber-200',
-                    badge: 'bg-amber-600 text-white',
-                    label: isReferencial ? 'REFERENCIAL (VOLVER A INTENTAR)' : 'PRECAUCIÓN',
-                    icon: 'warning'
-                  },
-                  NO_RECOMENDADA: {
-                    bg: 'bg-rose-50 dark:bg-rose-950/30',
-                    border: 'border-rose-200 dark:border-rose-800',
-                    text: 'text-rose-900 dark:text-rose-200',
-                    badge: 'bg-rose-600 text-white',
-                    label: 'RUTA NO RECOMENDADA',
-                    icon: 'gpp_bad'
-                  }
-                };
-
-                const currentStyle = isReferencial ? config.PRECAUCION : (config[classification] || config.PRECAUCION);
-
-                return (
-                  <div className={`rounded-xl border p-3.5 ${currentStyle.bg} ${currentStyle.border}`}>
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className={`material-symbols-outlined text-xl ${currentStyle.text}`}>
-                          {currentStyle.icon}
-                        </span>
-                        <span className={`rounded-lg px-2.5 py-1 text-[10px] font-black tracking-wide ${currentStyle.badge}`}>
-                          {currentStyle.label}
-                        </span>
-                      </div>
-                      <span className="text-xs font-black text-slate-700 dark:text-slate-300">
-                        {score} / 100 pts
-                      </span>
-                    </div>
-
-                    <p className="mt-2 text-xs font-semibold text-slate-800 dark:text-slate-200">
-                      {mainSafetyText}
-                    </p>
-
-                    <div className="mt-2 space-y-1">
-                      <p className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                        Detalles de la evaluación:
-                      </p>
-                      <ul className="list-disc pl-4 text-[11px] space-y-0.5 text-slate-600 dark:text-slate-400">
-                        {reasons.map((r, idx) => (
-                          <li key={`reason-${idx}`}>{r}</li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    <p className="mt-2.5 text-[10px] italic leading-tight text-slate-500 dark:text-slate-400 border-t border-slate-200/60 dark:border-slate-700/60 pt-2">
-                      ⚠️ {disclaimerText}
-                    </p>
-                  </div>
-                );
-              })()}
-
-              {/* Indicaciones Paso a Paso */}
-              {((routeSummary.steps && routeSummary.steps.length > 0) ||
-                (routeSummary.instrucciones && routeSummary.instrucciones.length > 0)) && (
-                <details className="group rounded-xl border border-slate-200 dark:border-[#4A4A50] bg-slate-50 dark:bg-[#2B2B2F] p-3 text-xs">
-                  <summary className="flex cursor-pointer items-center justify-between font-bold text-purple-900 dark:text-purple-300">
-                    <span className="flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-base">format_list_bulleted</span>
-                      Indicaciones paso a paso ({routeSummary.steps?.length || routeSummary.instrucciones?.length})
-                    </span>
-                    <span className="material-symbols-outlined text-base transition-transform group-open:rotate-180">
-                      expand_more
-                    </span>
-                  </summary>
-                  <ol className="mt-3 max-h-48 list-decimal space-y-1.5 overflow-y-auto pl-5 text-[11px] text-slate-700 dark:text-slate-300">
-                    {(routeSummary.steps || routeSummary.instrucciones).map((step, index) => (
-                      <li key={`step-${index}`} className="leading-snug">
-                        <span className="font-medium">{step.instruction}</span>{' '}
-                        {step.distance_m > 0 && (
-                          <span className="font-bold text-slate-400">({step.distance_m} m)</span>
-                        )}
-                      </li>
-                    ))}
-                  </ol>
-                </details>
-              )}
-
-              <div className="flex flex-col sm:flex-row gap-2 mt-3">
-                <button
-                  type="button"
-                  onClick={handleIniciarRuta}
-                  className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-purple-900 py-3 text-xs font-bold text-white shadow-md hover:bg-purple-950 transition-colors"
-                >
-                  <span className="material-symbols-outlined text-[18px]">explore</span>
-                  Iniciar Ruta (Google Maps)
-                </button>
-                <button
-                  type="button"
-                  onClick={handleLimpiarRuta}
-                  className="sm:w-1/3 rounded-xl border border-slate-200 dark:border-[#4A4A50] bg-white dark:bg-[#2B2B2F] py-3 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#3C3C40] transition-colors"
-                >
-                  Limpiar mapa
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Panel de Configuración de Ubicación del Usuario */}
-        <div className="mt-4 rounded-2xl border border-purple-100 dark:border-[#4A4A50] bg-white dark:bg-[#242428] p-4 space-y-3">
-          <p className="text-xs text-slate-600 dark:text-slate-300">
-            Tu ubicación se utiliza para trazar el trayecto peatonal mientras esta página está abierta.
+        <div className="mb-4 rounded-2xl border border-purple-100 dark:border-[#4A4A50] bg-white dark:bg-[#242428] p-4 space-y-3">
+          <p className="text-xs text-slate-600 dark:text-slate-300 font-medium">
+            SafeWalk U necesita tu ubicación para calcular el recorrido desde tu posición actual. Acepta el permiso de ubicación del navegador.
           </p>
           <button
             type="button"
             onClick={requestGps}
             disabled={geoStatus === 'requesting'}
-            className="min-h-11 w-full rounded-xl bg-purple-900 px-4 py-2 text-xs font-bold text-white disabled:opacity-60 hover:bg-purple-950 transition-colors"
+            className="min-h-11 w-full rounded-xl bg-purple-900 px-4 py-2 text-xs font-bold text-white shadow-md disabled:opacity-60 hover:bg-purple-950 transition-colors flex items-center justify-center gap-2"
           >
-            {geoStatus === 'requesting' ? 'Obteniendo ubicación GPS…' : 'Usar mi ubicación GPS'}
+            <span className="material-symbols-outlined text-[18px]">my_location</span>
+            {geoStatus === 'requesting' ? 'Solicitando ubicación…' : 'Usar mi ubicación GPS'}
           </button>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -464,11 +272,223 @@ export default function StudentApp() {
           </div>
 
           {geoError && (
-            <p role="alert" className="text-xs font-semibold text-amber-700 dark:text-amber-300">
+            <p role="alert" className="text-[11px] font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 p-2 rounded-lg border border-amber-200 dark:border-amber-800">
               {geoError}
             </p>
           )}
         </div>
+
+        <BuscadorPrincipal
+          onDestinoSelect={handleDestinoSelect}
+          onTrazar={handleTrazarRuta}
+          tracing={routeStatus === 'loading'}
+          originLabel={
+            userPos
+              ? `${geoStatus === 'manual' ? 'Ubicación manual' : 'Ubicación GPS'}: ${userPos[0].toFixed(
+                  5
+                )}, ${userPos[1].toFixed(5)}`
+              : 'Ubicación pendiente'
+          }
+        />
+
+        {/* Panel de Resumen de Ruta Peatonal y Evaluación de Seguridad */}
+        {routeSummary && (
+          <div className="mt-4 space-y-4">
+            {/* Opciones de Rutas Alternativas */}
+            {routeSummary.alternatives && routeSummary.alternatives.length > 1 && (
+              <div className="flex flex-col sm:flex-row gap-3">
+                {routeSummary.alternatives.map((alt, idx) => {
+                  const isSelected = selectedAlt === idx;
+                  const isRecommended = alt.label === 'RECOMENDADA';
+                  return (
+                    <button
+                      key={`alt-${idx}`}
+                      onClick={() => {
+                        setSelectedAlt(idx);
+                        // Actualizar mapa con la nueva polilínea
+                        const polyline = alt.coordinates || [];
+                        setMapConfig(prev => ({
+                          ...prev,
+                          polyline,
+                          centro: polyline[Math.floor(polyline.length / 2)] || prev.centro
+                        }));
+                      }}
+                      className={`flex-1 p-3 rounded-2xl border text-left transition-all ${isSelected ? 'border-purple-600 bg-purple-50 dark:bg-purple-900/20 shadow-md ring-2 ring-purple-600/20' : 'border-slate-200 bg-white dark:bg-[#2B2B2F] dark:border-[#4A4A50] hover:border-purple-300'}`}
+                    >
+                      <div className="flex justify-between items-center mb-1">
+                        <span className={`text-[10px] font-black tracking-wider px-2 py-0.5 rounded-md ${isRecommended ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'}`}>
+                          {isRecommended ? 'RECOMENDADA' : 'MÁS RÁPIDA'}
+                        </span>
+                        <span className={`text-xs font-bold ${isSelected ? 'text-purple-700 dark:text-purple-300' : 'text-slate-500'}`}>
+                          {alt.safety.score}/100 pts
+                        </span>
+                      </div>
+                      <div className="flex items-end justify-between mt-2">
+                        <div>
+                          <p className="text-sm font-black text-slate-800 dark:text-slate-100">{alt.duration_min} min</p>
+                          <p className="text-[10px] font-semibold text-slate-500">{alt.distance_m} m</p>
+                        </div>
+                        {alt.walking_not_recommended && <span className="material-symbols-outlined text-amber-500 text-lg" title="Considera transporte">directions_bus</span>}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="overflow-hidden rounded-2xl border border-purple-200 bg-white shadow-lg transition-all dark:border-[#4A4A50] dark:bg-[#242428]">
+              {(() => {
+                const currentAlt = routeSummary.alternatives ? routeSummary.alternatives[selectedAlt] : routeSummary;
+                
+                return (
+                  <>
+                    <div className="bg-purple-950 p-4 text-white">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-amber-400 text-xl font-black">directions_walk</span>
+                          <span className="text-xs font-black tracking-wider uppercase text-purple-200">
+                            Modo: Caminando (A pie)
+                          </span>
+                        </div>
+                        <span className="rounded-full bg-white/20 px-2.5 py-0.5 text-[10px] font-black tracking-wide text-white backdrop-blur-sm">
+                          {currentAlt.source === 'GOOGLE_ROUTES' || currentAlt.fuente_trazado === 'GOOGLE_ROUTES'
+                            ? 'GOOGLE ROUTES'
+                            : 'REFERENCIAL'}
+                        </span>
+                      </div>
+                      <h3 className="mt-2 text-base font-black leading-snug">
+                        {currentAlt.destino?.nombre || currentAlt.destination?.name || currentAlt.nombre_ruta || 'Ruta Peatonal'}
+                      </h3>
+                      <p className="text-[11px] text-purple-200 line-clamp-1">
+                        {currentAlt.destino?.direccion || currentAlt.destination?.address || 'Loja, Ecuador'}
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 divide-x divide-slate-100 border-b border-slate-100 bg-slate-50 p-3 text-center dark:divide-[#4A4A50] dark:border-[#4A4A50] dark:bg-[#2B2B2F]">
+                      <div>
+                        <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          Distancia total
+                        </span>
+                        <span className="text-sm font-black text-slate-800 dark:text-slate-100">
+                          {currentAlt.distance_m || currentAlt.distancia_m} m
+                        </span>
+                      </div>
+                      <div>
+                        <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          Tiempo estimado
+                        </span>
+                        <span className="text-sm font-black text-purple-700 dark:text-purple-300">
+                          {currentAlt.duration_min || currentAlt.tiempo_estimado} min a pie
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="p-4 space-y-3">
+                      {currentAlt.walking_not_recommended && (
+                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex gap-3 items-start">
+                          <span className="material-symbols-outlined text-amber-600">info</span>
+                          <div>
+                            <h4 className="text-xs font-bold text-amber-900">Distancia/Tiempo Considerable</h4>
+                            <p className="text-[11px] text-amber-800 mt-1">{currentAlt.walking_advisory?.join(' ')}</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {currentAlt.intermediate_point && (
+                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex gap-3 items-start">
+                          <span className="material-symbols-outlined text-blue-600">location_city</span>
+                          <div>
+                            <h4 className="text-xs font-bold text-blue-900">Punto Intermedio Recomendado</h4>
+                            <p className="text-[11px] font-bold text-blue-800 mt-0.5">{currentAlt.intermediate_point.nombre}</p>
+                            <p className="text-[10px] text-blue-700 mt-1">{currentAlt.intermediate_point.motivo}</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {(() => {
+                        const isReferencial = currentAlt.source === 'REFERENCIAL' || currentAlt.fuente_trazado === 'REFERENCIAL';
+                        const safety = currentAlt.safety || {};
+                        const classification = isReferencial
+                          ? 'PRECAUCION'
+                          : safety.classification || (currentAlt.nivel_seguridad === 'ALTO' ? 'NO_RECOMENDADA' : currentAlt.nivel_seguridad === 'MEDIO' ? 'PRECAUCION' : 'SEGURA');
+                        const score = isReferencial ? 40 : (safety.score ?? (classification === 'SEGURA' ? 85 : classification === 'PRECAUCION' ? 60 : 30));
+                        const reasons = isReferencial
+                          ? ['No fue posible calcular una ruta peatonal real. La referencia directa no debe utilizarse como navegación. Por favor intenta nuevamente.']
+                          : (safety.reasons || [currentAlt.aviso || 'Ruta calculada']);
+                        
+                        const mainSafetyText = isReferencial
+                          ? 'No fue posible calcular la ruta peatonal real con Google Routes.'
+                          : classification === 'SEGURA'
+                          ? 'Esta ruta es considerada segura para ir caminando según los reportes y datos disponibles.'
+                          : classification === 'PRECAUCION'
+                          ? 'Esta ruta presenta condiciones que requieren precaución.'
+                          : 'Esta ruta atraviesa o se acerca a zonas de riesgo y no se recomienda en este momento.';
+
+                        const disclaimerText = 'Esta recomendación no garantiza la ausencia de riesgos. Mantente alerta a las condiciones reales del entorno.';
+
+                        const config = {
+                          SEGURA: { bg: 'bg-emerald-50 dark:bg-emerald-950/30', border: 'border-emerald-200 dark:border-emerald-800', text: 'text-emerald-900 dark:text-emerald-200', badge: 'bg-emerald-600 text-white', label: 'RUTA SEGURA', icon: 'verified_user' },
+                          PRECAUCION: { bg: 'bg-amber-50 dark:bg-amber-950/30', border: 'border-amber-200 dark:border-amber-800', text: 'text-amber-900 dark:text-amber-200', badge: 'bg-amber-600 text-white', label: isReferencial ? 'REFERENCIAL (VOLVER A INTENTAR)' : 'PRECAUCIÓN', icon: 'warning' },
+                          NO_RECOMENDADA: { bg: 'bg-rose-50 dark:bg-rose-950/30', border: 'border-rose-200 dark:border-rose-800', text: 'text-rose-900 dark:text-rose-200', badge: 'bg-rose-600 text-white', label: 'RUTA NO RECOMENDADA', icon: 'gpp_bad' }
+                        };
+
+                        const currentStyle = isReferencial ? config.PRECAUCION : (config[classification] || config.PRECAUCION);
+
+                        return (
+                          <div className={`rounded-xl border p-3.5 ${currentStyle.bg} ${currentStyle.border}`}>
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2">
+                                <span className={`material-symbols-outlined text-xl ${currentStyle.text}`}>{currentStyle.icon}</span>
+                                <span className={`rounded-lg px-2.5 py-1 text-[10px] font-black tracking-wide ${currentStyle.badge}`}>{currentStyle.label}</span>
+                              </div>
+                              <span className="text-xs font-black text-slate-700 dark:text-slate-300">{score} / 100 pts</span>
+                            </div>
+                            <p className="mt-2 text-xs font-semibold text-slate-800 dark:text-slate-200">{mainSafetyText}</p>
+                            <div className="mt-2 space-y-1">
+                              <p className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Detalles de la evaluación:</p>
+                              <ul className="list-disc pl-4 text-[11px] space-y-0.5 text-slate-600 dark:text-slate-400">
+                                {reasons.map((r, idx) => <li key={`reason-${idx}`}>{r}</li>)}
+                              </ul>
+                            </div>
+                            <p className="mt-2.5 text-[10px] italic leading-tight text-slate-500 dark:text-slate-400 border-t border-slate-200/60 dark:border-slate-700/60 pt-2">⚠️ {disclaimerText}</p>
+                          </div>
+                        );
+                      })()}
+
+                      {((currentAlt.steps && currentAlt.steps.length > 0) || (currentAlt.instrucciones && currentAlt.instrucciones.length > 0)) && (
+                        <details className="group rounded-xl border border-slate-200 dark:border-[#4A4A50] bg-slate-50 dark:bg-[#2B2B2F] p-3 text-xs">
+                          <summary className="flex cursor-pointer items-center justify-between font-bold text-purple-900 dark:text-purple-300">
+                            <span className="flex items-center gap-1.5"><span className="material-symbols-outlined text-base">format_list_bulleted</span>Indicaciones paso a paso ({currentAlt.steps?.length || currentAlt.instrucciones?.length})</span>
+                            <span className="material-symbols-outlined text-base transition-transform group-open:rotate-180">expand_more</span>
+                          </summary>
+                          <ol className="mt-3 max-h-48 list-decimal space-y-1.5 overflow-y-auto pl-5 text-[11px] text-slate-700 dark:text-slate-300">
+                            {(currentAlt.steps || currentAlt.instrucciones).map((step, index) => (
+                              <li key={`step-${index}`} className="leading-snug">
+                                <span className="font-medium">{step.instruction}</span>{' '}
+                                {step.distance_m > 0 && <span className="font-bold text-slate-400">({step.distance_m} m)</span>}
+                              </li>
+                            ))}
+                          </ol>
+                        </details>
+                      )}
+
+                      <div className="flex flex-col sm:flex-row gap-2 mt-3">
+                        <button type="button" onClick={handleIniciarRuta} className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-purple-900 py-3 text-xs font-bold text-white shadow-md hover:bg-purple-950 transition-colors">
+                          <span className="material-symbols-outlined text-[18px]">explore</span>
+                          Iniciar Ruta (Google Maps)
+                        </button>
+                        <button type="button" onClick={handleLimpiarRuta} className="sm:w-1/3 rounded-xl border border-slate-200 dark:border-[#4A4A50] bg-white dark:bg-[#2B2B2F] py-3 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#3C3C40] transition-colors">
+                          Limpiar mapa
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+        )}
+
       </div>
 
       {/* Herramientas de Acompañamiento y Seguridad */}

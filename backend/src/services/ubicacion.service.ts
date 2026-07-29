@@ -18,6 +18,11 @@ class UbicacionService {
         await ubicacionRepository.updateCoordinates(id, data);
         return (await ubicacionRepository.findAll()).find((location) => location.id_ubicacion === id);
     }
+
+    async create(data: { nombre: string; direccion: string; latitud: number; longitud: number; tipo: string; radio_metros?: number }) {
+        const id = await ubicacionRepository.create(data);
+        return (await ubicacionRepository.findAll()).find((location) => location.id_ubicacion === id);
+    }
 }
 
 export default new UbicacionService();

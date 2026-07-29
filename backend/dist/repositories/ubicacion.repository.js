@@ -51,5 +51,23 @@ class UbicacionRepository {
             connection.release();
         }
     }
+    async create(data) {
+        const connection = await pool.getConnection();
+        try {
+            await connection.beginTransaction();
+            const [result] = await connection.query("INSERT INTO ubicacion (nombre, direccion, ciudad, radio_metros, tipo_zona) VALUES (?, ?, 'Loja', ?, ?)", [data.nombre, data.direccion, data.radio_metros || 50, data.tipo || 'GENERAL']);
+            const newId = result.insertId;
+            await connection.query(`INSERT INTO coordenada (latitud, longitud, id_ubicacion, verificada, fuente) VALUES (?, ?, ?, 1, 'Editor administrativo SafeWalk U')`, [data.latitud, data.longitud, newId]);
+            await connection.commit();
+            return newId;
+        }
+        catch (error) {
+            await connection.rollback();
+            throw error;
+        }
+        finally {
+            connection.release();
+        }
+    }
 }
 export default new UbicacionRepository();

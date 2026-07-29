@@ -29,6 +29,16 @@ class UbicacionController {
             return res.status(message === "Ubicacion no encontrada" ? 404 : 400).json({ success: false, message });
         }
     }
+
+    async create(req: Request, res: Response) {
+        try {
+            const location = await ubicacionService.create(req.body);
+            return res.status(201).json({ success: true, message: "Ubicacion creada", data: location });
+        } catch (error) {
+            const message = error instanceof Error ? error.message : "Error al crear ubicacion";
+            return res.status(400).json({ success: false, message });
+        }
+    }
 }
 
 export default new UbicacionController();

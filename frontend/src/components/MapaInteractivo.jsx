@@ -6,7 +6,8 @@ export default function MapaInteractivo({
   zoom = 17,
   markers = [],
   circle = null,
-  polyline = null
+  polyline = null,
+  onClick = null
 }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -48,6 +49,15 @@ export default function MapaInteractivo({
             mapTypeControl: false,
             streetViewControl: false
           });
+          
+          if (onClick) {
+            mapInstanceRef.current.addListener('click', (e) => {
+              if (e.latLng) {
+                onClick({ lat: e.latLng.lat(), lng: e.latLng.lng() });
+              }
+            });
+          }
+
           setMapReady(true);
           setMapError(null);
         }
@@ -56,7 +66,7 @@ export default function MapaInteractivo({
         console.error('Error al cargar Google Maps JS API:', err);
         setMapError('Error al cargar la API de Google Maps. Revisa la clave y las restricciones del navegador.');
       });
-  }, [googleApiKey]);
+  }, [googleApiKey, onClick]);
 
   // Actualizar centro y zoom solo cuando NO hay polilínea activa
   useEffect(() => {

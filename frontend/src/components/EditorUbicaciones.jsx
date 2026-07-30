@@ -31,7 +31,7 @@ export default function EditorUbicaciones() {
 
   const openNew = () => {
     setSelectedId('new');
-    setForm({ nombre: '', direccion: '', latitud: '-3.97245000', longitud: '-79.19933000', tipo: 'GENERAL' });
+    setForm({ nombre: '', direccion: '', latitud: '-3.97245000', longitud: '-79.19933000', tipo: 'CALLE' });
     setSearchQuery('');
     setIsModalOpen(true);
   };
@@ -270,7 +270,11 @@ export default function EditorUbicaciones() {
                         onChange={(e) => setForm((v) => ({ ...v, tipo: e.target.value }))}
                         className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 text-sm"
                       >
-                        <option value="GENERAL">General</option>
+                        <option value="CALLE">General / Calle</option>
+                        <option value="UNIVERSIDAD">Universidad</option>
+                        <option value="PARQUE">Parque</option>
+                        <option value="BARRIO">Barrio</option>
+                        <option value="PARADERO">Paradero</option>
                         <option value="LUGAR_SEGURO">Lugar Seguro</option>
                         <option value="SERVICIO_EMERGENCIA">Servicio de Emergencia</option>
                       </select>

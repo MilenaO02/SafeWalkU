@@ -98,11 +98,14 @@ class UbicacionRepository {
 
     async create(data: { nombre: string; direccion: string; latitud: number; longitud: number; tipo: string; radio_metros?: number }): Promise<number> {
         const connection = await pool.getConnection();
+        const validEnumTypes = ['UNIVERSIDAD', 'CALLE', 'PARQUE', 'BARRIO', 'PARADERO', 'LUGAR_SEGURO', 'SERVICIO_EMERGENCIA'];
+        const safeTipoZona = validEnumTypes.includes(data.tipo) ? data.tipo : 'CALLE';
+
         try {
             await connection.beginTransaction();
             const [result] = await connection.query<ResultSetHeader>(
                 "INSERT INTO ubicacion (nombre, direccion, ciudad, radio_metros, tipo_zona) VALUES (?, ?, 'Loja', ?, ?)",
-                [data.nombre, data.direccion, data.radio_metros || 50, data.tipo || 'GENERAL']
+                [data.nombre, data.direccion, data.radio_metros || 50, safeTipoZona]
             );
             const newId = result.insertId;
             await connection.query(

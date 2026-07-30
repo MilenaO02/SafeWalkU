@@ -78,9 +78,11 @@ class UbicacionRepository {
     }
     async create(data) {
         const connection = await pool.getConnection();
+        const validEnumTypes = ['UNIVERSIDAD', 'CALLE', 'PARQUE', 'BARRIO', 'PARADERO', 'LUGAR_SEGURO', 'SERVICIO_EMERGENCIA'];
+        const safeTipoZona = validEnumTypes.includes(data.tipo) ? data.tipo : 'CALLE';
         try {
             await connection.beginTransaction();
-            const [result] = await connection.query("INSERT INTO ubicacion (nombre, direccion, ciudad, radio_metros, tipo_zona) VALUES (?, ?, 'Loja', ?, ?)", [data.nombre, data.direccion, data.radio_metros || 50, data.tipo || 'GENERAL']);
+            const [result] = await connection.query("INSERT INTO ubicacion (nombre, direccion, ciudad, radio_metros, tipo_zona) VALUES (?, ?, 'Loja', ?, ?)", [data.nombre, data.direccion, data.radio_metros || 50, safeTipoZona]);
             const newId = result.insertId;
             await connection.query(`INSERT INTO coordenada (latitud, longitud, id_ubicacion, verificada, fuente) VALUES (?, ?, ?, 1, 'Editor administrativo SafeWalk U')`, [data.latitud, data.longitud, newId]);
             await connection.commit();

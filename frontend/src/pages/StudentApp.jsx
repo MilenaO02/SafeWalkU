@@ -8,6 +8,10 @@ export default function StudentApp() {
   const navigate = useNavigate();
   const { setMapConfig } = useMapConfig();
   const [zonasRiesgo, setZonasRiesgo] = useState([]);
+  const [permanentRiskZones, setPermanentRiskZones] = useState([]);
+  const [visibleRiskLevels, setVisibleRiskLevels] = useState(['BAJO', 'MEDIO', 'ALTO', 'CRITICO']);
+  const [heatmapPoints, setHeatmapPoints] = useState([]);
+  const [showHeatmap, setShowHeatmap] = useState(false);
   const [userPos, setUserPos] = useState(null);
   const [geoStatus, setGeoStatus] = useState('idle');
   const [geoError, setGeoError] = useState(null);
@@ -29,6 +33,15 @@ export default function StudentApp() {
       setGeoError('Este navegador no ofrece geolocalización. Ingresa las coordenadas manualmente.');
       return;
     }
+    if (!window.isSecureContext) {
+      setGeoStatus('unavailable');
+      setGeoError('La ubicacion requiere HTTPS. Abre SafeWalk U mediante el dominio seguro.');
+      return;
+    }
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
     setGeoStatus('requesting');
     setGeoError(null);
     watchIdRef.current = navigator.geolocation.watchPosition(
@@ -47,10 +60,14 @@ export default function StudentApp() {
         }));
       },
       (error) => {
-        setGeoStatus('denied');
-        setGeoError(error.code === error.PERMISSION_DENIED
-          ? 'Permiso de ubicación rechazado. Puedes ingresar las coordenadas manualmente.'
-          : 'No fue posible obtener una ubicación precisa. Intenta nuevamente o usa el modo manual.');
+        const messages = {
+          [error.PERMISSION_DENIED]: ['denied', 'El permiso de ubicacion fue denegado. Activalo para este sitio en la configuracion del navegador.'],
+          [error.POSITION_UNAVAILABLE]: ['unavailable', 'La ubicacion no esta disponible. Verifica que el GPS, red movil o Wi-Fi esten activos.'],
+          [error.TIMEOUT]: ['timeout', 'Se agoto el tiempo al buscar tu ubicacion. Intenta en un lugar con mejor senal o usa coordenadas manuales.']
+        };
+        const [status, message] = messages[error.code] || ['error', 'No fue posible obtener la ubicacion del dispositivo.'];
+        setGeoStatus(status);
+        setGeoError(message);
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
     );
@@ -85,14 +102,30 @@ export default function StudentApp() {
   useEffect(() => {
     const fetchZonas = async () => {
       try {
-        const json = await request('/reports/zonas/riesgo?ciudad=Loja');
+        const [json, permanent, heatmap] = await Promise.all([
+          request('/reports/zonas/riesgo?ciudad=Loja'),
+          request('/risk-zones?active=true'),
+          request('/risk-zones/heatmap')
+        ]);
         if (json.success && json.data) setZonasRiesgo(json.data);
+        if (permanent.success && permanent.data) setPermanentRiskZones(permanent.data);
+        if (heatmap.success && heatmap.data) setHeatmapPoints(heatmap.data);
       } catch (e) {
         setGeoError(e instanceof Error ? e.message : 'No fue posible cargar las zonas de riesgo.');
       }
     };
     fetchZonas();
   }, []);
+
+  useEffect(() => {
+    setMapConfig((previous) => ({
+      ...previous,
+      polygons: permanentRiskZones
+        .filter((zone) => visibleRiskLevels.includes(zone.nivel_riesgo))
+        .map((zone) => ({ ...zone })),
+      heatmapPoints: showHeatmap ? heatmapPoints : []
+    }));
+  }, [permanentRiskZones, visibleRiskLevels, heatmapPoints, showHeatmap, setMapConfig]);
 
   const handleDestinoSelect = (destino) => {
     if (!destino) return;
@@ -290,6 +323,21 @@ export default function StudentApp() {
               : 'Ubicación pendiente'
           }
         />
+
+        {(permanentRiskZones.length > 0 || heatmapPoints.length > 0) && (
+          <div className="mt-3 rounded-xl border border-orange-200 bg-orange-50 p-3 text-xs text-orange-900">
+            <p className="font-black">Zonas de riesgo visibles en el mapa</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {['BAJO', 'MEDIO', 'ALTO', 'CRITICO'].map((level) => (
+                <label key={level} className="flex items-center gap-1 rounded-lg bg-white px-2 py-1 font-bold">
+                  <input type="checkbox" checked={visibleRiskLevels.includes(level)} onChange={() => setVisibleRiskLevels((current) => current.includes(level) ? current.filter((item) => item !== level) : [...current, level])} />
+                  {level}
+                </label>
+              ))}
+            </div>
+            <label className="mt-2 flex items-center gap-1 font-bold"><input type="checkbox" checked={showHeatmap} onChange={(event) => setShowHeatmap(event.target.checked)} />Mostrar capa de intensidad de reportes y SOS</label>
+          </div>
+        )}
 
         {/* Panel de Resumen de Ruta Peatonal y Evaluación de Seguridad */}
         {routeSummary && (

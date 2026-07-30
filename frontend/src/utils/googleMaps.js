@@ -16,9 +16,15 @@ async function loadLibraries() {
       maps.importLibrary('places')
     ]);
 
+    // Google namespace objects do not guarantee enumerable constructors.
+    // Expose the constructors explicitly after asynchronous loading.
     return {
-      ...maps,
-      ...mapsLibrary,
+      Map: mapsLibrary.Map || maps.Map,
+      Polygon: maps.Polygon,
+      Polyline: maps.Polyline,
+      Circle: maps.Circle,
+      InfoWindow: maps.InfoWindow,
+      LatLngBounds: maps.LatLngBounds,
       marker: markerLibrary,
       places: placesLibrary
     };

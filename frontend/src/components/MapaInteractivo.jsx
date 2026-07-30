@@ -22,19 +22,23 @@ export default function MapaInteractivo({
   markers = [],
   circle = null,
   polyline = null,
+  polygons = [],
+  heatmapPoints = [],
+  editablePolygon = null,
+  onPolygonChange = null,
   onClick = null
 }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const mapsLibraryRef = useRef(null);
-  const activeObjectsRef = useRef({ markers: [], circle: null, polyline: null, mapClick: null });
+  const activeObjectsRef = useRef({ markers: [], circle: null, polyline: null, polygons: [], heatmap: [], editablePolygon: null, mapClick: null });
   const initialCenterRef = useRef(centro);
   const initialZoomRef = useRef(zoom);
   const viewportSignatureRef = useRef(null);
   const onClickRef = useRef(onClick);
   const [mapError, setMapError] = useState(null);
   const [mapReady, setMapReady] = useState(false);
-  const googleApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || (typeof window !== 'undefined' && window.VITE_GOOGLE_MAPS_API_KEY) || 'AIzaSyDSC0LKYzU8isK6WvkM-DxGbKjwY4bsp4k';
+  const googleApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || (typeof window !== 'undefined' && window.VITE_GOOGLE_MAPS_API_KEY);
 
   useEffect(() => { onClickRef.current = onClick; }, [onClick]);
 
@@ -61,7 +65,7 @@ export default function MapaInteractivo({
             mapId: import.meta.env.VITE_GOOGLE_MAPS_MAP_ID || 'DEMO_MAP_ID',
             disableDefaultUI: false,
             zoomControl: true,
-            mapTypeControl: false,
+            mapTypeControl: true,
             streetViewControl: false
           });
 
@@ -103,6 +107,9 @@ export default function MapaInteractivo({
     activeObjectsRef.current.markers.forEach((marker) => { marker.map = null; });
     activeObjectsRef.current.circle?.setMap(null);
     activeObjectsRef.current.polyline?.setMap(null);
+    activeObjectsRef.current.polygons.forEach((polygon) => polygon.setMap(null));
+    activeObjectsRef.current.heatmap.forEach((circle) => circle.setMap(null));
+    activeObjectsRef.current.editablePolygon?.setMap(null);
     activeObjectsRef.current.mapClick?.remove();
 
     const newMarkers = markers.flatMap((item, index) => {
@@ -171,6 +178,44 @@ export default function MapaInteractivo({
       map.fitBounds(bounds, 40);
     }
 
+    const pathFor = (zone) => (Array.isArray(zone?.polygon_json) ? zone.polygon_json : [])
+      .filter((point) => Number.isFinite(Number(point?.lat)) && Number.isFinite(Number(point?.lng)))
+      .map((point) => ({ lat: Number(point.lat), lng: Number(point.lng) }));
+    const newPolygons = (Array.isArray(polygons) ? polygons : []).flatMap((zone) => {
+      const path = pathFor(zone);
+      if (path.length < 3 || !gmaps.Polygon) return [];
+      const polygon = new gmaps.Polygon({
+        paths: path, map, clickable: Boolean(zone.onClick),
+        strokeColor: zone.color || '#f97316', strokeOpacity: 0.95, strokeWeight: 2,
+        fillColor: zone.color || '#f97316', fillOpacity: Number(zone.opacidad ?? 0.35)
+      });
+      if (typeof zone.onClick === 'function') polygon.addListener('click', () => zone.onClick(zone));
+      return [polygon];
+    });
+    // Native circle overlays provide an optional intensity layer using only
+    // actual report/SOS coordinates, without relying on the deprecated Google
+    // Maps Heatmap library.
+    const newHeatmap = (Array.isArray(heatmapPoints) ? heatmapPoints : []).flatMap((point) => {
+      const lat = Number(point.lat), lng = Number(point.lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return [];
+      const weight = Math.max(0.2, Math.min(1, Number(point.weight) || 0.3));
+      return [new gmaps.Circle({ map, center: { lat, lng }, radius: 95 + weight * 140, clickable: false, strokeOpacity: 0, fillColor: point.tipo_reporte === 'SOS_PANICO' ? '#dc2626' : '#f97316', fillOpacity: weight * 0.22 })];
+    });
+    let newEditablePolygon = null;
+    if (editablePolygon && gmaps.Polygon) {
+      const path = pathFor({ polygon_json: editablePolygon });
+      if (path.length >= 3) {
+        newEditablePolygon = new gmaps.Polygon({ paths: path, map, editable: true, draggable: true, strokeColor: '#6d28d9', strokeOpacity: 1, strokeWeight: 3, fillColor: '#8b5cf6', fillOpacity: 0.2 });
+        const notify = () => {
+          if (typeof onPolygonChange !== 'function') return;
+          onPolygonChange(newEditablePolygon.getPath().getArray().map((point) => ({ lat: point.lat(), lng: point.lng() })));
+        };
+        const pathModel = newEditablePolygon.getPath();
+        pathModel.addListener('set_at', notify); pathModel.addListener('insert_at', notify); pathModel.addListener('remove_at', notify);
+        newEditablePolygon.addListener('dragend', notify);
+      }
+    }
+
     const mapClick = onClickRef.current
       ? map.addListener('click', (event) => {
           const lat = event.latLng?.lat();
@@ -179,14 +224,17 @@ export default function MapaInteractivo({
         })
       : null;
 
-    activeObjectsRef.current = { markers: newMarkers, circle: newCircle, polyline: newPolyline, mapClick };
+    activeObjectsRef.current = { markers: newMarkers, circle: newCircle, polyline: newPolyline, polygons: newPolygons, heatmap: newHeatmap, editablePolygon: newEditablePolygon, mapClick };
     return undefined;
-  }, [markers, circle, polyline, mapReady]);
+  }, [markers, circle, polyline, polygons, heatmapPoints, editablePolygon, onPolygonChange, mapReady]);
 
   useEffect(() => () => {
     activeObjectsRef.current.markers.forEach((marker) => { marker.map = null; });
     activeObjectsRef.current.circle?.setMap(null);
     activeObjectsRef.current.polyline?.setMap(null);
+    activeObjectsRef.current.polygons.forEach((polygon) => polygon.setMap(null));
+    activeObjectsRef.current.heatmap.forEach((circle) => circle.setMap(null));
+    activeObjectsRef.current.editablePolygon?.setMap(null);
     activeObjectsRef.current.mapClick?.remove();
     mapInstanceRef.current = null;
     mapsLibraryRef.current = null;

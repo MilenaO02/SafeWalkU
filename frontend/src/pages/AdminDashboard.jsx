@@ -3,6 +3,7 @@ import { request } from '../services/api';
 import { useAuth } from '../context/auth';
 import ConfirmDialog from '../components/ConfirmDialog';
 import MapaInteractivo from '../components/MapaInteractivo';
+import AdminRiskZones from './AdminRiskZones';
 
 export default function AdminDashboardContent() {
   const { user, showToast } = useAuth();
@@ -66,6 +67,11 @@ export default function AdminDashboardContent() {
         {status === 'ready' && !activeSos.length && <p className="rounded-xl bg-green-50 p-4 text-xs font-semibold text-green-700">No hay alertas SOS pendientes.</p>}
       </div></div>
       <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-[#4A4A50] dark:bg-[#2B2B2F]"><h3 className="text-sm font-black text-slate-900 dark:text-white">Estados de reportes</h3><dl className="mt-4 space-y-3">{['PENDIENTE', 'VALIDADO', 'RECHAZADO', 'DUPLICADO', 'CANCELADO'].map((state) => <div key={state} className="flex items-center justify-between rounded-xl bg-slate-50 p-3 dark:bg-[#242428]"><dt className="text-xs font-bold text-slate-600 dark:text-slate-300">{state}</dt><dd className="text-lg font-black text-purple-950 dark:text-purple-200">{statusCounts[state] || 0}</dd></div>)}</dl></div>
+    </section>
+
+    <section className="border-t border-slate-200 pt-6 dark:border-[#4A4A50]">
+      <div className="mb-4"><h3 className="text-lg font-black text-purple-950 dark:text-purple-100">Zonas de riesgo</h3><p className="text-sm text-slate-500 dark:text-slate-300">Administración de polígonos, candidatos dinámicos y estadísticas de seguridad.</p></div>
+      <AdminRiskZones embedded />
     </section>
 
     <ConfirmDialog open={Boolean(pendingSos)} title="Atender alerta SOS" message={pendingSos ? `¿Marcar como atendida la alerta de ${pendingSos.nombre} ${pendingSos.apellido}?` : ''} confirmText="Marcar atendida" busy={Boolean(pendingSos && busyId === pendingSos.id_reporte)} onClose={() => setPendingSos(null)} onConfirm={confirmResolveSos} />

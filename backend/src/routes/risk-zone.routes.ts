@@ -1,0 +1,20 @@
+import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
+import auth from '../middleware/auth.js';
+import authorize from '../middleware/authorize.js';
+import validate from '../middleware/validate.js';
+import controller from '../controllers/risk-zone.controller.js';
+import { approveDynamicRiskZoneSchema, createRiskZoneSchema, updateRiskZoneSchema } from '../schemas/risk-zone.schema.js';
+
+const router = Router();
+const writeLimit = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: 'draft-7', legacyHeaders: false });
+router.get('/', auth, controller.list);
+router.get('/dynamic', auth, authorize('ADMINISTRADOR'), controller.dynamic);
+router.get('/statistics', auth, authorize('ADMINISTRADOR'), controller.statistics);
+router.get('/heatmap', auth, controller.heatmap);
+router.post('/dynamic/approve', auth, authorize('ADMINISTRADOR'), writeLimit, validate(approveDynamicRiskZoneSchema), controller.approve);
+router.get('/:id', auth, controller.get);
+router.post('/', auth, authorize('ADMINISTRADOR'), writeLimit, validate(createRiskZoneSchema), controller.create);
+router.put('/:id', auth, authorize('ADMINISTRADOR'), writeLimit, validate(updateRiskZoneSchema), controller.update);
+router.delete('/:id', auth, authorize('ADMINISTRADOR'), writeLimit, controller.remove);
+export default router;

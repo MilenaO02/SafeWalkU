@@ -25,6 +25,7 @@ const HistorialNotificaciones = React.lazy(() => import('./components/HistorialN
 const AdminSettings        = React.lazy(() => import('./components/AdminSettings.jsx'));
 const EditorRutas          = React.lazy(() => import('./components/EditorRutas.jsx'));
 const EditorUbicaciones    = React.lazy(() => import('./components/EditorUbicaciones.jsx'));
+const AdminRiskZones       = React.lazy(() => import('./pages/AdminRiskZones.jsx'));
 
 // ── Global toast ────────────────────────────────────────────────────────────
 function ToastHost() {
@@ -141,6 +142,7 @@ function AppRoutes() {
               <Route path="/admin/configuracion"     element={<PrivateRoute requiredRole="ADMINISTRADOR"><AdminSettings /></PrivateRoute>} />
               <Route path="/admin/rutas"             element={<PrivateRoute requiredRole="ADMINISTRADOR"><EditorRutas /></PrivateRoute>} />
               <Route path="/admin/ubicaciones"       element={<PrivateRoute requiredRole="ADMINISTRADOR"><EditorUbicaciones /></PrivateRoute>} />
+              <Route path="/admin/zonas-riesgo"      element={<PrivateRoute requiredRole="ADMINISTRADOR"><AdminRiskZones /></PrivateRoute>} />
             </Route>
 
             {/* Catch-all */}

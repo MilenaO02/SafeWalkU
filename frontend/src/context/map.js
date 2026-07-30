@@ -7,5 +7,6 @@ export const defaultMapConfig = {
   centro: [-3.97245, -79.19933],
   zoom: 17,
   markers: [],
-  circle: null
+  circle: null,
+  polygons: []
 };

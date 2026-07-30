@@ -1,4 +1,5 @@
 export type Coordinate = [number, number];
+import { riskScoringConfig } from '../config/risk-scoring.config.js';
 
 export interface IncidentReport {
     id_reporte: number;
@@ -44,9 +45,9 @@ export interface SafetyEvaluationResult {
 }
 
 // Configurable penalties
-const HIGH_RISK_REPORT_PENALTY = 25;
-const MEDIUM_RISK_REPORT_PENALTY = 12;
-const LOW_RISK_REPORT_PENALTY = 5;
+const HIGH_RISK_REPORT_PENALTY = riskScoringConfig.reportPenalty.ALTO;
+const MEDIUM_RISK_REPORT_PENALTY = riskScoringConfig.reportPenalty.MEDIO;
+const LOW_RISK_REPORT_PENALTY = riskScoringConfig.reportPenalty.BAJO;
 
 const HIGH_RISK_ZONE_PENALTY = 30;
 const MEDIUM_RISK_ZONE_PENALTY = 15;
@@ -55,7 +56,7 @@ const LOW_RISK_ZONE_PENALTY = 5;
 const SAFE_PLACE_BONUS = 5;
 const EMERGENCY_SERVICE_BONUS = 8;
 
-const NEARBY_THRESHOLD_METERS = 150;
+const NEARBY_THRESHOLD_METERS = riskScoringConfig.proximityMeters;
 const SAFETY_WARNING_TEXT =
     "Esta recomendación se basa en reportes y datos disponibles y no garantiza la ausencia de riesgos.";
 

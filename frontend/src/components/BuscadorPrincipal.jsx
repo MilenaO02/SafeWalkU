@@ -113,6 +113,7 @@ export default function BuscadorPrincipal({ onDestinoSelect, onTrazar, origin = 
   useEffect(() => () => abortRef.current?.abort(), []);
 
   const selectSuggestion = async (item) => {
+    // Caso 1: Ubicación local de SafeWalk U - selección inmediata
     if (item.fuente_resultado !== 'GOOGLE_PLACES') {
       setQuery(item.nombre);
       setSelected(item);
@@ -120,33 +121,56 @@ export default function BuscadorPrincipal({ onDestinoSelect, onTrazar, origin = 
       onDestinoSelect?.(item);
       return;
     }
+
+    // Caso 2: Google Places - requiere consultar detalles
     setSearching(true);
     setSearchError(null);
+
     try {
-      const response = await request(
-        `/ubicaciones/buscar?q=${encodeURIComponent(searchTerm)}`
-      );
-      if (response.success && Array.isArray(response.data) && response.data.length > 0) {
-        const localDestinations = response.data.map((item) => ({
-          id_ubicacion: Number(item.id_ubicacion),
-          place_id: null,
-          nombre: item.nombre,
-          direccion: item.direccion,
-          latitud: Number(item.latitud),
-          longitud: Number(item.longitud),
-          fuente: 'BASE_DATOS',
-        }));
-        setSugerencias(localDestinations);
-        setNoResults(false);
+      const response = await request('/maps/places/details', {
+        method: 'POST',
+        body: JSON.stringify({
+          place: item.place_resource,
+          sessionToken: sessionTokenRef.current,
+          languageCode: 'es'
+        })
+      });
+
+      if (response.success && response.data && response.data.location) {
+        const placeData = response.data;
+        const destination = {
+          id_ubicacion: null,
+          place_id: item.place_id,
+          nombre: placeData.displayName?.text || item.nombre,
+          direccion: placeData.formattedAddress || item.direccion,
+          latitud: placeData.location.latitude,
+          longitud: placeData.location.longitude,
+          categoria: placeData.primaryType || item.categoria,
+          fuente_resultado: 'GOOGLE_PLACES',
+          distancia_km: null
+        };
+
+        setQuery(destination.nombre);
+        setSelected(destination);
+        setSuggestions([]);
+        setSearchError(null);
+        onDestinoSelect?.(destination);
+        sessionTokenRef.current = newSessionToken();
       } else {
-        setSugerencias([]);
-        setNoResults(true);
+        // Sin coordenadas válidas - no permitir trazado
+        setQuery(item.nombre);
+        setSelected(null);
+        setSuggestions([]);
+        setSearchError('No se pudieron obtener las coordenadas exactas de este lugar. Selecciona otro resultado o vuelve a intentarlo.');
+        sessionTokenRef.current = newSessionToken();
       }
     } catch (e) {
-      setSearchError(
-        e instanceof Error ? e.message : 'No fue posible buscar ubicaciones.'
-      );
-      setSugerencias([]);
+      console.error('Error obteniendo detalles de Google Places:', e);
+      setQuery(item.nombre);
+      setSelected(null);
+      setSuggestions([]);
+      setSearchError('No se pudieron obtener las coordenadas exactas de este lugar. Selecciona otro resultado o vuelve a intentarlo.');
+      sessionTokenRef.current = newSessionToken();
     } finally {
       setSearching(false);
     }
@@ -154,8 +178,12 @@ export default function BuscadorPrincipal({ onDestinoSelect, onTrazar, origin = 
 
   const submit = (event) => {
     event.preventDefault();
-    if (selected) onTrazar?.(selected);
+    if (selected && Number.isFinite(selected.latitud) && Number.isFinite(selected.longitud)) {
+      onTrazar?.(selected);
+    }
   };
+
+  const canTrace = selected && Number.isFinite(selected.latitud) && Number.isFinite(selected.longitud);
 
   return <div className="space-y-3" ref={wrapperRef}>
     <div><h2 className="mb-1 text-lg font-black leading-tight tracking-tight text-purple-950 dark:text-slate-100">¿A dónde vas?</h2><p className="text-[10px] font-medium text-slate-500 dark:text-slate-400">Busca lugares de SafeWalk U y Google Places cerca de ti.</p></div>
@@ -164,9 +192,9 @@ export default function BuscadorPrincipal({ onDestinoSelect, onTrazar, origin = 
       <div className="relative"><span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[18px] text-slate-400">my_location</span><input className="min-h-11 w-full cursor-not-allowed rounded-xl border border-slate-200 bg-white py-3 pl-10 pr-4 text-xs font-semibold text-slate-700 opacity-80 shadow-sm dark:bg-[#2B2B2F]" value={originLabel} disabled readOnly /></div>
       <div className="relative"><span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[18px] text-slate-400">search</span><input className="min-h-11 w-full rounded-xl border border-slate-200 bg-white py-3 pl-10 pr-20 text-xs font-semibold text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-200 dark:bg-[#2B2B2F]" placeholder="Hospital, parque, UIDE…" value={query} onChange={(event) => { setQuery(event.target.value); setSelected(null); }} autoComplete="off" role="combobox" aria-expanded={suggestions.length > 0 || noResults} aria-autocomplete="list" />{searching && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-purple-700">Buscando…</span>}
         {suggestions.length > 0 && <ul role="listbox" className="absolute z-30 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border bg-white shadow-xl dark:bg-[#2B2B2F]">{suggestions.map((item) => <li key={item.id_ubicacion ? `db-${item.id_ubicacion}` : `google-${item.place_id}`}><button type="button" onClick={() => selectSuggestion(item)} className="min-h-11 w-full border-b px-4 py-2.5 text-left text-xs hover:bg-purple-50"><span className="flex items-center justify-between gap-2"><strong className="text-purple-950">{item.nombre}</strong><span className="rounded-full bg-purple-100 px-2 py-0.5 text-[8px] font-black text-purple-800">{item.fuente_resultado === 'GOOGLE_PLACES' ? 'GOOGLE' : item.categoria || item.categoria_segura}</span></span><span className="mt-0.5 block text-[10px] text-slate-500">{item.direccion}</span>{item.distancia_km != null && <span className="text-[9px] font-bold text-slate-400">Aprox. {item.distancia_km < 1 ? `${Math.round(item.distancia_km * 1000)} m` : `${item.distancia_km.toFixed(1)} km`}</span>}</button></li>)}</ul>}
-        {noResults && !searching && <div className="absolute z-30 mt-1 w-full rounded-xl border bg-white p-3 text-center text-xs text-slate-500 shadow-xl">Sin resultados para “{query}”.</div>}
+        {noResults && !searching && <div className="absolute z-30 mt-1 w-full rounded-xl border bg-white p-3 text-center text-xs text-slate-500 shadow-xl">Sin resultados para "{query}".</div>}
       </div>
-      <button type="submit" disabled={!selected || tracing} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-purple-900 px-4 text-xs font-bold text-white disabled:bg-slate-300"><span className="material-symbols-outlined text-[16px]">map</span>{tracing ? 'Calculando ruta a pie…' : 'Trazar camino seguro'}</button>
+      <button type="submit" disabled={!canTrace || tracing} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-purple-900 px-4 text-xs font-bold text-white disabled:bg-slate-300"><span className="material-symbols-outlined text-[16px]">map</span>{tracing ? 'Calculando ruta a pie…' : 'Trazar camino seguro'}</button>
     </form>
   </div>;
 }

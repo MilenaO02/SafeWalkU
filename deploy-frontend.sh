@@ -11,13 +11,24 @@ echo "[1/4] Instalando dependencias y compilando..."
 npm ci
 npm run lint
 
-echo "[1.5/4] Configurando variables de entorno..."
-cat > .env.production <<EOF
-VITE_API_URL=/api
-VITE_GOOGLE_MAPS_API_KEY=AIzaSyDSC0LKYzU8isK6WvkM-DxGbKjwY4bsp4k
-VITE_GOOGLE_MAPS_MAP_ID=DEMO_MAP_ID
-EOF
+echo "[1.5/4] Preparando configuración pública de Google Maps..."
+GOOGLE_MAPS_KEY="${VITE_GOOGLE_MAPS_API_KEY:-}"
+GOOGLE_MAPS_MAP_ID="${VITE_GOOGLE_MAPS_MAP_ID:-DEMO_MAP_ID}"
+if [[ -z "$GOOGLE_MAPS_KEY" && -f .env.production ]]; then
+  GOOGLE_MAPS_KEY="$(sed -n 's/^VITE_GOOGLE_MAPS_API_KEY=//p' .env.production | tail -n 1 | tr -d '\r')"
+  MAP_ID_FROM_FILE="$(sed -n 's/^VITE_GOOGLE_MAPS_MAP_ID=//p' .env.production | tail -n 1 | tr -d '\r')"
+  [[ -n "$MAP_ID_FROM_FILE" ]] && GOOGLE_MAPS_MAP_ID="$MAP_ID_FROM_FILE"
+fi
+if [[ -z "$GOOGLE_MAPS_KEY" ]]; then
+  echo "ERROR: configura VITE_GOOGLE_MAPS_API_KEY en el entorno o en frontend/.env.production" >&2
+  exit 1
+fi
+if [[ ! "$GOOGLE_MAPS_KEY" =~ ^[A-Za-z0-9_-]+$ || ! "$GOOGLE_MAPS_MAP_ID" =~ ^[A-Za-z0-9_-]+$ ]]; then
+  echo "ERROR: la configuración de Google Maps contiene caracteres no válidos" >&2
+  exit 1
+fi
 npm run build
+printf "window.__SAFEWALK_CONFIG__ = Object.assign(window.__SAFEWALK_CONFIG__ || {}, { googleMapsApiKey: '%s', googleMapsMapId: '%s' });\\n" "$GOOGLE_MAPS_KEY" "$GOOGLE_MAPS_MAP_ID" > dist/map-config.js
 
 echo "[2/4] Publicando archivos compilados..."
 sudo mkdir -p "$TARGET_DIR/assets"

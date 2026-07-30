@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { loadGoogleMaps } from '../utils/googleMaps';
+import { getGoogleMapsApiKey, getGoogleMapsMapId, loadGoogleMaps } from '../utils/googleMaps';
 
 function isValidCoordinate(value) {
   return Array.isArray(value)
@@ -38,13 +38,14 @@ export default function MapaInteractivo({
   const onClickRef = useRef(onClick);
   const [mapError, setMapError] = useState(null);
   const [mapReady, setMapReady] = useState(false);
-  const googleApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || (typeof window !== 'undefined' && window.VITE_GOOGLE_MAPS_API_KEY);
+  const googleApiKey = getGoogleMapsApiKey();
+  const googleMapId = getGoogleMapsMapId();
 
   useEffect(() => { onClickRef.current = onClick; }, [onClick]);
 
   useEffect(() => {
     if (!googleApiKey || !mapRef.current) {
-      if (!googleApiKey) setMapError('No se encontró VITE_GOOGLE_MAPS_API_KEY.');
+      if (!googleApiKey) setMapError('No se pudo cargar la configuración de Google Maps. Intenta actualizar la página.');
       return undefined;
     }
 
@@ -62,7 +63,7 @@ export default function MapaInteractivo({
           mapInstanceRef.current = new maps.Map(mapRef.current, {
             center: { lat: initLat, lng: initLng },
             zoom: Number.isFinite(Number(initialZoomRef.current)) ? Number(initialZoomRef.current) : 17,
-            mapId: import.meta.env.VITE_GOOGLE_MAPS_MAP_ID || 'DEMO_MAP_ID',
+            mapId: googleMapId,
             disableDefaultUI: false,
             zoomControl: true,
             mapTypeControl: true,
@@ -83,7 +84,7 @@ export default function MapaInteractivo({
         console.error('Error al cargar Google Maps JS API:', error instanceof Error ? error.message : 'desconocido');
         setMapError('Error al cargar Google Maps. Verifica la API Key y sus restricciones.');
       });
-  }, [googleApiKey, onClick]);
+  }, [googleApiKey, googleMapId, onClick]);
 
   useEffect(() => {
     const map = mapInstanceRef.current;

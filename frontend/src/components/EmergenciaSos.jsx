@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useMapConfig } from '../context/map';
 import { request } from '../services/api';
-import { loadGoogleMaps } from '../utils/googleMaps';
+import { getGoogleMapsApiKey, loadGoogleMaps } from '../utils/googleMaps';
 import MapaInteractivo from './MapaInteractivo';
 
 const geoMessages = {
@@ -33,7 +33,7 @@ export default function EmergenciaSos() {
 
   const reverseGeocode = useCallback(async (lat, lng, sequence) => {
     try {
-      const maps = await loadGoogleMaps(import.meta.env.VITE_GOOGLE_MAPS_API_KEY);
+      const maps = await loadGoogleMaps(getGoogleMapsApiKey());
       const response = await new maps.Geocoder().geocode({ location: { lat, lng } });
       if (sequenceRef.current !== sequence) return;
       setGps((current) => current ? {

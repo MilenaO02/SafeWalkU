@@ -1,5 +1,21 @@
 let googleMapsPromise = null;
 
+export function getGoogleMapsApiKey() {
+  if (typeof window === 'undefined') return import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
+  return import.meta.env.VITE_GOOGLE_MAPS_API_KEY
+    || window.__SAFEWALK_CONFIG__?.googleMapsApiKey
+    || window.VITE_GOOGLE_MAPS_API_KEY
+    || '';
+}
+
+export function getGoogleMapsMapId() {
+  if (typeof window === 'undefined') return import.meta.env.VITE_GOOGLE_MAPS_MAP_ID || 'DEMO_MAP_ID';
+  return import.meta.env.VITE_GOOGLE_MAPS_MAP_ID
+    || window.__SAFEWALK_CONFIG__?.googleMapsMapId
+    || window.VITE_GOOGLE_MAPS_MAP_ID
+    || 'DEMO_MAP_ID';
+}
+
 async function loadLibraries() {
   const maps = window.google?.maps;
   if (!maps) {

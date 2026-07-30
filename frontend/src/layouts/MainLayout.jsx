@@ -138,7 +138,7 @@ export default function MainLayout() {
               <span>Ubicaciones</span>
             </Link>
             <Link to="/admin/zonas-riesgo" className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all text-sm ${location.pathname === '/admin/zonas-riesgo' ? activeClass : inactiveClass}`}>
-              <span className="material-symbols-outlined text-[20px]">polygon</span><span>Zonas de riesgo</span>
+              <span className="material-symbols-outlined text-[20px]">location_on</span><span>Zonas de riesgo</span>
             </Link>
           </nav>
 
@@ -210,7 +210,7 @@ export default function MainLayout() {
               ['/admin/usuarios', 'group', 'Usuarios'],
               ['/admin/notificaciones', 'report_problem', 'Alertas'],
               ['/admin/rutas', 'route', 'Rutas'],
-              ['/admin/zonas-riesgo', 'polygon', 'Zonas'],
+              ['/admin/zonas-riesgo', 'location_on', 'Zonas'],
               ['/admin/configuracion', 'settings', 'Ajustes']
             ].map(([path, icon, label]) => <Link key={path} to={path} className={`flex min-h-11 flex-col items-center justify-center rounded-xl text-[10px] font-bold ${location.pathname === path ? 'bg-purple-50 text-purple-900' : 'text-slate-500'}`}><span className="material-symbols-outlined text-[20px]">{icon}</span>{label}</Link>)}
           </nav>

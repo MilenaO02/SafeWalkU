@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMapConfig } from '../context/map';
 import { clearPendingEvidence, setPendingEvidence } from '../services/pendingReport';
-import { loadGoogleMaps } from '../utils/googleMaps';
+import { getGoogleMapsApiKey, loadGoogleMaps } from '../utils/googleMaps';
 
 const CATEGORY_RISK = {
   'Robo / Hurto': 'ALTO', 'Acoso / Intimidación': 'ALTO', 'Actividad sospechosa': 'MEDIO',
@@ -26,7 +26,7 @@ export default function ReportarIncidente() {
 
   const reverseGeocode = useCallback(async (lat, lng, sequence) => {
     try {
-      const maps = await loadGoogleMaps(import.meta.env.VITE_GOOGLE_MAPS_API_KEY);
+      const maps = await loadGoogleMaps(getGoogleMapsApiKey());
       const response = await new maps.Geocoder().geocode({ location: { lat, lng } });
       if (requestSequence.current !== sequence) return;
       const address = response.results?.[0]?.formatted_address || 'Dirección aproximada no disponible';

@@ -1,17 +1,21 @@
 {
-  "name": "mcp-server",
+  "name": "safewalk-mcp-server",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "description": "Servidor Model Context Protocol (MCP) seguro para SafeWalk U",
+  "main": "dist/index.js",
   "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc -w",
+    "lint": "tsc --noEmit"
+  },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.30.0",
-    "axios": "^1.19.0"
+    "@modelcontextprotocol/sdk": "^1.5.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3"
   }
 }

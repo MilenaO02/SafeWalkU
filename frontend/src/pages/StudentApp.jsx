@@ -19,48 +19,69 @@ export default function StudentApp() {
   const [routeSummary, setRouteSummary] = useState(null);
   const [routeStatus, setRouteStatus] = useState('idle');
   const [selectedAlt, setSelectedAlt] = useState(0);
-  const requestGps = () => {
+  const requestGps = async () => {
     if (!navigator.geolocation) {
       setGeoStatus('unavailable');
-      setGeoError('Este navegador no ofrece geolocalización. Ingresa las coordenadas manualmente.');
+      setGeoError('Este navegador no permite obtener la ubicación del dispositivo.');
       return;
     }
     if (!window.isSecureContext) {
       setGeoStatus('unavailable');
-      setGeoError('La ubicacion requiere HTTPS. Abre SafeWalk U mediante el dominio seguro.');
+      setGeoError('La ubicación solo puede utilizarse mediante una conexión segura HTTPS.');
       return;
     }
     setGeoStatus('requesting');
     setGeoError(null);
-    // Una ubicación puntual es más confiable en navegadores móviles que una
-    // suscripción continua y es suficiente para calcular el recorrido.
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const next = [position.coords.latitude, position.coords.longitude];
-        setUserPos(next);
-        setGeoStatus('gps');
-        setMapConfig((previous) => ({
-          ...previous,
-          centro: next,
-          zoom: 16,
-          markers: [
-            ...previous.markers.filter((marker) => marker.kind !== 'user'),
-            { position: next, kind: 'user', title: 'Tu ubicación', desc: 'Ubicación GPS actual' }
-          ]
-        }));
-      },
-      (error) => {
-        const messages = {
-          [error.PERMISSION_DENIED]: ['denied', 'El permiso de ubicacion fue denegado. Activalo para este sitio en la configuracion del navegador.'],
-          [error.POSITION_UNAVAILABLE]: ['unavailable', 'La ubicacion no esta disponible. Verifica que el GPS, red movil o Wi-Fi esten activos.'],
-          [error.TIMEOUT]: ['timeout', 'Se agoto el tiempo al buscar tu ubicacion. Intenta en un lugar con mejor senal o usa coordenadas manuales.']
-        };
-        const [status, message] = messages[error.code] || ['error', 'No fue posible obtener la ubicacion del dispositivo.'];
-        setGeoStatus(status);
-        setGeoError(message);
-      },
-      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
-    );
+
+    // Safari iOS no implementa Permissions API de forma consistente. La
+    // consulta es opcional y jamás impide solicitar la posición real.
+    if (navigator.permissions?.query) {
+      try {
+        await navigator.permissions.query({ name: 'geolocation' });
+      } catch {
+        // Continuar directamente con Geolocation API.
+      }
+    }
+
+    const getPosition = (options) => new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, options);
+    });
+
+    try {
+      let position;
+      try {
+        position = await getPosition({ enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 });
+      } catch (firstError) {
+        // La precisión alta puede no estar disponible en interiores o en iOS.
+        // Solo se reintenta ante señal no disponible o tiempo agotado.
+        if (firstError?.code !== 2 && firstError?.code !== 3) {
+          throw firstError;
+        }
+        position = await getPosition({ enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 });
+      }
+
+      const next = [position.coords.latitude, position.coords.longitude];
+      setUserPos(next);
+      setGeoStatus('gps');
+      setMapConfig((previous) => ({
+        ...previous,
+        centro: next,
+        zoom: 16,
+        markers: [
+          ...previous.markers.filter((marker) => marker.kind !== 'user'),
+          { position: next, kind: 'user', title: 'Tu ubicación', desc: 'Ubicación GPS actual' }
+        ]
+      }));
+    } catch (error) {
+      const messages = {
+        1: ['denied', 'No se pudo acceder a tu ubicación porque el permiso está desactivado para este sitio. Habilítalo en la configuración del navegador y vuelve a intentarlo.'],
+        2: ['unavailable', 'Tu ubicación no está disponible en este momento. Verifica que la ubicación del dispositivo esté activada e inténtalo nuevamente.'],
+        3: ['timeout', 'La ubicación tardó demasiado en responder. Inténtalo nuevamente en un lugar con mejor señal.']
+      };
+      const [status, message] = messages[error?.code] || ['error', 'No fue posible obtener la ubicación del dispositivo.'];
+      setGeoStatus(status);
+      setGeoError(message);
+    }
   };
 
   const applyManualLocation = () => {
@@ -289,6 +310,12 @@ export default function StudentApp() {
               Usar manual
             </button>
           </div>
+
+          {geoStatus === 'gps' && (
+            <p className="rounded-lg bg-emerald-50 p-2 text-[11px] font-bold text-emerald-700">
+              Ubicación GPS actualizada.
+            </p>
+          )}
 
           {geoError && (
             <p role="alert" className="text-[11px] font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 p-2 rounded-lg border border-amber-200 dark:border-amber-800">

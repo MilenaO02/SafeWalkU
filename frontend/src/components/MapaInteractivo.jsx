@@ -31,20 +31,19 @@ export default function MapaInteractivo({
   const initialCenterRef = useRef(centro);
   const initialZoomRef = useRef(zoom);
   const viewportSignatureRef = useRef(null);
-  const fittedRouteSignatureRef = useRef(null);
-  const onMapClickRef = useRef(onMapClick);
+  const onClickRef = useRef(onClick);
   const [mapError, setMapError] = useState(null);
   const [mapReady, setMapReady] = useState(false);
   const googleApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
-  useEffect(() => { onMapClickRef.current = onMapClick; }, [onMapClick]);
+  useEffect(() => { onClickRef.current = onClick; }, [onClick]);
 
   useEffect(() => {
     if (!googleApiKey || !mapRef.current) {
       if (!googleApiKey) setMapError('No se encontró VITE_GOOGLE_MAPS_API_KEY.');
       return undefined;
     }
-    let active = true;
+
     loadGoogleMaps(googleApiKey)
       .then((maps) => {
         if (!mapInstanceRef.current && mapRef.current) {
@@ -65,11 +64,9 @@ export default function MapaInteractivo({
             streetViewControl: false
           });
           
-          if (onClick) {
-            mapInstanceRef.current.addListener('click', (e) => {
-              if (e.latLng) {
-                onClick({ lat: e.latLng.lat(), lng: e.latLng.lng() });
-              }
+          if (onClickRef.current) {
+            activeObjectsRef.current.mapClick = mapInstanceRef.current.addListener('click', (e) => {
+              if (e.latLng && onClickRef.current) onClickRef.current({ lat: e.latLng.lat(), lng: e.latLng.lng() });
             });
           }
 

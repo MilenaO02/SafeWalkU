@@ -1,23 +1,16 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { request } from '../services/api';
 import { useAuth } from '../context/auth';
 import MapaInteractivo from './MapaInteractivo';
 import ConfirmDialog from './ConfirmDialog';
-
-const sessionToken = () => window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
 
 export default function EditorUbicaciones() {
   const { showToast } = useAuth();
   const [locations, setLocations] = useState([]);
   const [selectedId, setSelectedId] = useState('');
   const [form, setForm] = useState({ nombre: '', direccion: '', latitud: '', longitud: '' });
-  const [query, setQuery] = useState('');
-  const [suggestions, setSuggestions] = useState([]);
-  const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const searchAbortRef = useRef(null);
-  const tokenRef = useRef(sessionToken());
 
   const load = useCallback(async () => {
     const response = await request('/ubicaciones');
@@ -28,39 +21,7 @@ export default function EditorUbicaciones() {
     load().catch(() => showToast('No se pudieron cargar las ubicaciones.'));
   }, [load, showToast]);
 
-  useEffect(() => {
-    const normalized = query.trim();
-    if (normalized.length < 2) {
-      searchAbortRef.current?.abort();
-      setSuggestions([]);
-      setSearching(false);
-      return undefined;
-    }
-    const timer = setTimeout(async () => {
-      searchAbortRef.current?.abort();
-      const controller = new AbortController();
-      searchAbortRef.current = controller;
-      setSearching(true);
-      try {
-        const response = await request('/maps/places/autocomplete', {
-          method: 'POST', signal: controller.signal,
-          body: JSON.stringify({
-            input: normalized, includedRegionCodes: ['ec'], languageCode: 'es', regionCode: 'EC',
-            sessionToken: tokenRef.current,
-            locationBias: { circle: { center: { latitude: -3.99324, longitude: -79.20422 }, radius: 20000 } }
-          })
-        });
-        setSuggestions((response.data?.suggestions || []).map((item) => item.placePrediction).filter(Boolean));
-      } catch (error) {
-        if (error?.name !== 'AbortError') showToast(error instanceof Error ? error.message : 'No fue posible buscar la dirección.');
-      } finally {
-        if (!controller.signal.aborted) setSearching(false);
-      }
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [query, showToast]);
 
-  useEffect(() => () => searchAbortRef.current?.abort(), []);
 
   const choose = (id) => {
     setSelectedId(String(id));
@@ -97,28 +58,7 @@ export default function EditorUbicaciones() {
     setForm((current) => ({ ...current, latitud: lat.toFixed(8), longitud: lng.toFixed(8) }));
   }, []);
 
-  const selectSuggestion = async (prediction) => {
-    setSearching(true);
-    try {
-      const response = await request('/maps/places/details', {
-        method: 'POST',
-        body: JSON.stringify({ place: prediction.place, languageCode: 'es', sessionToken: tokenRef.current })
-      });
-      const place = response.data;
-      if (!place?.location) throw new Error('Google no devolvió coordenadas para ese lugar.');
-      setForm((current) => ({
-        ...current,
-        direccion: place.formattedAddress || current.direccion,
-        latitud: Number(place.location.latitude).toFixed(8),
-        longitud: Number(place.location.longitude).toFixed(8)
-      }));
-      setQuery(place.displayName?.text || prediction.text?.text || '');
-      setSuggestions([]);
-      tokenRef.current = sessionToken();
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : 'No fue posible seleccionar ese lugar.');
-    } finally { setSearching(false); }
-  };
+
 
   const useGps = () => {
     if (!navigator.geolocation) {
@@ -174,7 +114,7 @@ export default function EditorUbicaciones() {
       Corrige lugares seguros y servicios de emergencia con un clic, arrastrando el marcador, mediante búsqueda o GPS. Cada cambio queda auditado.
     </section>
     <div className="grid gap-5 xl:grid-cols-[360px_1fr]">
-      <form onSubmit={save} className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5">
+      <form onSubmit={requestSave} className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5">
         <label className="block text-xs font-bold">Ubicación<select value={selectedId} onChange={(event) => choose(event.target.value)} className="mt-1 min-h-11 w-full rounded-xl border p-2"><option value="">Selecciona…</option><option value="new" className="font-bold text-purple-700">+ Crear nueva ubicación</option>{locations.map((item) => <option key={item.id_ubicacion} value={item.id_ubicacion}>{item.nombre}</option>)}</select></label>
         <label className="block text-xs font-bold">Nombre<input value={form.nombre} required onChange={(event) => setForm((value) => ({ ...value, nombre: event.target.value }))} className="mt-1 min-h-11 w-full rounded-xl border px-3" /></label>
         <label className="block text-xs font-bold">Dirección<input value={form.direccion} required onChange={(event) => setForm((value) => ({ ...value, direccion: event.target.value }))} className="mt-1 min-h-11 w-full rounded-xl border px-3" /></label>

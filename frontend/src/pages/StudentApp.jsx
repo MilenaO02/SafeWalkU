@@ -171,7 +171,13 @@ export default function StudentApp() {
         ]
       }));
     } catch (e) {
-      setGeoError(e instanceof Error ? e.message : 'No fue posible trazar la ruta.');
+      const msg = e instanceof Error ? e.message : 'No fue posible obtener la ruta peatonal.';
+      setGeoError(msg);
+      setRouteSummary(null);
+      setMapConfig((prev) => ({
+        ...prev,
+        polyline: null
+      }));
     } finally {
       setRouteStatus('idle');
     }

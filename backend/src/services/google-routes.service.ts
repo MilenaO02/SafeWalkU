@@ -70,8 +70,17 @@ class GoogleRoutesService {
     async calculate(origin: Coordinate, destination: Coordinate): Promise<GoogleRoute[]> {
         const apiKey = process.env.GOOGLE_MAPS_SERVER_API_KEY?.trim();
         if (!apiKey) {
-            console.warn("GOOGLE_MAPS_SERVER_API_KEY no está configurada en las variables de entorno.");
-            return [];
+            throw new Error("GOOGLE_MAPS_SERVER_API_KEY no está configurada en el servidor.");
+        }
+
+        const isValidCoord = (c: Coordinate) =>
+            Array.isArray(c) && c.length >= 2 &&
+            Number.isFinite(c[0]) && Number.isFinite(c[1]) &&
+            c[0] >= -90 && c[0] <= 90 && c[1] >= -180 && c[1] <= 180 &&
+            !(c[0] === 0 && c[1] === 0);
+
+        if (!isValidCoord(origin) || !isValidCoord(destination)) {
+            throw new Error("Las coordenadas de origen o destino son inválidas o están vacías.");
         }
 
         const controller = new AbortController();
@@ -90,7 +99,6 @@ class GoogleRoutesService {
                     origin: { location: { latLng: { latitude: origin[0], longitude: origin[1] } } },
                     destination: { location: { latLng: { latitude: destination[0], longitude: destination[1] } } },
                     travelMode: "WALK",
-                    routingPreference: "TRAFFIC_UNAWARE",
                     computeAlternativeRoutes: true,
                     languageCode: "es"
                 }),
@@ -99,6 +107,7 @@ class GoogleRoutesService {
 
             if (!response.ok) {
                 const errorBody = await response.text().catch(() => "");
+                console.error(`[GoogleRoutesService] HTTP ${response.status} Error:`, errorBody);
                 throw new Error(`Google Routes API respondió HTTP ${response.status}: ${errorBody}`);
             }
 
@@ -127,10 +136,14 @@ class GoogleRoutesService {
                 });
             }
 
+            if (results.length === 0) {
+                throw new Error("Google Routes API no devolvió alternativas válidas.");
+            }
+
             return results;
         } catch (error) {
-            console.warn("Error al consultar Google Routes API:", error instanceof Error ? error.message : error);
-            return [];
+            console.error("Error al consultar Google Routes API:", error instanceof Error ? error.message : error);
+            throw error;
         } finally {
             clearTimeout(timeout);
         }

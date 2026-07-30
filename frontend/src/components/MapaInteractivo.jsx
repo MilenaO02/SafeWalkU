@@ -130,12 +130,14 @@ export default function MapaInteractivo({
         marker.addEventListener('gmp-click', () => infoWindow.open({ map, anchor: marker }));
       }
       if (item.draggable && typeof item.onPositionChange === 'function') {
-        marker.addListener('dragend', () => {
+        const handleDragEnd = () => {
           const position = marker.position;
           const lat = typeof position?.lat === 'function' ? position.lat() : Number(position?.lat);
           const lng = typeof position?.lng === 'function' ? position.lng() : Number(position?.lng);
           if (Number.isFinite(lat) && Number.isFinite(lng)) item.onPositionChange([lat, lng]);
-        });
+        };
+        marker.addListener('dragend', handleDragEnd);
+        marker.addEventListener('gmp-dragend', handleDragEnd);
       }
       return [marker];
     });

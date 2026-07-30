@@ -252,53 +252,7 @@ class RouteService {
                 ...this.legacyFields(recommended, originPoint, destName, locationId, destInfo),
             };
         }
-        // ── Fallback: straight-line referencial ─────────────────────────────
-        console.warn("[RouteService] Google Routes no devolvió trazados válidos. Devolviendo referencial.");
-        const fallbackCoords = [originPoint, destPoint];
-        const fallbackDist = Math.round(straightLineMeters(originPoint, destPoint));
-        const fallbackDur = walkingMinutes(fallbackDist);
-        const fallbackSafety = routeSafetyService.evaluate(fallbackCoords, activeReports, riskZones, safePlaces, emergencyServices);
-        const fallbackAlt = {
-            label: "RECOMENDADA",
-            travel_mode: "WALK",
-            source: "REFERENCIAL",
-            destino: destInfo,
-            origin: { lat: origin.lat, lng: origin.lng },
-            distance_m: fallbackDist,
-            duration_min: fallbackDur,
-            encoded_polyline: "",
-            coordinates: fallbackCoords,
-            steps: [{ instruction: `Dirígete en línea recta hacia ${destName}`, distance_m: fallbackDist, duration_min: fallbackDur }],
-            safety: fallbackSafety,
-            walking_not_recommended: false,
-            walking_advisory: [],
-            intermediate_point: null,
-        };
-        return {
-            single_route: true,
-            single_route_message: null,
-            alternatives: [fallbackAlt],
-            // Legacy compat
-            travel_mode: "WALK",
-            destino: destInfo,
-            source: "REFERENCIAL",
-            origin: { lat: origin.lat, lng: origin.lng },
-            distance_m: fallbackDist,
-            duration_min: fallbackDur,
-            encoded_polyline: "",
-            coordinates: fallbackCoords,
-            steps: fallbackAlt.steps,
-            safety: fallbackSafety,
-            nombre_ruta: destName,
-            nivel_seguridad: null,
-            tiempo_estimado: fallbackDur,
-            distancia_m: fallbackDist,
-            fuente_trazado: "REFERENCIAL",
-            instrucciones: fallbackAlt.steps,
-            origen_usuario: originPoint,
-            coordenadas: fallbackCoords,
-            aviso: "No fue posible calcular una ruta peatonal real.",
-        };
+        throw new Error("No fue posible obtener la ruta peatonal.");
     }
     /** Build legacy-compat top-level fields from the recommended alternative */
     legacyFields(alt, originPoint, destName, locationId, destInfo) {

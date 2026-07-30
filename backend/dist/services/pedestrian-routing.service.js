@@ -1,4 +1,8 @@
 import googleRoutesService from "./google-routes.service.js";
+function durationToSeconds(value) {
+    const seconds = Number(value?.replace(/s$/, "") ?? 0);
+    return Number.isFinite(seconds) ? seconds : 0;
+}
 class PedestrianRoutingService {
     isConfigured() {
         return googleRoutesService.isConfigured();
@@ -9,6 +13,7 @@ class PedestrianRoutingService {
         if (!route)
             return null;
         return {
+            id: `google-route-${Date.now()}`,
             coordinates: route.coordinates,
             distanceMeters: route.distanceMeters,
             durationMinutes: route.durationMinutes,
@@ -18,7 +23,8 @@ class PedestrianRoutingService {
     }
     async calculateAll(origin, destination) {
         const routes = await googleRoutesService.calculate(origin, destination);
-        return routes.map((route) => ({
+        return routes.map((route, idx) => ({
+            id: `google-route-alt-${Date.now()}-${idx}`,
             coordinates: route.coordinates,
             distanceMeters: route.distanceMeters,
             durationMinutes: route.durationMinutes,

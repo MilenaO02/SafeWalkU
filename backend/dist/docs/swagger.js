@@ -147,10 +147,15 @@ const swaggerSpec = {
                 }
             },
             SosCreateRequest: {
-                type: "object", additionalProperties: false, required: ["id_ubicacion"],
+                type: "object", additionalProperties: false,
+                required: ["latitud", "longitud", "precision_gps", "fecha_captura_gps"],
                 properties: {
                     descripcion: { type: "string", minLength: 5, maxLength: 500, default: "Alerta SOS activada por el usuario" },
-                    id_ubicacion: { type: "integer", minimum: 1 }
+                    latitud: { type: "number", minimum: -90, maximum: 90 },
+                    longitud: { type: "number", minimum: -180, maximum: 180 },
+                    precision_gps: { type: "number", exclusiveMinimum: 0, maximum: 10000 },
+                    fecha_captura_gps: { type: "string", format: "date-time" },
+                    direccion_aproximada: { type: "string", minLength: 3, maxLength: 255 }
                 }
             },
             Report: {
@@ -162,7 +167,8 @@ const swaggerSpec = {
                     tipo_reporte: { type: "string", enum: ["INCIDENTE", "SOS_PANICO"] },
                     id_usuario: { type: "integer" }, id_ubicacion: { type: "integer" }, id_administrador: { type: "integer", nullable: true },
                     latitud: { type: "number" }, longitud: { type: "number" },
-                    precision_gps: { type: "number", nullable: true }, fecha_captura_gps: { type: "string", format: "date-time", nullable: true }
+                    precision_gps: { type: "number", nullable: true }, fecha_captura_gps: { type: "string", format: "date-time", nullable: true },
+                    fecha_atencion: { type: "string", format: "date-time", nullable: true }
                 }
             },
             ContactRequest: {

@@ -168,8 +168,6 @@ export default function EditorUbicaciones() {
     } finally { setSaving(false); }
   };
 
-  const hasPoint = form.latitud !== '' && form.longitud !== '' && Number.isFinite(Number(form.latitud)) && Number.isFinite(Number(form.longitud));
-  const point = hasPoint ? [Number(form.latitud), Number(form.longitud)] : [-3.97245, -79.19933];
 
   return <div className="space-y-5">
     <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
@@ -181,11 +179,6 @@ export default function EditorUbicaciones() {
         <label className="block text-xs font-bold">Nombre<input value={form.nombre} required onChange={(event) => setForm((value) => ({ ...value, nombre: event.target.value }))} className="mt-1 min-h-11 w-full rounded-xl border px-3" /></label>
         <label className="block text-xs font-bold">Dirección<input value={form.direccion} required onChange={(event) => setForm((value) => ({ ...value, direccion: event.target.value }))} className="mt-1 min-h-11 w-full rounded-xl border px-3" /></label>
         <label className="block text-xs font-bold">Tipo<select value={form.tipo} onChange={(event) => setForm((value) => ({ ...value, tipo: event.target.value }))} className="mt-1 min-h-11 w-full rounded-xl border px-3"><option value="GENERAL">General</option><option value="LUGAR_SEGURO">Lugar Seguro</option><option value="SERVICIO_EMERGENCIA">Servicio de Emergencia</option></select></label>
-        <div className="grid grid-cols-2 gap-2">
-          <label className="text-xs font-bold">Latitud<input type="number" step="any" inputMode="decimal" value={form.latitud} onChange={(event) => setForm((value) => ({ ...value, latitud: event.target.value }))} className="mt-1 min-h-11 w-full rounded-xl border px-2" /></label>
-          <label className="text-xs font-bold">Longitud<input type="number" step="any" inputMode="decimal" value={form.longitud} onChange={(event) => setForm((value) => ({ ...value, longitud: event.target.value }))} className="mt-1 min-h-11 w-full rounded-xl border px-2" /></label>
-        </div>
-        <label className="block text-xs font-bold">Dirección<input required minLength="3" maxLength="255" value={form.direccion} onChange={(event) => setForm((value) => ({ ...value, direccion: event.target.value }))} className="mt-1 min-h-11 w-full rounded-xl border px-3 dark:bg-[#2B2B2F]" /></label>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <label className="text-xs font-bold">Latitud<input required type="number" step="any" min="-90" max="90" inputMode="decimal" value={form.latitud} onChange={(event) => setForm((value) => ({ ...value, latitud: event.target.value }))} className="mt-1 min-h-11 w-full rounded-xl border px-2 dark:bg-[#2B2B2F]" /></label>
           <label className="text-xs font-bold">Longitud<input required type="number" step="any" min="-180" max="180" inputMode="decimal" value={form.longitud} onChange={(event) => setForm((value) => ({ ...value, longitud: event.target.value }))} className="mt-1 min-h-11 w-full rounded-xl border px-2 dark:bg-[#2B2B2F]" /></label>

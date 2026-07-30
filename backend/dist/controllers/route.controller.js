@@ -72,8 +72,10 @@ class RouteController {
             return res.status(200).json(result);
         }
         catch (error) {
-            const msg = error instanceof Error ? error.message : "No encontrado";
-            return res.status(404).json({ success: false, message: msg });
+            return res.status(400).json({
+                success: false,
+                message: error.message
+            });
         }
     }
     /**
@@ -99,7 +101,8 @@ class RouteController {
         if (!parsed.success) {
             return res.status(422).json({
                 success: false,
-                message: error.message
+                message: "Parámetros de consulta inválidos",
+                errors: parsed.error.format(),
             });
         }
         const data = parsed.data;

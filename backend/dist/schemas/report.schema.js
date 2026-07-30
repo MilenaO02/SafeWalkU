@@ -58,6 +58,11 @@ export const updateReportSchema = z
 export const createSosSchema = z
     .object({
     descripcion: safeText(5, 500).default("Alerta SOS activada por el usuario"),
-    id_ubicacion: z.number().int().positive(),
+    latitud: z.number().min(-90).max(90),
+    longitud: z.number().min(-180).max(180),
+    precision_gps: z.number().positive().max(10000),
+    fecha_captura_gps: z.string().datetime(),
+    direccion_aproximada: safeText(3, 255).optional(),
 })
-    .strict();
+    .strict()
+    .refine((data) => new Date(data.fecha_captura_gps).getTime() <= Date.now() + 5 * 60 * 1000, { message: "La fecha de captura GPS no puede estar en el futuro", path: ["fecha_captura_gps"] });

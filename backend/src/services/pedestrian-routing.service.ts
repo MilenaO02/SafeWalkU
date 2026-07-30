@@ -27,6 +27,7 @@ class PedestrianRoutingService {
         if (!route) return null;
 
         return {
+            id: `google-route-${Date.now()}`,
             coordinates: route.coordinates,
             distanceMeters: route.distanceMeters,
             durationMinutes: route.durationMinutes,
@@ -37,7 +38,8 @@ class PedestrianRoutingService {
 
     async calculateAll(origin: Coordinate, destination: Coordinate): Promise<PedestrianRoute[]> {
         const routes: GoogleRoute[] = await googleRoutesService.calculate(origin, destination);
-        return routes.map((route) => ({
+        return routes.map((route, idx) => ({
+            id: `google-route-alt-${Date.now()}-${idx}`,
             coordinates: route.coordinates,
             distanceMeters: route.distanceMeters,
             durationMinutes: route.durationMinutes,

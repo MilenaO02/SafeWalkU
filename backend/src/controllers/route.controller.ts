@@ -125,14 +125,17 @@ class RouteController {
     }
 
     async delete(req: Request, res: Response) {
-
         try {
-
             const id = Number(req.params.id);
-
             const result = await routeService.delete(id);
-
             return res.status(200).json(result);
+        } catch (error: any) {
+            return res.status(400).json({
+                success: false,
+                message: error.message
+            });
+        }
+    }
 
     /**
      * GET /api/routes/trazar
@@ -157,14 +160,12 @@ class RouteController {
         if (!parsed.success) {
             return res.status(422).json({
                 success: false,
-
-                message: error.message
-
+                message: "Parámetros de consulta inválidos",
+                errors: parsed.error.format(),
             });
-
         }
 
-    }
+        const data = parsed.data;
 
         // ── 2. Construct strongly-typed TraceRouteParams object ───────────
         const traceParams: TraceRouteParams = {
@@ -203,7 +204,6 @@ class RouteController {
             return res.status(status).json({ success: false, message: error.message });
         }
     }
-
 }
 
 export default new RouteController();

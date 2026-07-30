@@ -35,10 +35,8 @@ export const updateRouteSchema = z.object({
     nivel_seguridad: routeFields.nivel_seguridad.optional(),
     tiempo_estimado: routeFields.tiempo_estimado.optional(),
     ubicaciones: routeFields.ubicaciones.optional(),
-    puntos: routeFields.puntos.optional(),
-})
-    .strict()
-    .refine((data) => Object.keys(data).length > 0, "Debe enviar al menos un campo");
+    puntos: routeFields.puntos.optional()
+}).strict().refine((data) => Object.keys(data).length > 0, "Debe enviar al menos un campo");
 // ─────────────────────────────────────────────────────────────────────────────
 // traceRouteQuerySchema
 //
@@ -82,10 +80,18 @@ export const traceRouteQuerySchema = z
         });
         return;
     }
-    if (hasRegisteredDestination && (hasLatitude || hasLongitude)) {
-        context.addIssue({ code: z.ZodIssueCode.custom, path: ["destino_id"], message: "destino_id y las coordenadas externas son modalidades excluyentes" });
+    if (hasDestinoId && (hasLat || hasLng)) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "No puede enviar destino_id junto con destino_lat o destino_lng.",
+        });
+        return;
     }
-    if (!hasRegisteredDestination && !hasExternalCoordinates) {
-        context.addIssue({ code: z.ZodIssueCode.custom, path: ["destino_id"], message: "Debe indicar destino_id o destino_lat + destino_lng" });
+    if (!hasDestinoId && !hasCoords) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Debe indicar únicamente destino_id (destino registrado) o las coordenadas del destino (destino_lat y destino_lng).",
+        });
+        return;
     }
 });

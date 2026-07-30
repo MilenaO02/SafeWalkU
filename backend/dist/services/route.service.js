@@ -67,12 +67,10 @@ async function loadSafetyData(city) {
 // RouteService
 // ─────────────────────────────────────────────────────────────────────────────
 class RouteService {
-    findAll() {
-        return routeRepository.findAll();
-    }
+    findAll() { return routeRepository.findAll(); }
     async findById(id) {
         if (!Number.isInteger(id) || id < 1)
-            throw new Error("ID de ruta invÃ¡lido");
+            throw new Error("ID de ruta inválido");
         const route = await routeRepository.findById(id);
         if (!route)
             throw new Error("Ruta no encontrada");
@@ -92,7 +90,6 @@ class RouteService {
         await routeRepository.delete(id);
         return { success: true, message: "Ruta eliminada correctamente" };
     }
-    // ── Pedestrian route tracing ──────────────────────────────────────────────
     /**
      * trazarRuta
      *

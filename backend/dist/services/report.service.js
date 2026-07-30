@@ -62,9 +62,6 @@ class ReportService {
         return reportRepository.findRiskZonesByCity(normalizedCity);
     }
     async createSOS(data, userId) {
-        if (!await reportRepository.locationExists(data.id_ubicacion)) {
-            throw new Error("La ubicación indicada no existe");
-        }
         if (await reportRepository.findActiveSOSByUser(userId)) {
             throw new ActiveSOSConflictError();
         }

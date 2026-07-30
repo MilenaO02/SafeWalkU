@@ -3,8 +3,16 @@ import reportController from "../controllers/report.controller.js";
 import auth from "../middleware/auth.js";
 import authorize from "../middleware/authorize.js";
 import validate from "../middleware/validate.js";
+import rateLimit from "express-rate-limit";
 import { createReportSchema, updateReportSchema, createSosSchema } from "../schemas/report.schema.js";
 const router = Router();
+const sosLimiter = rateLimit({
+    windowMs: 5 * 60 * 1000,
+    max: 6,
+    standardHeaders: "draft-7",
+    legacyHeaders: false,
+    message: { success: false, message: "Demasiados intentos de SOS. Si estás en peligro inmediato, llama al ECU 911." }
+});
 /**
  * @swagger
  * tags:
@@ -45,7 +53,7 @@ router.get("/", auth, reportController.getAll);
  *         description: Reporte no encontrado
  */
 router.get("/zonas/riesgo", auth, reportController.getRiskZones);
-router.post("/sos", auth, authorize("ESTUDIANTE", "ADMINISTRADOR"), validate(createSosSchema), reportController.createSOS);
+router.post("/sos", auth, authorize("ESTUDIANTE", "ADMINISTRADOR"), sosLimiter, validate(createSosSchema), reportController.createSOS);
 router.put("/sos/:id/cancelar", auth, authorize("ESTUDIANTE", "ADMINISTRADOR"), reportController.cancelSOS);
 router.put("/sos/:id/atender", auth, authorize("ADMINISTRADOR"), reportController.resolveSOS);
 router.get("/:id", auth, reportController.getById);

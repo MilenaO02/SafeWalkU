@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BuscadorPrincipal from '../components/BuscadorPrincipal';
 import { useMapConfig } from '../context/map';
@@ -19,14 +19,6 @@ export default function StudentApp() {
   const [routeSummary, setRouteSummary] = useState(null);
   const [routeStatus, setRouteStatus] = useState('idle');
   const [selectedAlt, setSelectedAlt] = useState(0);
-  const watchIdRef = useRef(null);
-
-  useEffect(() => {
-    return () => {
-      if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
-    };
-  }, []);
-
   const requestGps = () => {
     if (!navigator.geolocation) {
       setGeoStatus('unavailable');
@@ -38,13 +30,11 @@ export default function StudentApp() {
       setGeoError('La ubicacion requiere HTTPS. Abre SafeWalk U mediante el dominio seguro.');
       return;
     }
-    if (watchIdRef.current !== null) {
-      navigator.geolocation.clearWatch(watchIdRef.current);
-      watchIdRef.current = null;
-    }
     setGeoStatus('requesting');
     setGeoError(null);
-    watchIdRef.current = navigator.geolocation.watchPosition(
+    // Una ubicación puntual es más confiable en navegadores móviles que una
+    // suscripción continua y es suficiente para calcular el recorrido.
+    navigator.geolocation.getCurrentPosition(
       (position) => {
         const next = [position.coords.latitude, position.coords.longitude];
         setUserPos(next);
@@ -69,7 +59,7 @@ export default function StudentApp() {
         setGeoStatus(status);
         setGeoError(message);
       },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
     );
   };
 
@@ -79,10 +69,6 @@ export default function StudentApp() {
     if (!Number.isFinite(lat) || lat < -90 || lat > 90 || !Number.isFinite(lng) || lng < -180 || lng > 180) {
       setGeoError('Ingresa una latitud entre -90 y 90 y una longitud entre -180 y 180.');
       return;
-    }
-    if (watchIdRef.current !== null && navigator.geolocation) {
-      navigator.geolocation.clearWatch(watchIdRef.current);
-      watchIdRef.current = null;
     }
     setUserPos([lat, lng]);
     setGeoStatus('manual');

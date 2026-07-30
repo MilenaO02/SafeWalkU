@@ -19,7 +19,7 @@ export default function StudentApp() {
   const [routeSummary, setRouteSummary] = useState(null);
   const [routeStatus, setRouteStatus] = useState('idle');
   const [selectedAlt, setSelectedAlt] = useState(0);
-  const requestGps = async () => {
+  const requestGps = () => {
     if (!navigator.geolocation) {
       setGeoStatus('unavailable');
       setGeoError('Este navegador no permite obtener la ubicación del dispositivo.');
@@ -33,33 +33,7 @@ export default function StudentApp() {
     setGeoStatus('requesting');
     setGeoError(null);
 
-    // Safari iOS no implementa Permissions API de forma consistente. La
-    // consulta es opcional y jamás impide solicitar la posición real.
-    if (navigator.permissions?.query) {
-      try {
-        await navigator.permissions.query({ name: 'geolocation' });
-      } catch {
-        // Continuar directamente con Geolocation API.
-      }
-    }
-
-    const getPosition = (options) => new Promise((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(resolve, reject, options);
-    });
-
-    try {
-      let position;
-      try {
-        position = await getPosition({ enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 });
-      } catch (firstError) {
-        // La precisión alta puede no estar disponible en interiores o en iOS.
-        // Solo se reintenta ante señal no disponible o tiempo agotado.
-        if (firstError?.code !== 2 && firstError?.code !== 3) {
-          throw firstError;
-        }
-        position = await getPosition({ enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 });
-      }
-
+    const applyPosition = (position) => {
       const next = [position.coords.latitude, position.coords.longitude];
       setUserPos(next);
       setGeoStatus('gps');
@@ -72,7 +46,9 @@ export default function StudentApp() {
           { position: next, kind: 'user', title: 'Tu ubicación', desc: 'Ubicación GPS actual' }
         ]
       }));
-    } catch (error) {
+    };
+
+    const showError = (error) => {
       const messages = {
         1: ['denied', 'No se pudo acceder a tu ubicación porque el permiso está desactivado para este sitio. Habilítalo en la configuración del navegador y vuelve a intentarlo.'],
         2: ['unavailable', 'Tu ubicación no está disponible en este momento. Verifica que la ubicación del dispositivo esté activada e inténtalo nuevamente.'],
@@ -81,7 +57,29 @@ export default function StudentApp() {
       const [status, message] = messages[error?.code] || ['error', 'No fue posible obtener la ubicación del dispositivo.'];
       setGeoStatus(status);
       setGeoError(message);
-    }
+    };
+
+    // iOS/Safari exige que la solicitud ocurra directamente dentro del clic
+    // del usuario. No consultar Permissions API ni introducir await antes de
+    // esta llamada: puede perder el gesto y devolver PERMISSION_DENIED.
+    const retryWithLowAccuracy = (firstError) => {
+      if (firstError?.code !== 2 && firstError?.code !== 3) {
+        showError(firstError);
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        applyPosition,
+        showError,
+        { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 }
+      );
+    };
+
+    navigator.geolocation.getCurrentPosition(
+      applyPosition,
+      retryWithLowAccuracy,
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+    );
   };
 
   const applyManualLocation = () => {

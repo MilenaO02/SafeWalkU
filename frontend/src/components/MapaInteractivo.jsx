@@ -34,7 +34,7 @@ export default function MapaInteractivo({
   const onClickRef = useRef(onClick);
   const [mapError, setMapError] = useState(null);
   const [mapReady, setMapReady] = useState(false);
-  const googleApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+  const googleApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || (typeof window !== 'undefined' && window.VITE_GOOGLE_MAPS_API_KEY) || 'AIzaSyDSC0LKYzU8isK6WvkM-DxGbKjwY4bsp4k';
 
   useEffect(() => { onClickRef.current = onClick; }, [onClick]);
 

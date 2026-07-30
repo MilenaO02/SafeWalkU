@@ -44,9 +44,8 @@ export default function ContactosEmergencia() {
       return;
     }
 
-    const phoneRegex = /^\+?[0-9][0-9\s-]{6,19}$/;
-    if (!phoneRegex.test(form.telefono.trim())) {
-      setError('Ingresa un número de teléfono válido (ej: 0991234567 o +593991234567).');
+    if (!/^[0-9]{10}$/.test(form.telefono.trim())) {
+      setError('El teléfono debe contener exactamente 10 dígitos.');
       return;
     }
 
@@ -78,7 +77,28 @@ export default function ContactosEmergencia() {
     <form onSubmit={submit} className="space-y-3 rounded-2xl border border-purple-100 bg-purple-50/40 p-4">
       <div className="flex items-center justify-between"><h3 className="text-sm font-black text-purple-950">{editingId ? 'Editar contacto' : 'Agregar contacto'}</h3><span className="text-[10px] font-bold text-slate-500">{data.contactos.length}/20</span></div>
       <input required minLength={2} maxLength={100} aria-label="Nombre del contacto" placeholder="Nombre completo" value={form.nombre} onChange={(event) => setForm((value) => ({ ...value, nombre: event.target.value }))} className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" />
-      <input required type="tel" inputMode="tel" aria-label="Teléfono del contacto" placeholder="Teléfono, por ejemplo 0991234567" value={form.telefono} onChange={(event) => setForm((value) => ({ ...value, telefono: event.target.value }))} className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" />
+      <div className="space-y-1">
+        <div className="relative">
+          <input
+            required
+            type="tel"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            maxLength={10}
+            aria-label="Teléfono del contacto"
+            placeholder="Teléfono (10 dígitos), ej. 0991234567"
+            value={form.telefono}
+            onChange={(event) => {
+              const cleaned = event.target.value.replace(/\D/g, '').slice(0, 10);
+              setForm((value) => ({ ...value, telefono: cleaned }));
+            }}
+            className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 pr-14 text-sm"
+          />
+          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">
+            {form.telefono.length}/10
+          </span>
+        </div>
+      </div>
       <select aria-label="Parentesco" value={form.parentesco} onChange={(event) => setForm((value) => ({ ...value, parentesco: event.target.value }))} className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm">{relationships.map((relationship) => <option key={relationship} value={relationship}>{relationship}</option>)}</select>
       <div className="grid grid-cols-2 gap-2">{editingId && <button type="button" onClick={resetForm} className="min-h-11 rounded-xl border border-purple-300 text-xs font-bold text-purple-900">Cancelar</button>}<button disabled={saving || (!editingId && data.contactos.length >= 20)} className={`${editingId ? '' : 'col-span-2'} min-h-11 rounded-xl bg-purple-900 text-xs font-bold text-white disabled:opacity-50`}>{saving ? 'Guardando…' : editingId ? 'Guardar cambios' : 'Agregar contacto'}</button></div>
     </form>

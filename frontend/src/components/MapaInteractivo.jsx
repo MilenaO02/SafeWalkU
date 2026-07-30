@@ -46,6 +46,7 @@ export default function MapaInteractivo({
 
     loadGoogleMaps(googleApiKey)
       .then((maps) => {
+        mapsLibraryRef.current = maps;
         if (!mapInstanceRef.current && mapRef.current) {
           const initLat = Array.isArray(initialCenterRef.current) && Number.isFinite(Number(initialCenterRef.current[0]))
             ? Number(initialCenterRef.current[0])
@@ -63,7 +64,7 @@ export default function MapaInteractivo({
             mapTypeControl: false,
             streetViewControl: false
           });
-          
+
           if (onClickRef.current) {
             activeObjectsRef.current.mapClick = mapInstanceRef.current.addListener('click', (e) => {
               if (e.latLng && onClickRef.current) onClickRef.current({ lat: e.latLng.lat(), lng: e.latLng.lng() });
@@ -168,11 +169,11 @@ export default function MapaInteractivo({
       map.fitBounds(bounds, 40);
     }
 
-    const mapClick = onMapClickRef.current
+    const mapClick = onClickRef.current
       ? map.addListener('click', (event) => {
           const lat = event.latLng?.lat();
           const lng = event.latLng?.lng();
-          if (Number.isFinite(lat) && Number.isFinite(lng)) onMapClickRef.current([lat, lng]);
+          if (Number.isFinite(lat) && Number.isFinite(lng)) onClickRef.current({ lat, lng });
         })
       : null;
 

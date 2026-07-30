@@ -29,6 +29,7 @@ export default function EditorRutas() {
   const [status, setStatus] = useState('loading');
   const [error, setError] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState(null);
 
   const load = async () => {
     setStatus('loading'); setError(null);
@@ -89,9 +90,15 @@ export default function EditorRutas() {
   const confirmRemove = async () => {
     const route = pendingDelete;
     if (!route) return;
-    try { await request(`/routes/${route.id_ruta}`, { method: 'DELETE' }); showToast('Ruta eliminada.'); await load(); }
-    catch (removeError) { setError(removeError.message); }
-    finally { setPendingDelete(null); }
+    try {
+      await request(`/routes/${route.id_ruta}`, { method: 'DELETE' });
+      showToast('Ruta eliminada.');
+      setPendingDelete(null);
+      await load();
+    } catch (removeError) {
+      setError(removeError instanceof Error ? removeError.message : 'No fue posible eliminar la ruta.');
+      setPendingDelete(null);
+    }
   };
 
   return <div className="space-y-5">
@@ -112,10 +119,10 @@ export default function EditorRutas() {
               <span className="material-symbols-outlined">close</span>
             </button>
           </header>
-          
+
           <div className="flex-1 overflow-y-auto p-5">
             {error && <div role="alert" className="mb-5 rounded-2xl bg-red-50 p-4 text-sm font-semibold text-red-700">{error}</div>}
-            
+
             <div className="grid gap-5 xl:grid-cols-[380px_1fr]">
               <form onSubmit={save} className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5">
                 <label className="block text-xs font-bold">Nombre<input required minLength="3" maxLength="100" value={form.nombre_ruta} onChange={(e) => setForm((v) => ({ ...v, nombre_ruta: e.target.value }))} className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3" /></label>

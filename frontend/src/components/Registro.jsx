@@ -39,7 +39,14 @@ export default function Registro() {
   const field = (label, name, icon, type, placeholder, autoComplete) => <label className="block space-y-1 text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300" htmlFor={name}>{label}<div className="relative"><span className="material-symbols-outlined pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">{icon}</span><input id={name} name={name} type={type} required autoComplete={autoComplete} value={formData[name]} onChange={handleChange} placeholder={placeholder} className="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-3 pl-11 pr-4 text-sm font-medium text-slate-800 transition focus:border-purple-900 focus:outline-none focus:ring-2 focus:ring-purple-200 dark:border-[#4A4A50] dark:bg-black/20 dark:text-slate-100" /></div></label>;
 
   return <section className="rounded-3xl border border-white/40 bg-white/95 p-8 shadow-2xl shadow-black/30 backdrop-blur-md transition-colors duration-500 dark:border-white/10 dark:bg-[#242428]/95 md:p-10">
-    <div className="mb-7 flex flex-col items-center"><img src={logoClaro} alt="SafeWalk U" className="mb-2 h-[104px] w-auto object-contain drop-shadow-sm dark:hidden" /><img src={logoOscuro} alt="SafeWalk U" className="mb-2 hidden h-[104px] w-auto object-contain drop-shadow-sm dark:block" /><h1 className="mt-1 text-2xl font-black tracking-tight text-purple-950 dark:text-white">Crear cuenta</h1><p className="mt-1 text-center text-xs font-medium text-slate-500 dark:text-slate-400">Regístrate con tu correo institucional UIDE.</p></div>
+    <div className="mb-6 flex flex-col items-center justify-center text-center">
+      <img src={logoClaro} alt="SafeWalk U" className="mx-auto mb-3 h-[110px] w-auto object-contain drop-shadow-sm dark:hidden" />
+      <img src={logoOscuro} alt="SafeWalk U" className="mx-auto mb-3 hidden h-[110px] w-auto object-contain drop-shadow-sm dark:block" />
+      <h1 className="text-2xl font-black tracking-tight text-purple-950 dark:text-white">Crear cuenta</h1>
+      <p className="mt-1 text-center text-xs font-medium text-slate-500 dark:text-slate-400">
+        Regístrate con tu correo institucional UIDE.
+      </p>
+    </div>
     {error && <div role="alert" className="mb-4 flex gap-2 rounded-xl border border-red-100 bg-red-50 p-3.5 text-xs font-semibold text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300"><span className="material-symbols-outlined text-[18px]">error</span>{error}</div>}
     {success && <div role="status" className="mb-4 flex gap-2 rounded-xl border border-green-100 bg-green-50 p-3.5 text-xs font-semibold text-green-700 dark:border-green-500/20 dark:bg-green-500/10 dark:text-green-300"><span className="material-symbols-outlined text-[18px]">check_circle</span>¡Cuenta creada! Redirigiendo al inicio de sesión…</div>}
     <form className="space-y-4" onSubmit={handleSubmit} noValidate>

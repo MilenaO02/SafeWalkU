@@ -46,7 +46,13 @@ export default function LoginEstudiante() {
 
   return <div className="space-y-4">
     <section className="rounded-3xl border border-white/40 bg-white/95 p-8 shadow-2xl shadow-black/30 backdrop-blur-md transition-colors duration-500 dark:border-white/10 dark:bg-[#242428]/95 md:p-10">
-      <div className="mb-8 flex flex-col items-center"><img src={logoClaro} alt="SafeWalk U" className="mb-2 h-[130px] w-auto object-contain drop-shadow-sm dark:hidden" /><img src={logoOscuro} alt="SafeWalk U" className="mb-2 hidden h-[130px] w-auto object-contain drop-shadow-sm dark:block" /><p className="mt-2 text-center text-xs font-medium leading-relaxed text-slate-500 dark:text-slate-400">Inicia sesión con tu cuenta institucional de la UIDE para acompañamiento preventivo.</p></div>
+      <div className="mb-6 flex flex-col items-center justify-center text-center">
+        <img src={logoClaro} alt="SafeWalk U" className="mx-auto mb-3 h-[110px] w-auto object-contain drop-shadow-sm dark:hidden" />
+        <img src={logoOscuro} alt="SafeWalk U" className="mx-auto mb-3 hidden h-[110px] w-auto object-contain drop-shadow-sm dark:block" />
+        <p className="max-w-[340px] text-center text-xs font-medium leading-relaxed text-slate-500 dark:text-slate-400">
+          Inicia sesión con tu cuenta institucional de la UIDE para acompañamiento preventivo.
+        </p>
+      </div>
       {errorAlert && <div role="alert" className="mb-4 flex gap-2 rounded-xl border border-red-100 bg-red-50 p-3.5 text-xs font-semibold text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300"><span className="material-symbols-outlined text-[18px]">error</span>{errorAlert}</div>}
       <form className="space-y-4" onSubmit={handleSubmit} noValidate>
         <label className="block space-y-1 text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Correo institucional<div className="relative"><span className="material-symbols-outlined pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">alternate_email</span><input id="email" name="email" type="email" required autoComplete="email" value={formData.email} onChange={handleChange} placeholder="usuario@uide.edu.ec" className="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-3 pl-11 pr-4 text-sm font-medium text-slate-800 transition focus:border-purple-900 focus:outline-none focus:ring-2 focus:ring-purple-200 dark:border-[#4A4A50] dark:bg-black/20 dark:text-slate-100" /></div></label>

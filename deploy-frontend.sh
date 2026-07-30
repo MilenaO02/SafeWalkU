@@ -10,6 +10,13 @@ cd "$FRONTEND_DIR"
 echo "[1/4] Instalando dependencias y compilando..."
 npm ci
 npm run lint
+
+echo "[1.5/4] Configurando variables de entorno..."
+cat > .env.production <<EOF
+VITE_API_URL=/api
+VITE_GOOGLE_MAPS_API_KEY=AIzaSyDSC0LKYzU8isK6WvkM-DxGbKjwY4bsp4k
+VITE_GOOGLE_MAPS_MAP_ID=DEMO_MAP_ID
+EOF
 npm run build
 
 echo "[2/4] Publicando archivos compilados..."

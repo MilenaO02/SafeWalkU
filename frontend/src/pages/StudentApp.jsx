@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BuscadorPrincipal from '../components/BuscadorPrincipal';
 import { useMapConfig } from '../context/map';
@@ -19,7 +19,8 @@ export default function StudentApp() {
   const [routeSummary, setRouteSummary] = useState(null);
   const [routeStatus, setRouteStatus] = useState('idle');
   const [selectedAlt, setSelectedAlt] = useState(0);
-  const requestGps = () => {
+  const gpsRequestedRef = useRef(false);
+  const requestGps = useCallback(() => {
     if (!navigator.geolocation) {
       setGeoStatus('unavailable');
       setGeoError('Este navegador no ofrece geolocalización. Ingresa las coordenadas manualmente.');
@@ -61,7 +62,13 @@ export default function StudentApp() {
       },
       { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
     );
-  };
+  }, [setMapConfig]);
+
+  useEffect(() => {
+    if (gpsRequestedRef.current) return;
+    gpsRequestedRef.current = true;
+    requestGps();
+  }, [requestGps]);
 
   const applyManualLocation = () => {
     const lat = Number(manualLocation.lat);
@@ -256,7 +263,7 @@ export default function StudentApp() {
       <div className="bg-slate-50 dark:bg-[#2B2B2F] p-5 rounded-2xl border border-slate-100 dark:border-[#4A4A50] shadow-inner transition-colors duration-500">
         {/* Panel de Configuración de Ubicación del Usuario */}
         <div className="mb-4 rounded-2xl border border-purple-100 dark:border-[#4A4A50] bg-white dark:bg-[#242428] p-4 space-y-3">
-          <p className="text-xs text-slate-600 dark:text-slate-300 font-medium">
+          <p className="hidden">
             SafeWalk U necesita tu ubicación para calcular el recorrido desde tu posición actual. Acepta el permiso de ubicación del navegador.
           </p>
           <button
@@ -268,7 +275,7 @@ export default function StudentApp() {
             <span className="material-symbols-outlined text-[18px]">my_location</span>
             {geoStatus === 'requesting' ? 'Solicitando ubicación…' : 'Usar mi ubicación GPS'}
           </button>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div className="hidden">
             <input
               inputMode="decimal"
               aria-label="Latitud manual"

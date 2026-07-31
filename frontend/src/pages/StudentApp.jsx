@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BuscadorPrincipal from '../components/BuscadorPrincipal';
 import { useMapConfig } from '../context/map';
 import { request } from '../services/api';
+import { getGeolocationError, requestCurrentPosition, withUserLocationMarker } from '../utils/geolocation';
 
 export default function StudentApp() {
   const navigate = useNavigate();
@@ -19,67 +20,49 @@ export default function StudentApp() {
   const [routeSummary, setRouteSummary] = useState(null);
   const [routeStatus, setRouteStatus] = useState('idle');
   const [selectedAlt, setSelectedAlt] = useState(0);
+  const gpsRequestInFlightRef = useRef(false);
   const requestGps = () => {
+    if (gpsRequestInFlightRef.current) return;
     if (!navigator.geolocation) {
       setGeoStatus('unavailable');
-      setGeoError('Este navegador no permite obtener la ubicación del dispositivo.');
+      setGeoError('Este navegador no permite acceder a la ubicación del dispositivo.');
       return;
     }
     if (!window.isSecureContext) {
       setGeoStatus('unavailable');
-      setGeoError('La ubicación solo puede utilizarse mediante una conexión segura HTTPS.');
+      setGeoError('La ubicación requiere una conexión segura HTTPS.');
       return;
     }
+    gpsRequestInFlightRef.current = true;
     setGeoStatus('requesting');
     setGeoError(null);
 
     const applyPosition = (position) => {
       const next = [position.coords.latitude, position.coords.longitude];
+      gpsRequestInFlightRef.current = false;
       setUserPos(next);
       setGeoStatus('gps');
-      setMapConfig((previous) => ({
-        ...previous,
-        centro: next,
-        zoom: 16,
-        markers: [
-          ...previous.markers.filter((marker) => marker.kind !== 'user'),
-          { position: next, kind: 'user', title: 'Tu ubicación', desc: 'Ubicación GPS actual' }
-        ]
-      }));
+      setGeoError(null);
+      setMapConfig((previous) => withUserLocationMarker(previous, next));
     };
 
     const showError = (error) => {
-      const messages = {
-        1: ['denied', 'No se pudo acceder a tu ubicación porque el permiso está desactivado para este sitio. Habilítalo en la configuración del navegador y vuelve a intentarlo.'],
-        2: ['unavailable', 'Tu ubicación no está disponible en este momento. Verifica que la ubicación del dispositivo esté activada e inténtalo nuevamente.'],
-        3: ['timeout', 'La ubicación tardó demasiado en responder. Inténtalo nuevamente en un lugar con mejor señal.']
-      };
-      const [status, message] = messages[error?.code] || ['error', 'No fue posible obtener la ubicación del dispositivo.'];
+      gpsRequestInFlightRef.current = false;
+      const { status, message } = getGeolocationError(error);
       setGeoStatus(status);
       setGeoError(message);
     };
 
-    // iOS/Safari exige que la solicitud ocurra directamente dentro del clic
-    // del usuario. No consultar Permissions API ni introducir await antes de
-    // esta llamada: puede perder el gesto y devolver PERMISSION_DENIED.
-    const retryWithLowAccuracy = (firstError) => {
-      if (firstError?.code !== 2 && firstError?.code !== 3) {
-        showError(firstError);
-        return;
+    // Esta llamada ocurre síncronamente dentro del clic. No se consulta
+    // Permissions API antes: Safari/iOS puede perder el gesto de usuario.
+    requestCurrentPosition({
+      geolocation: navigator.geolocation,
+      onPosition: applyPosition,
+      onError: showError,
+      onDiagnostic: (diagnostic) => {
+        if (import.meta.env.DEV) console.info('[GPS]', diagnostic);
       }
-
-      navigator.geolocation.getCurrentPosition(
-        applyPosition,
-        showError,
-        { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 }
-      );
-    };
-
-    navigator.geolocation.getCurrentPosition(
-      applyPosition,
-      retryWithLowAccuracy,
-      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
-    );
+    });
   };
 
   const applyManualLocation = () => {

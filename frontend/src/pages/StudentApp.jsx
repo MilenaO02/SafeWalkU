@@ -4,6 +4,7 @@ import BuscadorPrincipal from '../components/BuscadorPrincipal';
 import { useMapConfig } from '../context/map';
 import { request } from '../services/api';
 import { getGeolocationError, requestCurrentPosition, withUserLocationMarker } from '../utils/geolocation';
+import { formatLabel } from '../utils/formatLabel';
 
 const coordinateDraft = /^-?(?:\d+)?(?:\.\d*)?$/;
 
@@ -99,23 +100,34 @@ export default function StudentApp() {
     }));
   };
 
-  // Fetch zonas de riesgo
+  // Consulta periódica: incorpora altas, ediciones y cambios de estado sin
+  // obligar al estudiante a recargar toda la página.
   useEffect(() => {
+    let disposed = false;
     const fetchZonas = async () => {
       try {
-        const [json, permanent, heatmap] = await Promise.all([
-          request('/reports/zonas/riesgo?ciudad=Loja'),
+        const [permanent, heatmap] = await Promise.all([
           request('/risk-zones?active=true'),
           request('/risk-zones/heatmap')
         ]);
-        if (json.success && json.data) setZonasRiesgo(json.data);
-        if (permanent.success && permanent.data) setPermanentRiskZones(permanent.data);
-        if (heatmap.success && heatmap.data) setHeatmapPoints(heatmap.data);
+        if (disposed) return;
+        if (permanent.success && Array.isArray(permanent.data)) {
+          const uniqueActiveZones = [...new Map(
+            permanent.data
+              .filter((zone) => zone.estado === 'ACTIVA')
+              .map((zone) => [zone.id_zona, zone])
+          ).values()];
+          setPermanentRiskZones(uniqueActiveZones);
+          setZonasRiesgo(uniqueActiveZones);
+        }
+        if (heatmap.success && Array.isArray(heatmap.data)) setHeatmapPoints(heatmap.data);
       } catch (e) {
-        setGeoError(e instanceof Error ? e.message : 'No fue posible cargar las zonas de riesgo.');
+        if (!disposed) setGeoError(e instanceof Error ? e.message : 'No fue posible cargar las zonas de riesgo.');
       }
     };
     fetchZonas();
+    const interval = window.setInterval(fetchZonas, 30000);
+    return () => { disposed = true; window.clearInterval(interval); };
   }, []);
 
   useEffect(() => {
@@ -653,15 +665,16 @@ export default function StudentApp() {
 
           {zonasRiesgo.map(zona => (
             <div
-              key={zona.id_reporte}
+              key={zona.id_zona}
               onClick={() => {
+                const firstPoint = zona.polygon_json?.[0];
+                if (!firstPoint) return;
                 setMapConfig(prev => ({
                     ...prev,
-                    centro: [Number(zona.latitud), Number(zona.longitud)],
+                    centro: [Number(firstPoint.lat), Number(firstPoint.lng)],
                     zoom: 18,
-                    circle: { center: [Number(zona.latitud), Number(zona.longitud)], radius: zona.radio_metros, color: '#ef4444' }
+                    circle: null
                 }));
-                navigate('/detalle-zona', { state: { zona } });
               }}
               className="p-3.5 bg-white dark:bg-[#2B2B2F] border border-slate-200 dark:border-[#4A4A50] rounded-2xl flex gap-3 items-start shadow-sm hover:shadow-md cursor-pointer hover:border-purple-300 dark:hover:border-[#5C5C60] transition-all"
             >
@@ -669,8 +682,9 @@ export default function StudentApp() {
                 {zona.nivel_riesgo === 'ALTO' ? 'warning' : 'visibility'}
               </span>
               <div>
-                <h4 className="font-bold text-xs text-slate-900 dark:text-[#E0E0E5]">{zona.ubicacion_nombre}</h4>
-                <p className="text-[10px] text-slate-500 dark:text-[#A0A0A5] mt-1">{zona.descripcion}</p>
+                <h4 className="font-bold text-xs text-slate-900 dark:text-[#E0E0E5]">{zona.nombre}</h4>
+                <p className="mt-1 text-[10px] font-semibold text-slate-600 dark:text-slate-300">{formatLabel(zona.tipo_riesgo)} · Riesgo {formatLabel(zona.nivel_riesgo)}</p>
+                <p className="mt-1 text-[10px] text-slate-500 dark:text-[#A0A0A5]">{zona.descripcion}</p>
               </div>
             </div>
           ))}

@@ -24,6 +24,7 @@ export type GoogleRouteStep = {
 export type GoogleRoute = {
     coordinates: Coordinate[];
     distanceMeters: number;
+    durationSeconds: number;
     durationMinutes: number;
     encodedPolyline: string;
     instructions: GoogleRouteStep[];
@@ -127,10 +128,14 @@ class GoogleRoutesService {
                     }))
                 );
 
+                const routeDurationSeconds = durationSeconds(route.duration);
+                if (routeDurationSeconds <= 0) continue;
+
                 results.push({
                     coordinates,
                     distanceMeters: Math.round(route.distanceMeters),
-                    durationMinutes: Math.max(1, Math.ceil(durationSeconds(route.duration) / 60)),
+                    durationSeconds: routeDurationSeconds,
+                    durationMinutes: Math.max(1, Math.ceil(routeDurationSeconds / 60)),
                     encodedPolyline: rawPolyline,
                     instructions
                 });

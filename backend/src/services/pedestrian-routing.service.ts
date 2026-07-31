@@ -6,6 +6,7 @@ export type PedestrianRoute = {
     id: string;
     coordinates: Coordinate[];
     distanceMeters: number;
+    durationSeconds: number;
     durationMinutes: number;
     encodedPolyline?: string;
     instructions: Array<{ instruction: string; distance_m: number; duration_min: number }>;
@@ -30,6 +31,7 @@ class PedestrianRoutingService {
             id: `google-route-${Date.now()}`,
             coordinates: route.coordinates,
             distanceMeters: route.distanceMeters,
+            durationSeconds: route.durationSeconds,
             durationMinutes: route.durationMinutes,
             encodedPolyline: route.encodedPolyline,
             instructions: route.instructions,
@@ -42,6 +44,7 @@ class PedestrianRoutingService {
             id: `google-route-alt-${Date.now()}-${idx}`,
             coordinates: route.coordinates,
             distanceMeters: route.distanceMeters,
+            durationSeconds: route.durationSeconds,
             durationMinutes: route.durationMinutes,
             encodedPolyline: route.encodedPolyline,
             instructions: route.instructions,

@@ -305,6 +305,7 @@ class RouteService {
                 destino: destInfo,
                 origin: { lat: origin.lat, lng: origin.lng },
                 distance_m: route.distanceMeters,
+                duration_seconds: route.durationSeconds,
                 duration_min: route.durationMinutes,
                 encoded_polyline: route.encodedPolyline ?? "",
                 coordinates: route.coordinates,

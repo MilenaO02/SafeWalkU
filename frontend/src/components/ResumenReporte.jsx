@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useMapConfig } from '../context/map';
 import { request } from '../services/api';
 import { clearPendingEvidence, getPendingEvidence } from '../services/pendingReport';
+import { formatLabel } from '../utils/formatLabel';
 
 export default function ResumenReporte() {
   const navigate = useNavigate();
@@ -180,7 +181,7 @@ export default function ResumenReporte() {
                       : 'bg-green-100 text-green-700'
                   }`}
                 >
-                  Riesgo {report.nivel_riesgo}
+                  Riesgo {formatLabel(report.nivel_riesgo)}
                 </span>
               )}
             </div>

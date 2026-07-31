@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { request, buildAssetUrl } from '../services/api';
 import { useAuth } from '../context/auth';
 import ConfirmDialog from './ConfirmDialog';
+import { formatLabel } from '../utils/formatLabel';
 
 export default function NotificationHistory() {
   const { showToast } = useAuth();
@@ -81,7 +82,7 @@ export default function NotificationHistory() {
     {status === 'loading' && <p className="rounded-2xl bg-white p-5 text-sm text-slate-500 dark:bg-[#2B2B2F] dark:text-slate-300">Cargando reportes…</p>}
     {error && <div role="alert" className="flex items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200"><span>{error}</span><button onClick={load} className="min-h-11 rounded-xl border border-red-200 px-4 font-bold">Reintentar</button></div>}
     {status === 'ready' && <div className="space-y-3">{filtered.map((report) => <article key={report.id_reporte} className={`rounded-2xl border p-4 ${report.tipo_reporte === 'SOS_PANICO' ? 'border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/25' : 'border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/25'}`}>
-      <div className="flex flex-wrap items-start justify-between gap-2"><div><p className="text-xs font-black">{report.tipo_reporte === 'SOS_PANICO' ? 'Alerta SOS' : 'Reporte de incidente'}</p><p className="mt-1 text-[11px] opacity-70">{report.nombre} {report.apellido} · {report.ubicacion}</p></div><span className="rounded-lg border border-current/20 bg-white/60 px-2 py-1 text-[10px] font-black">{report.estado}</span></div>
+      <div className="flex flex-wrap items-start justify-between gap-2"><div><p className="text-xs font-black">{report.tipo_reporte === 'SOS_PANICO' ? 'Alerta SOS' : 'Reporte de incidente'}</p><p className="mt-1 text-[11px] opacity-70">{report.nombre} {report.apellido} · {report.ubicacion}</p></div><span className="rounded-lg border border-current/20 bg-white/60 px-2 py-1 text-[10px] font-black">{formatLabel(report.estado)}</span></div>
       <p className="mt-3 text-xs leading-relaxed text-slate-800 dark:text-slate-100">{report.descripcion}</p>
       
       {/* Sección de Evidencias */}

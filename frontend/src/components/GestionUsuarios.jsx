@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { request } from '../services/api';
 import { useAuth } from '../context/auth';
 import ConfirmDialog from './ConfirmDialog';
+import { formatLabel } from '../utils/formatLabel';
 
 const actionLabels = {
   reactivate: 'Reactivar',
@@ -111,7 +112,7 @@ export default function GestionUsuarios() {
 
         return <article key={item.id_usuario} className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:flex-row sm:items-center">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-purple-100 text-xs font-black text-purple-900">{item.nombre?.[0]}{item.apellido?.[0]}</div>
-          <div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-slate-900">{item.nombre} {item.apellido}</p><p className="truncate text-xs text-slate-500">{item.correo}</p><div className="mt-1 flex flex-wrap gap-1"><span className="inline-block rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-bold">{item.rol}</span><span className={`inline-block rounded-lg px-2 py-1 text-[10px] font-bold ${item.estado === 'ACTIVO' ? 'bg-green-50 text-green-700' : 'bg-slate-200 text-slate-600'}`}>{item.estado}</span></div></div>
+          <div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-slate-900">{item.nombre} {item.apellido}</p><p className="truncate text-xs text-slate-500">{item.correo}</p><div className="mt-1 flex flex-wrap gap-1"><span className="inline-block rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-bold">{formatLabel(item.rol)}</span><span className={`inline-block rounded-lg px-2 py-1 text-[10px] font-bold ${item.estado === 'ACTIVO' ? 'bg-green-50 text-green-700' : 'bg-slate-200 text-slate-600'}`}>{formatLabel(item.estado)}</span></div></div>
           <div className="flex flex-wrap gap-2 sm:max-w-xs sm:justify-end">
             <button type="button" disabled={disabled} onClick={() => requestAction(item, canRemoveAdmin ? 'remove-admin' : 'grant-admin')} className={`min-h-11 rounded-xl px-4 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-40 ${canRemoveAdmin ? 'bg-amber-50 text-amber-800' : 'bg-purple-100 text-purple-900'}`}>{isBusy(item) ? 'Procesando…' : current ? 'Sesión actual' : canRemoveAdmin ? 'Quitar administrador' : 'Convertir en administrador'}</button>
             <button type="button" disabled={isBusy(item) || current} onClick={() => requestAction(item, item.estado === 'ACTIVO' ? 'deactivate' : 'reactivate')} className={`min-h-11 rounded-xl px-4 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-40 ${item.estado === 'ACTIVO' ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>{isBusy(item) ? 'Procesando…' : current ? 'Sesión actual' : item.estado === 'ACTIVO' ? 'Desactivar' : 'Reactivar'}</button>

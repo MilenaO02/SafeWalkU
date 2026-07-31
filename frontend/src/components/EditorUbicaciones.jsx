@@ -3,6 +3,7 @@ import { request } from '../services/api';
 import { useAuth } from '../context/auth';
 import MapaInteractivo from './MapaInteractivo';
 import ConfirmDialog from './ConfirmDialog';
+import { formatLabel } from '../utils/formatLabel';
 
 const fallbackCenter = [-3.97245, -79.19933];
 
@@ -378,7 +379,7 @@ export default function EditorUbicaciones() {
             {locations.map((item) => (
               <tr key={item.id_ubicacion} className="border-t border-slate-100 hover:bg-slate-50">
                 <td className="p-3 font-bold text-purple-950">{item.nombre}</td>
-                <td className="p-3">{item.tipo_zona || item.tipo || item.categoria || 'GENERAL'}</td>
+                <td className="p-3">{formatLabel(item.tipo_zona || item.tipo || item.categoria || 'GENERAL')}</td>
                 <td className="p-3">
                   <span
                     className={`rounded-full px-2.5 py-1 text-[9px] font-black ${

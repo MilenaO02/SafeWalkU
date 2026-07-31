@@ -11,6 +11,13 @@ class RiskZoneController {
     async dynamic(_req: Request, res: Response) { try { return res.json({ success: true, data: await riskZoneService.dynamic(), persisted: false }); } catch (error) { return res.status(500).json({ success: false, message: errorMessage(error) }); } }
     async statistics(_req: Request, res: Response) { try { return res.json({ success: true, data: await riskZoneService.statistics() }); } catch (error) { return res.status(500).json({ success: false, message: errorMessage(error) }); } }
     async heatmap(_req: Request, res: Response) { try { return res.json({ success: true, data: await riskZoneService.heatmapPoints() }); } catch (error) { return res.status(500).json({ success: false, message: errorMessage(error) }); } }
-    async approve(req: Request, res: Response) { try { return res.status(201).json({ success: true, data: await riskZoneService.approveDynamic(req.body.candidate_key, req.body, req.user!.id_usuario) }); } catch (error) { return res.status(400).json({ success: false, message: errorMessage(error) }); } }
+    async approve(req: Request, res: Response) {
+        try {
+            return res.status(201).json({ success: true, data: await riskZoneService.approveDynamic(req.body.candidate_key, req.body, req.user!.id_usuario) });
+        } catch (error) {
+            console.error('No se pudo aprobar la zona dinámica:', error instanceof Error ? error.message : error);
+            return res.status(500).json({ success: false, message: 'No fue posible aprobar la zona de riesgo. Inténtalo nuevamente.' });
+        }
+    }
 }
 export default new RiskZoneController();

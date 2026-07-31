@@ -20,6 +20,7 @@ export default function StudentApp() {
   const [routeSummary, setRouteSummary] = useState(null);
   const [routeStatus, setRouteStatus] = useState('idle');
   const [selectedAlt, setSelectedAlt] = useState(0);
+  const [navigationDialog, setNavigationDialog] = useState(null);
   const gpsRequestInFlightRef = useRef(false);
   const requestGps = () => {
     if (gpsRequestInFlightRef.current) return;
@@ -230,25 +231,16 @@ export default function StudentApp() {
     }
 
     const mapUrl = `https://www.google.com/maps/dir/?api=1&origin=${originLat},${originLng}${destParams}&travelmode=walking`;
-    
-    // Attempt native intent on mobile if we have navigator properties
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    
-    const summaryText = `Resumen de la ruta:\n\n` +
-      `📍 Destino: ${currentAlt.destino?.nombre || currentAlt.nombre_ruta}\n` +
-      `📏 Distancia: ${currentAlt.distance_m || currentAlt.distancia_m} m\n` +
-      `⏱️ Duración: ${currentAlt.duration_min || currentAlt.tiempo_estimado} min\n` +
-      `🛡️ Tipo de ruta: ${currentAlt.safety?.classification || 'Desconocido'}\n\n` +
-      `Advertencias:\n` +
-      (currentAlt.safety?.reasons?.map(r => `- ${r}`).join('\n') || '- Ruta trazada');
+    setNavigationDialog({ route: currentAlt, mapUrl });
+  };
 
-    if (window.confirm(summaryText + '\n\n¿Abrir navegación en Google Maps?')) {
-      if (isMobile) {
-        window.location.href = mapUrl;
-      } else {
-        window.open(mapUrl, '_blank');
-      }
-    }
+  const confirmGoogleMapsNavigation = () => {
+    if (!navigationDialog) return;
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const { mapUrl } = navigationDialog;
+    setNavigationDialog(null);
+    if (isMobile) window.location.assign(mapUrl);
+    else window.open(mapUrl, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -624,6 +616,39 @@ export default function StudentApp() {
 
         </div>
       </section>
+
+      {navigationDialog && (() => {
+        const route = navigationDialog.route;
+        const reasons = route.safety?.reasons || [];
+        const classification = route.safety?.classification || 'RUTA TRAZADA';
+        return (
+          <div className="fixed inset-0 z-[200] flex items-end justify-center bg-slate-950/55 p-4 backdrop-blur-sm sm:items-center" role="presentation">
+            <section role="dialog" aria-modal="true" aria-labelledby="google-maps-dialog-title" className="w-full max-w-lg overflow-hidden rounded-3xl border border-purple-100 bg-white shadow-2xl dark:border-[#4A4A50] dark:bg-[#242428]">
+              <div className="bg-gradient-to-r from-purple-950 to-purple-800 px-5 py-4 text-white">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/15 material-symbols-outlined">explore</span>
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-purple-200">SafeWalk U</p>
+                    <h2 id="google-maps-dialog-title" className="text-lg font-black">Iniciar navegación segura</h2>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-4 p-5">
+                <p className="text-sm text-slate-600 dark:text-slate-300">Revisa el resumen antes de continuar en Google Maps.</p>
+                <div className="grid grid-cols-2 gap-3 rounded-2xl bg-purple-50 p-4 dark:bg-purple-950/25">
+                  <div className="col-span-2"><p className="text-[10px] font-bold uppercase tracking-wide text-purple-700 dark:text-purple-300">Destino</p><p className="mt-1 font-black text-slate-900 dark:text-white">{route.destino?.nombre || route.nombre_ruta || 'Destino seleccionado'}</p></div>
+                  <div><p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Distancia</p><p className="mt-1 text-sm font-black text-slate-800 dark:text-slate-100">{route.distance_m || route.distancia_m || 0} m</p></div>
+                  <div><p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Duración</p><p className="mt-1 text-sm font-black text-slate-800 dark:text-slate-100">{route.duration_min || route.tiempo_estimado || 0} min</p></div>
+                </div>
+                <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-3 dark:border-emerald-900/50 dark:bg-emerald-950/20"><p className="flex items-center gap-2 text-xs font-black text-emerald-800 dark:text-emerald-300"><span className="material-symbols-outlined text-base">verified_user</span>{classification}</p></div>
+                {reasons.length > 0 && <div><p className="mb-2 text-xs font-black text-slate-700 dark:text-slate-200">Aspectos considerados</p><ul className="max-h-28 space-y-1 overflow-y-auto pl-4 text-xs text-slate-600 dark:text-slate-300">{reasons.map((reason, index) => <li key={`navigation-reason-${index}`} className="list-disc">{reason}</li>)}</ul></div>}
+                <p className="rounded-xl bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-800 dark:bg-amber-950/25 dark:text-amber-200">Google Maps abrirá la navegación a pie. Mantén atención a tu entorno y sigue las indicaciones reales.</p>
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" onClick={() => setNavigationDialog(null)} className="min-h-11 rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-600 hover:bg-slate-50 dark:border-[#4A4A50] dark:text-slate-300 dark:hover:bg-[#3C3C40]">Cancelar</button><button type="button" onClick={confirmGoogleMapsNavigation} className="min-h-11 rounded-xl bg-purple-900 px-5 text-sm font-black text-white shadow-md transition-colors hover:bg-purple-950">Abrir Google Maps</button></div>
+              </div>
+            </section>
+          </div>
+        );
+      })()}
 
     </div>
   );

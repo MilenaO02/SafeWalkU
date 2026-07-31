@@ -31,7 +31,7 @@ class RiskZoneRepository {
     }
     async create(data: RiskZoneInput, adminId: number) {
         const box = bounds(data.polygon_json);
-        const [result] = await pool.query<ResultSetHeader>(`INSERT INTO zona_riesgo (nombre,descripcion,observaciones,nivel_riesgo,tipo_riesgo,estado,origen_zona,color,opacidad,radio_proximidad_metros,polygon_json,min_lat,max_lat,min_lng,max_lng,id_administrador) VALUES (?,?,?,?,?,'ACTIVA',?,?,?,?,?,?,?,?,?,?,?)`, [data.nombre, data.descripcion, data.observaciones || null, data.nivel_riesgo, data.tipo_riesgo, data.origen_zona ?? 'ADMINISTRADOR', data.color, data.opacidad, data.radio_proximidad_metros, JSON.stringify(data.polygon_json), box.minLat, box.maxLat, box.minLng, box.maxLng, adminId]);
+        const [result] = await pool.query<ResultSetHeader>(`INSERT INTO zona_riesgo (nombre,descripcion,observaciones,nivel_riesgo,tipo_riesgo,estado,origen_zona,color,opacidad,radio_proximidad_metros,polygon_json,min_lat,max_lat,min_lng,max_lng,id_administrador) VALUES (?,?,?,?,?,'ACTIVA',?,?,?,?,?,?,?,?,?,?)`, [data.nombre, data.descripcion, data.observaciones || null, data.nivel_riesgo, data.tipo_riesgo, data.origen_zona ?? 'ADMINISTRADOR', data.color, data.opacidad, data.radio_proximidad_metros, JSON.stringify(data.polygon_json), box.minLat, box.maxLat, box.minLng, box.maxLng, adminId]);
         return result.insertId;
     }
     async update(id: number, change: Partial<RiskZoneInput> & { estado?: string }) {

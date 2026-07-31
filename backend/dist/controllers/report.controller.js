@@ -2,7 +2,11 @@ import reportService, { ActiveSOSConflictError } from "../services/report.servic
 class ReportController {
     async getAll(req, res) {
         try {
-            const reports = await reportService.findAll(req.user);
+            const requestedFilter = String(req.query.registro ?? "ACTIVOS").toUpperCase();
+            if (!["ACTIVOS", "ARCHIVADOS", "TODOS"].includes(requestedFilter)) {
+                return res.status(400).json({ success: false, message: "El filtro registro debe ser ACTIVOS, ARCHIVADOS o TODOS" });
+            }
+            const reports = await reportService.findAll(req.user, requestedFilter);
             return res.status(200).json({
                 success: true,
                 data: reports
@@ -95,6 +99,16 @@ class ReportController {
         catch (error) {
             const status = error instanceof ActiveSOSConflictError ? 409 : 400;
             return res.status(status).json({ success: false, message: error.message });
+        }
+    }
+    async restore(req, res) {
+        try {
+            const id = Number(req.params.id);
+            const result = await reportService.restore(id);
+            return res.status(200).json(result);
+        }
+        catch (error) {
+            return res.status(404).json({ success: false, message: error.message });
         }
     }
     async cancelSOS(req, res) {

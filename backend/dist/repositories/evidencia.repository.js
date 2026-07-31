@@ -19,16 +19,17 @@ class EvidenceRepository {
         `, [id]);
         return rows[0];
     }
-    async findByReportIds(reportIds) {
+    async findByReportIds(reportIds, includeArchived = false) {
         if (reportIds.length === 0)
             return [];
         const placeholders = reportIds.map(() => "?").join(", ");
+        const archivedCondition = includeArchived ? "" : "AND r.estado_registro = 'ACTIVO'";
         const [rows] = await pool.query(`
             SELECT e.id_evidencia, e.url_archivo, e.tipo_archivo, e.id_reporte
             FROM evidencia e
             INNER JOIN reporte r ON r.id_reporte = e.id_reporte
             WHERE e.id_reporte IN (${placeholders})
-              AND r.estado_registro = 'ACTIVO'
+              ${archivedCondition}
             ORDER BY e.id_evidencia ASC
         `, reportIds);
         return rows;

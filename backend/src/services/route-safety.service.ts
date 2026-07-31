@@ -221,10 +221,10 @@ class RouteSafetyService {
         }
 
         if (highRiskZones > 0) {
-            reasons.push(`[Zona registrada] Atraviesa o bordea ${highRiskZones} zona(s) de riesgo ALTO activas.`);
+            reasons.push(`La ruta pasa por o cerca de ${highRiskZones} zona(s) de riesgo alto.`);
         }
         if (mediumRiskZones > 0) {
-            reasons.push(`[Zona registrada] Pasa cerca de ${mediumRiskZones} zona(s) de riesgo MEDIO.`);
+            reasons.push(`La ruta pasa cerca de ${mediumRiskZones} zona(s) de riesgo medio.`);
         }
         if (highRiskReports > 0) {
             reasons.push(`[Reporte validado] Registra ${highRiskReports} reporte(s) cercano(s) de nivel de riesgo ALTO.`);

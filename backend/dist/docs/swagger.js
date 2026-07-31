@@ -15,6 +15,7 @@ const errorDescriptions = {
     413: "Archivo demasiado grande",
     422: "Error de validacion",
     429: "Limite de solicitudes excedido",
+    503: "Servicio temporalmente no disponible",
     500: "Error interno del servidor"
 };
 const errors = (...codes) => Object.fromEntries(codes.map((code) => [code, response(errorDescriptions[code], { $ref: "#/components/schemas/ApiError" })]));
@@ -56,7 +57,7 @@ const swaggerSpec = {
         { name: "Salud" }, { name: "Autenticacion" }, { name: "Usuarios" },
         { name: "Reportes" }, { name: "Evidencias" }, { name: "Rutas" },
         { name: "Ubicaciones" }, { name: "Dashboard" }, { name: "Contactos" },
-        { name: "Servicios" }, { name: "Lugares" }
+        { name: "Servicios" }, { name: "Lugares" }, { name: "Zonas de riesgo" }
     ],
     components: {
         securitySchemes: {
@@ -222,6 +223,28 @@ const swaggerSpec = {
                     nombre: { type: "string", minLength: 3, maxLength: 100 }, direccion: { type: "string", minLength: 3, maxLength: 255 },
                     latitud: { type: "number", minimum: -90, maximum: 90 }, longitud: { type: "number", minimum: -180, maximum: 180 }
                 }
+            },
+            AdministratorRoleRequest: {
+                type: "object",
+                additionalProperties: false,
+                required: ["rol"],
+                properties: {
+                    rol: {
+                        type: "string",
+                        enum: ["ESTUDIANTE", "ADMINISTRADOR"],
+                        description: "ADMINISTRADOR concede acceso; ESTUDIANTE retira los privilegios administrativos."
+                    }
+                }
+            },
+            RiskZoneRequest: {
+                type: "object", additionalProperties: false,
+                required: ["nombre", "descripcion", "nivel_riesgo", "tipo_riesgo", "polygon_json"],
+                properties: {
+                    nombre: { type: "string", minLength: 3, maxLength: 150 }, descripcion: { type: "string", minLength: 3, maxLength: 500 }, observaciones: { type: "string", maxLength: 500 },
+                    nivel_riesgo: { type: "string", enum: ["BAJO", "MEDIO", "ALTO", "CRITICO"] }, tipo_riesgo: { type: "string", enum: ["ROBO", "ASALTO", "ACOSO", "POCA_ILUMINACION", "ACCIDENTES", "ZONA_CONFLICTIVA", "OTRO"] },
+                    color: { type: "string", pattern: "^#[0-9A-Fa-f]{6}$", default: "#f97316" }, opacidad: { type: "number", minimum: 0.05, maximum: 0.9 }, radio_proximidad_metros: { type: "integer", minimum: 10, maximum: 1000 },
+                    polygon_json: { type: "array", minItems: 3, maxItems: 200, items: { type: "object", required: ["lat", "lng"], properties: { lat: { type: "number", minimum: -90, maximum: 90 }, lng: { type: "number", minimum: -180, maximum: 180 } } } }
+                }
             }
         }
     },
@@ -242,8 +265,9 @@ const swaggerSpec = {
         },
         "/users/{id}/foto": { put: operation("Actualizar fotografia propia o de un usuario", { tags: ["Usuarios"], roles: ["ESTUDIANTE", "ADMINISTRADOR"], parameters: idParameter, requestBody: multipartBody({ type: "object", required: ["imagen"], properties: { imagen: { type: "string", format: "binary" } } }), responses: { 200: response("Fotografia actualizada"), ...errors(400, 401, 403, 404, 413, 500) } }) },
         "/users/{id}/reactivate": { patch: operation("Reactivar usuario desactivado", { tags: ["Usuarios"], roles: ["ADMINISTRADOR"], parameters: idParameter, responses: { 200: response("Usuario reactivado"), ...errors(400, 401, 403, 404, 500) } }) },
+        "/users/{id}/administrator": { patch: operation("Conceder o retirar privilegios de administrador", { tags: ["Usuarios"], roles: ["ADMINISTRADOR"], parameters: idParameter, requestBody: jsonBody({ $ref: "#/components/schemas/AdministratorRoleRequest" }), responses: { 200: response("Privilegios actualizados", { $ref: "#/components/schemas/User" }), ...errors(400, 401, 403, 404, 409, 422, 500) } }) },
         "/reports": {
-            get: operation("Listar reportes accesibles", { tags: ["Reportes"], roles: ["ESTUDIANTE", "ADMINISTRADOR"], responses: { 200: response("Reportes accesibles"), ...errors(401, 403, 500) } }),
+            get: operation("Listar reportes accesibles", { tags: ["Reportes"], roles: ["ESTUDIANTE", "ADMINISTRADOR"], parameters: [{ name: "registro", in: "query", required: false, schema: { type: "string", enum: ["ACTIVOS", "ARCHIVADOS", "TODOS"], default: "ACTIVOS" }, description: "Los estudiantes solo reciben reportes activos." }], responses: { 200: response("Reportes accesibles"), ...errors(400, 401, 403, 500) } }),
             post: operation("Crear reporte de incidente", { tags: ["Reportes"], roles: ["ESTUDIANTE", "ADMINISTRADOR"], requestBody: jsonBody({ $ref: "#/components/schemas/ReportCreateRequest" }), responses: { 201: response("Reporte creado"), ...errors(400, 401, 403, 422, 500) } })
         },
         "/reports/zonas/riesgo": { get: operation("Listar zonas de riesgo validadas", { tags: ["Reportes"], roles: ["ESTUDIANTE", "ADMINISTRADOR"], parameters: [{ name: "ciudad", in: "query", required: false, schema: { type: "string", default: "Loja" } }], responses: { 200: response("Zonas de riesgo"), ...errors(401, 403, 500) } }) },
@@ -253,8 +277,9 @@ const swaggerSpec = {
         "/reports/{id}": {
             get: operation("Consultar reporte accesible", { tags: ["Reportes"], roles: ["ESTUDIANTE", "ADMINISTRADOR"], parameters: idParameter, responses: { 200: response("Reporte encontrado"), ...errors(400, 401, 403, 404, 500) } }),
             put: operation("Revisar reporte", { tags: ["Reportes"], roles: ["ADMINISTRADOR"], parameters: idParameter, requestBody: jsonBody({ $ref: "#/components/schemas/ReportUpdateRequest" }), responses: { 200: response("Reporte actualizado"), ...errors(400, 401, 403, 404, 422, 500) } }),
-            delete: operation("Desactivar reporte", { tags: ["Reportes"], roles: ["ADMINISTRADOR"], parameters: idParameter, responses: { 200: response("Reporte desactivado"), ...errors(400, 401, 403, 404, 500) } })
+            delete: operation("Archivar reporte sin eliminar sus evidencias", { tags: ["Reportes"], roles: ["ADMINISTRADOR"], parameters: idParameter, responses: { 200: response("Reporte archivado"), ...errors(400, 401, 403, 404, 500) } })
         },
+        "/reports/{id}/restaurar": { patch: operation("Restaurar reporte archivado", { tags: ["Reportes"], roles: ["ADMINISTRADOR"], parameters: idParameter, responses: { 200: response("Reporte restaurado"), ...errors(401, 403, 404, 500) } }) },
         "/evidencias": {
             get: operation("Listar evidencias", { tags: ["Evidencias"], roles: ["ADMINISTRADOR"], responses: { 200: response("Evidencias"), ...errors(401, 403, 500) } }),
             post: operation("Adjuntar evidencia", { tags: ["Evidencias"], roles: ["ESTUDIANTE", "ADMINISTRADOR"], requestBody: multipartBody({ type: "object", required: ["archivo", "id_reporte"], properties: { archivo: { type: "string", format: "binary" }, id_reporte: { type: "integer", minimum: 1 } } }), responses: { 201: response("Evidencia creada"), ...errors(400, 401, 403, 404, 413, 500) } })
@@ -263,6 +288,19 @@ const swaggerSpec = {
             get: operation("Consultar evidencia propia o accesible como administrador", { tags: ["Evidencias"], roles: ["ESTUDIANTE", "ADMINISTRADOR"], parameters: idParameter, responses: { 200: response("Evidencia encontrada"), ...errors(400, 401, 403, 404, 500) } }),
             put: operation("Reemplazar evidencia propia o accesible como administrador", { tags: ["Evidencias"], roles: ["ESTUDIANTE", "ADMINISTRADOR"], parameters: idParameter, requestBody: multipartBody({ type: "object", required: ["archivo"], properties: { archivo: { type: "string", format: "binary" } } }), responses: { 200: response("Evidencia actualizada"), ...errors(400, 401, 403, 404, 413, 500) } }),
             delete: operation("Eliminar evidencia propia o accesible como administrador", { tags: ["Evidencias"], roles: ["ESTUDIANTE", "ADMINISTRADOR"], parameters: idParameter, responses: { 200: response("Evidencia eliminada"), ...errors(400, 401, 403, 404, 500) } })
+        },
+        "/risk-zones": {
+            get: operation("Listar zonas de riesgo permanentes", { tags: ["Zonas de riesgo"], roles: ["ESTUDIANTE", "ADMINISTRADOR"], parameters: [{ name: "active", in: "query", required: false, schema: { type: "boolean" } }], responses: { 200: response("Zonas de riesgo"), ...errors(401, 500) } }),
+            post: operation("Crear zona de riesgo permanente", { tags: ["Zonas de riesgo"], roles: ["ADMINISTRADOR"], requestBody: jsonBody({ $ref: "#/components/schemas/RiskZoneRequest" }), responses: { 201: response("Zona creada"), ...errors(400, 401, 403, 422, 429, 500) } })
+        },
+        "/risk-zones/dynamic": { get: operation("Calcular candidatos dinamicos no persistidos", { tags: ["Zonas de riesgo"], roles: ["ADMINISTRADOR"], responses: { 200: response("Candidatos dinamicos"), ...errors(401, 403, 500) } }) },
+        "/risk-zones/statistics": { get: operation("Consultar estadisticas reales de incidentes y SOS", { tags: ["Zonas de riesgo"], roles: ["ADMINISTRADOR"], responses: { 200: response("Estadisticas de incidentes"), ...errors(401, 403, 500) } }) },
+        "/risk-zones/heatmap": { get: operation("Consultar puntos reales para la capa de intensidad", { tags: ["Zonas de riesgo"], roles: ["ESTUDIANTE", "ADMINISTRADOR"], responses: { 200: response("Puntos de intensidad"), ...errors(401, 500) } }) },
+        "/risk-zones/dynamic/approve": { post: operation("Aprobar un candidato dinamico", { tags: ["Zonas de riesgo"], roles: ["ADMINISTRADOR"], requestBody: jsonBody({ allOf: [{ $ref: "#/components/schemas/RiskZoneRequest" }, { type: "object", required: ["candidate_key"], properties: { candidate_key: { type: "string" } } }] }), responses: { 201: response("Zona aprobada"), ...errors(400, 401, 403, 422, 429, 500) } }) },
+        "/risk-zones/{id}": {
+            get: operation("Consultar zona de riesgo", { tags: ["Zonas de riesgo"], roles: ["ESTUDIANTE", "ADMINISTRADOR"], parameters: idParameter, responses: { 200: response("Zona encontrada"), ...errors(401, 404, 500) } }),
+            put: operation("Editar zona de riesgo", { tags: ["Zonas de riesgo"], roles: ["ADMINISTRADOR"], parameters: idParameter, requestBody: jsonBody({ $ref: "#/components/schemas/RiskZoneRequest" }), responses: { 200: response("Zona actualizada"), ...errors(401, 403, 404, 422, 429, 500) } }),
+            delete: operation("Eliminar zona de riesgo", { tags: ["Zonas de riesgo"], roles: ["ADMINISTRADOR"], parameters: idParameter, responses: { 200: response("Zona eliminada"), ...errors(401, 403, 404, 429, 500) } })
         },
         "/routes": {
             get: operation("Listar rutas", { tags: ["Rutas"], roles: ["ESTUDIANTE", "ADMINISTRADOR"], responses: { 200: response("Rutas"), ...errors(401, 403, 500) } }),

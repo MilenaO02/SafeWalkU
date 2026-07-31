@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { request, buildAssetUrl } from '../services/api';
 import { useAuth } from '../context/auth';
+import ConfirmDialog from './ConfirmDialog';
 
 export default function NotificationHistory() {
   const { showToast } = useAuth();
@@ -11,13 +12,15 @@ export default function NotificationHistory() {
   const [error, setError] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const [selectedMedia, setSelectedMedia] = useState(null);
+  const [registryFilter, setRegistryFilter] = useState('ACTIVOS');
+  const [pendingArchive, setPendingArchive] = useState(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setStatus('loading'); setError(null);
-    try { const response = await request('/reports'); setReports(response.data || []); setStatus('ready'); }
+    try { const response = await request(`/reports?registro=${registryFilter}`); setReports(response.data || []); setStatus('ready'); }
     catch (loadError) { setError(loadError.message); setStatus('error'); }
-  };
-  useEffect(() => { load(); }, []);
+  }, [registryFilter]);
+  useEffect(() => { load(); }, [load]);
   const filtered = useMemo(() => reports.filter((report) => {
     const typeMatches = filter === 'TODOS' || report.tipo_reporte === filter;
     const text = `${report.descripcion} ${report.nombre} ${report.apellido} ${report.ubicacion}`.toLowerCase();
@@ -41,14 +44,45 @@ export default function NotificationHistory() {
     }
   };
 
+  const archiveReport = async () => {
+    if (!pendingArchive) return;
+    const report = pendingArchive;
+    setBusyId(report.id_reporte);
+    setError(null);
+    try {
+      const response = await request(`/reports/${report.id_reporte}`, { method: 'DELETE' });
+      setReports((items) => items.filter((item) => item.id_reporte !== report.id_reporte));
+      showToast(response.message || 'Reporte archivado correctamente.');
+      setPendingArchive(null);
+    } catch (actionError) {
+      setError(actionError.message || 'No fue posible archivar el reporte.');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const restoreReport = async (report) => {
+    setBusyId(report.id_reporte);
+    setError(null);
+    try {
+      const response = await request(`/reports/${report.id_reporte}/restaurar`, { method: 'PATCH' });
+      setReports((items) => items.filter((item) => item.id_reporte !== report.id_reporte));
+      showToast(response.message || 'Reporte restaurado correctamente.');
+    } catch (actionError) {
+      setError(actionError.message || 'No fue posible restaurar el reporte.');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   return <div className="space-y-5">
-    <div><h2 className="text-xl md:text-2xl font-black text-purple-950">Reportes y alertas</h2><p className="mt-1 text-xs text-slate-500">Historial real registrado en SafeWalk U.</p></div>
-    <div className="flex flex-col gap-3 sm:flex-row"><input aria-label="Buscar reporte" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar reporte" className="min-h-11 flex-1 rounded-xl border border-slate-200 px-4 text-sm" /><select aria-label="Filtrar tipo" value={filter} onChange={(event) => setFilter(event.target.value)} className="min-h-11 rounded-xl border border-slate-200 px-4 text-sm"><option value="TODOS">Todos</option><option value="SOS_PANICO">SOS</option><option value="INCIDENTE">Incidentes</option></select></div>
-    {status === 'loading' && <p className="rounded-2xl bg-white p-5 text-sm text-slate-500">Cargando reportes…</p>}
-    {error && <div role="alert" className="flex items-center justify-between gap-3 rounded-2xl bg-red-50 p-4 text-sm text-red-700"><span>{error}</span><button onClick={load} className="min-h-11 rounded-xl border border-red-200 px-4 font-bold">Reintentar</button></div>}
-    {status === 'ready' && <div className="space-y-3">{filtered.map((report) => <article key={report.id_reporte} className={`rounded-2xl border p-4 ${report.tipo_reporte === 'SOS_PANICO' ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50'}`}>
+    <div><h2 className="text-xl md:text-2xl font-black text-purple-950 dark:text-purple-100">Reportes y alertas</h2><p className="mt-1 text-xs text-slate-500 dark:text-slate-300">Historial real registrado en SafeWalk U.</p></div>
+    <div className="flex flex-col gap-3 sm:flex-row"><input aria-label="Buscar reporte" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar reporte" className="min-h-11 flex-1 rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 dark:border-[#4A4A50] dark:bg-[#242428] dark:text-slate-100 dark:placeholder:text-slate-400" /><select aria-label="Filtrar tipo" value={filter} onChange={(event) => setFilter(event.target.value)} className="min-h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm dark:border-[#4A4A50] dark:bg-[#242428]"><option value="TODOS">Todos</option><option value="SOS_PANICO">SOS</option><option value="INCIDENTE">Incidentes</option></select><select aria-label="Filtrar registro" value={registryFilter} onChange={(event) => setRegistryFilter(event.target.value)} className="min-h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm dark:border-[#4A4A50] dark:bg-[#242428]"><option value="ACTIVOS">Activos</option><option value="ARCHIVADOS">Archivados</option><option value="TODOS">Todos</option></select></div>
+    {status === 'loading' && <p className="rounded-2xl bg-white p-5 text-sm text-slate-500 dark:bg-[#2B2B2F] dark:text-slate-300">Cargando reportes…</p>}
+    {error && <div role="alert" className="flex items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200"><span>{error}</span><button onClick={load} className="min-h-11 rounded-xl border border-red-200 px-4 font-bold">Reintentar</button></div>}
+    {status === 'ready' && <div className="space-y-3">{filtered.map((report) => <article key={report.id_reporte} className={`rounded-2xl border p-4 ${report.tipo_reporte === 'SOS_PANICO' ? 'border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/25' : 'border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/25'}`}>
       <div className="flex flex-wrap items-start justify-between gap-2"><div><p className="text-xs font-black">{report.tipo_reporte === 'SOS_PANICO' ? 'Alerta SOS' : 'Reporte de incidente'}</p><p className="mt-1 text-[11px] opacity-70">{report.nombre} {report.apellido} · {report.ubicacion}</p></div><span className="rounded-lg border border-current/20 bg-white/60 px-2 py-1 text-[10px] font-black">{report.estado}</span></div>
-      <p className="mt-3 text-xs leading-relaxed">{report.descripcion}</p>
+      <p className="mt-3 text-xs leading-relaxed text-slate-800 dark:text-slate-100">{report.descripcion}</p>
       
       {/* Sección de Evidencias */}
       {report.evidencias && report.evidencias.length > 0 ? (
@@ -94,6 +128,13 @@ export default function NotificationHistory() {
         <button disabled={busyId === report.id_reporte} onClick={() => reviewReport(report, 'RECHAZADO')} className="min-h-11 rounded-xl bg-red-700 px-3 text-xs font-bold text-white disabled:opacity-50">Rechazar</button>
         <button disabled={busyId === report.id_reporte} onClick={() => reviewReport(report, 'DUPLICADO')} className="min-h-11 rounded-xl border border-amber-300 bg-white px-3 text-xs font-bold text-amber-800 disabled:opacity-50">Duplicado</button>
       </div>}
+      <div className="mt-3 flex justify-end gap-2">
+        {report.estado_registro === 'INACTIVO' ? (
+          <button disabled={busyId === report.id_reporte} onClick={() => restoreReport(report)} className="min-h-11 rounded-xl border border-emerald-300 bg-white px-4 text-xs font-bold text-emerald-800 disabled:opacity-50 dark:bg-[#242428] dark:text-emerald-300">{busyId === report.id_reporte ? 'Procesando…' : 'Restaurar'}</button>
+        ) : (
+          <button disabled={busyId === report.id_reporte} onClick={() => setPendingArchive(report)} className="min-h-11 rounded-xl border border-red-300 bg-white px-4 text-xs font-bold text-red-700 disabled:opacity-50 dark:bg-[#242428] dark:text-red-300">{busyId === report.id_reporte ? 'Procesando…' : 'Archivar'}</button>
+        )}
+      </div>
     </article>)}{!filtered.length && <p className="rounded-2xl bg-white p-6 text-center text-sm text-slate-500">No hay reportes para este filtro.</p>}</div>}
 
     {/* Lightbox / Modal para visualizar evidencia ampliada */}
@@ -115,6 +156,6 @@ export default function NotificationHistory() {
         </div>
       </div>
     )}
+    <ConfirmDialog open={Boolean(pendingArchive)} title="Archivar reporte" message={pendingArchive ? `El reporte #${pendingArchive.id_reporte} se ocultará de los listados activos. Sus evidencias y datos permanecerán guardados y podrá restaurarlo después.` : ''} confirmText="Archivar" busy={Boolean(pendingArchive && busyId === pendingArchive.id_reporte)} danger onClose={() => setPendingArchive(null)} onConfirm={archiveReport} />
   </div>;
 }
-

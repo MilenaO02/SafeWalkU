@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { getGoogleMapsApiKey, getGoogleMapsMapId, loadGoogleMaps } from '../utils/googleMaps';
+import { riskZoneColor } from '../utils/riskZonePalette';
 
 function isValidCoordinate(value) {
   return Array.isArray(value)
@@ -188,8 +189,8 @@ export default function MapaInteractivo({
       const isInactivePreview = Boolean(zone.previewInactive);
       const polygon = new gmaps.Polygon({
         paths: path, map, clickable: Boolean(zone.onClick),
-        strokeColor: zone.color || '#f97316', strokeOpacity: isInactivePreview ? 0.4 : 0.95, strokeWeight: 2,
-        fillColor: zone.color || '#f97316', fillOpacity: isInactivePreview ? Math.min(Number(zone.opacidad ?? 0.35), 0.12) : Number(zone.opacidad ?? 0.35)
+        strokeColor: zone.color || riskZoneColor(zone.nivel_riesgo), strokeOpacity: isInactivePreview ? 0.4 : 0.95, strokeWeight: 3,
+        fillColor: zone.color || riskZoneColor(zone.nivel_riesgo), fillOpacity: isInactivePreview ? Math.min(Number(zone.opacidad ?? 0.35), 0.12) : Number(zone.opacidad ?? 0.35)
       });
       if (typeof zone.onClick === 'function') polygon.addListener('click', () => zone.onClick(zone));
       return [polygon];

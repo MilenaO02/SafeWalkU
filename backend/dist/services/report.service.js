@@ -7,9 +7,10 @@ export class ActiveSOSConflictError extends Error {
     }
 }
 class ReportService {
-    async findAll(user) {
-        const reports = await reportRepository.findAll(user.rol === "ADMINISTRADOR" ? undefined : user.id_usuario);
-        const evidence = await evidenceRepository.findByReportIds(reports.map((report) => report.id_reporte));
+    async findAll(user, registryFilter = "ACTIVOS") {
+        const effectiveFilter = user.rol === "ADMINISTRADOR" ? registryFilter : "ACTIVOS";
+        const reports = await reportRepository.findAll(user.rol === "ADMINISTRADOR" ? undefined : user.id_usuario, effectiveFilter);
+        const evidence = await evidenceRepository.findByReportIds(reports.map((report) => report.id_reporte), user.rol === "ADMINISTRADOR" && effectiveFilter !== "ACTIVOS");
         const evidenceByReport = new Map();
         for (const item of evidence) {
             const reportEvidence = evidenceByReport.get(item.id_reporte) ?? [];
@@ -54,8 +55,23 @@ class ReportService {
     }
     async delete(id) {
         await this.findById(id);
-        await reportRepository.delete(id);
-        return { success: true, message: "Reporte desactivado correctamente" };
+        const affected = await reportRepository.delete(id);
+        if (affected !== 1)
+            throw new Error("No fue posible archivar el reporte");
+        return { success: true, message: "Reporte archivado correctamente" };
+    }
+    async restore(id) {
+        if (!Number.isInteger(id) || id < 1)
+            throw new Error("ID de reporte invÃ¡lido");
+        const report = await reportRepository.findByIdIncludingArchived(id);
+        if (!report)
+            throw new Error("Reporte no encontrado");
+        if (report.estado_registro === "ACTIVO")
+            throw new Error("El reporte ya se encuentra activo");
+        const affected = await reportRepository.restore(id);
+        if (affected !== 1)
+            throw new Error("No fue posible restaurar el reporte");
+        return { success: true, message: "Reporte restaurado correctamente" };
     }
     findRiskZonesByCity(ciudad) {
         const normalizedCity = ciudad.trim().slice(0, 100) || "Loja";

@@ -23,15 +23,17 @@ router.get("/health", healthLimiter, async (req, res) => {
         return res.status(200).json({
             success: true,
             api: "online",
-            database: "connected"
+            database: "connected",
+            checkedAt: new Date().toISOString()
         });
     } catch (error: any) {
         console.error("Healthcheck DB Error:", error);
-        return res.status(500).json({
+        return res.status(503).json({
             success: false,
             api: "online",
             database: "disconnected",
-            message: "Error de conexión a la base de datos"
+            message: "Error de conexión a la base de datos",
+            checkedAt: new Date().toISOString()
         });
     }
 });

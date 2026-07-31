@@ -73,8 +73,16 @@ deploy_frontend:
       echo "Comprobando SSH en ${DEPLOY_HOST}:${DEPLOY_PORT}..."
       ssh safewalk-target "echo Conexion SSH correcta"
   script:
-    - tar -czf /tmp/frontend.tar.gz -C frontend dist
+    - |
+      test -n "${VITE_GOOGLE_MAPS_API_KEY:-}" || { echo "ERROR: falta la variable protegida VITE_GOOGLE_MAPS_API_KEY" >&2; exit 1; }
+      GOOGLE_MAPS_MAP_ID="${VITE_GOOGLE_MAPS_MAP_ID:-DEMO_MAP_ID}"
+      case "$VITE_GOOGLE_MAPS_API_KEY:$GOOGLE_MAPS_MAP_ID" in
+        *[!A-Za-z0-9_:-]*) echo "ERROR: configuración de Google Maps inválida" >&2; exit 1 ;;
+      esac
+      printf "window.__SAFEWALK_CONFIG__ = Object.assign(window.__SAFEWALK_CONFIG__ || {}, { googleMapsApiKey: '%s', googleMapsMapId: '%s' });\\n" "$VITE_GOOGLE_MAPS_API_KEY" "$GOOGLE_MAPS_MAP_ID" > /tmp/safewalk-map-config.js
+      tar -czf /tmp/frontend.tar.gz -C frontend dist
     - scp /tmp/frontend.tar.gz safewalk-target:~/frontend.tar.gz
+    - scp /tmp/safewalk-map-config.js safewalk-target:~/safewalk-map-config.js
     - scp safewalku.nginx safewalk-target:~/safewalku.nginx
     - |
       ssh safewalk-target '
@@ -92,6 +100,7 @@ deploy_frontend:
         sudo mkdir -p /var/www/safewalku/dist/assets
         sudo cp -a ~/frontend-release/dist/assets/. /var/www/safewalku/dist/assets/
         sudo find ~/frontend-release/dist -mindepth 1 -maxdepth 1 ! -name assets -exec cp -a {} /var/www/safewalku/dist/ \;
+        sudo install -o www-data -g www-data -m 644 ~/safewalk-map-config.js /var/www/safewalku/dist/map-config.js
         sudo find /var/www/safewalku/dist/assets -type f -mtime +14 -delete
         sudo chown -R www-data:www-data /var/www/safewalku
         sudo cp ~/safewalku.nginx /etc/nginx/sites-available/safewalku
@@ -107,7 +116,7 @@ deploy_frontend:
         sudo nginx -t
         sudo systemctl enable nginx
         sudo systemctl restart nginx
-        rm -f ~/frontend.tar.gz ~/safewalku.nginx
+        rm -f ~/frontend.tar.gz ~/safewalku.nginx ~/safewalk-map-config.js
       '
     - ssh safewalk-target "curl --fail --silent --show-error http://127.0.0.1/api/health"
     - curl --fail --silent --show-error --retry 3 https://safewalku.online/api/health

@@ -22,3 +22,7 @@ export const updateUserSchema = z.object(profileFields)
 export const updateOwnProfileSchema = z.object(profileFields)
     .strict()
     .refine((data) => Object.keys(data).length > 0, "Debe enviar al menos un campo");
+
+export const administratorRoleSchema = z.object({
+    rol: z.enum(["ESTUDIANTE", "ADMINISTRADOR"])
+}).strict();

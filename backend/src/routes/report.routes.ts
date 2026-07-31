@@ -212,4 +212,29 @@ router.delete(
     reportController.delete
 );
 
+/**
+ * @swagger
+ * /api/reports/{id}/restaurar:
+ *   patch:
+ *     summary: Restaurar un reporte archivado
+ *     tags: [Reportes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Reporte restaurado correctamente
+ */
+router.patch(
+    "/:id/restaurar",
+    auth,
+    authorize("ADMINISTRADOR"),
+    reportController.restore
+);
+
 export default router;

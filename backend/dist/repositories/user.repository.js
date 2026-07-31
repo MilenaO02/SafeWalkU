@@ -16,8 +16,11 @@ class UserRepository {
         if (!rows[0]) {
             return [];
         }
-        const roles = new Set([rows[0].rol]);
-        if (Boolean(rows[0].es_administrador)) {
+        // Toda cuenta activa puede usar el modo estudiante. El modo de
+        // administración exige que el rol y su perfil administrativo sigan
+        // vigentes; así un perfil histórico no conserva permisos por sí solo.
+        const roles = new Set(["ESTUDIANTE"]);
+        if (rows[0].rol === "ADMINISTRADOR" && Boolean(rows[0].es_administrador)) {
             roles.add("ADMINISTRADOR");
         }
         return [...roles];
@@ -157,6 +160,57 @@ class UserRepository {
     async updateFotoPerfil(id, foto_perfil) {
         await pool.query(`UPDATE usuario SET foto_perfil = ? WHERE id_usuario = ?`, [foto_perfil, id]);
         return this.findById(id);
+    }
+    async setAdministratorRole(id, makeAdministrator) {
+        const connection = await pool.getConnection();
+        try {
+            await connection.beginTransaction();
+            const [targetRows] = await connection.query(`SELECT u.id_usuario, u.rol, u.estado, a.id_administrador
+                 FROM usuario u
+                 LEFT JOIN administrador a ON a.id_usuario = u.id_usuario
+                 WHERE u.id_usuario = ?
+                 FOR UPDATE`, [id]);
+            const target = targetRows[0];
+            if (!target || target.estado !== "ACTIVO") {
+                throw new Error("Usuario activo no encontrado");
+            }
+            const hasAdministratorProfile = Boolean(target.id_administrador);
+            const isAdministrator = target.rol === "ADMINISTRADOR" && hasAdministratorProfile;
+            if (makeAdministrator) {
+                if (isAdministrator)
+                    throw new Error("El usuario ya es administrador");
+                await connection.query("UPDATE usuario SET rol = 'ADMINISTRADOR' WHERE id_usuario = ?", [id]);
+                if (!hasAdministratorProfile) {
+                    await connection.query(`INSERT INTO administrador (id_usuario, cargo, fecha_asignacion)
+                         VALUES (?, 'Administrador del sistema SafeWalk U', CURDATE())`, [id]);
+                }
+            }
+            else {
+                if (!isAdministrator)
+                    throw new Error("El usuario no es administrador");
+                const [administratorRows] = await connection.query(`SELECT u.id_usuario
+                     FROM usuario u
+                     INNER JOIN administrador a ON a.id_usuario = u.id_usuario
+                     WHERE u.estado = 'ACTIVO' AND u.rol = 'ADMINISTRADOR'
+                     FOR UPDATE`);
+                if (administratorRows.length <= 1) {
+                    throw new Error("Debe existir al menos un administrador activo");
+                }
+                // El perfil de administrador se conserva para no romper las
+                // claves foráneas del historial de reportes y zonas. Los
+                // permisos quedan revocados porque usuario.rol pasa a estudiante.
+                await connection.query("UPDATE usuario SET rol = 'ESTUDIANTE' WHERE id_usuario = ?", [id]);
+            }
+            await connection.commit();
+            return this.findById(id);
+        }
+        catch (error) {
+            await connection.rollback();
+            throw error;
+        }
+        finally {
+            connection.release();
+        }
     }
 }
 export default new UserRepository();

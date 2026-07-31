@@ -1,20 +1,26 @@
 import pool from "../config/database.js";
 class ReportRepository {
-    async findAll(userId) {
+    async findAll(userId, registryFilter = "ACTIVOS") {
+        const registryCondition = registryFilter === "TODOS"
+            ? "1 = 1"
+            : "r.estado_registro = ?";
+        const registryParams = registryFilter === "TODOS"
+            ? []
+            : [registryFilter === "ARCHIVADOS" ? "INACTIVO" : "ACTIVO"];
         const [rows] = await pool.query(`
             SELECT r.id_reporte, r.descripcion, r.fecha_reporte, r.nivel_riesgo,
                    r.estado, r.tipo_reporte, r.id_usuario, r.id_ubicacion,
-                   r.id_administrador, r.precision_gps, r.fecha_captura_gps, r.fecha_atencion,
+                   r.id_administrador, r.estado_registro, r.precision_gps, r.fecha_captura_gps, r.fecha_atencion,
                    u.nombre, u.apellido, ub.nombre AS ubicacion, ub.direccion,
                    c.latitud, c.longitud
             FROM reporte r
             INNER JOIN usuario u ON r.id_usuario = u.id_usuario
             INNER JOIN ubicacion ub ON r.id_ubicacion = ub.id_ubicacion
             LEFT JOIN coordenada c ON c.id_ubicacion = ub.id_ubicacion
-            WHERE r.estado_registro = 'ACTIVO'
+            WHERE ${registryCondition}
               AND (? IS NULL OR r.id_usuario = ?)
             ORDER BY r.fecha_reporte DESC
-        `, [userId ?? null, userId ?? null]);
+        `, [...registryParams, userId ?? null, userId ?? null]);
         return rows;
     }
     async findById(id) {
@@ -30,6 +36,22 @@ class ReportRepository {
             INNER JOIN ubicacion ub ON r.id_ubicacion = ub.id_ubicacion
             LEFT JOIN coordenada c ON c.id_ubicacion = ub.id_ubicacion
             WHERE r.id_reporte = ? AND r.estado_registro = 'ACTIVO'
+        `, [id]);
+        return rows[0];
+    }
+    async findByIdIncludingArchived(id) {
+        const [rows] = await pool.query(`
+            SELECT r.id_reporte, r.descripcion, r.fecha_reporte, r.nivel_riesgo,
+                   r.estado, r.tipo_reporte, r.id_usuario, r.id_ubicacion,
+                   r.id_administrador, r.estado_registro,
+                   r.precision_gps, r.fecha_captura_gps, r.fecha_atencion,
+                   u.nombre, u.apellido, ub.nombre AS ubicacion, ub.direccion,
+                   c.latitud, c.longitud
+            FROM reporte r
+            INNER JOIN usuario u ON r.id_usuario = u.id_usuario
+            INNER JOIN ubicacion ub ON r.id_ubicacion = ub.id_ubicacion
+            LEFT JOIN coordenada c ON c.id_ubicacion = ub.id_ubicacion
+            WHERE r.id_reporte = ?
         `, [id]);
         return rows[0];
     }
@@ -121,7 +143,12 @@ class ReportRepository {
         ]);
     }
     async delete(id) {
-        await pool.query("UPDATE reporte SET estado_registro = 'INACTIVO' WHERE id_reporte = ?", [id]);
+        const [result] = await pool.query("UPDATE reporte SET estado_registro = 'INACTIVO' WHERE id_reporte = ? AND estado_registro = 'ACTIVO'", [id]);
+        return result.affectedRows;
+    }
+    async restore(id) {
+        const [result] = await pool.query("UPDATE reporte SET estado_registro = 'ACTIVO' WHERE id_reporte = ? AND estado_registro = 'INACTIVO'", [id]);
+        return result.affectedRows;
     }
     async findRiskZonesByCity(ciudad) {
         const [rows] = await pool.query(`

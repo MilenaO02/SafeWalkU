@@ -15,7 +15,8 @@
     "migrate:phase4": "node scripts/migrate-phase4.mjs",
     "migrate:routes": "node scripts/migrate-route-geometry.mjs",
     "audit:offline": "npm audit --offline --audit-level=high",
-    "test": "npm run typecheck && npm run build"
+    "test": "npm run typecheck && npm run build",
+    "test:routes": "npm run build && node --test dist/services/route-selection.test.js dist/services/risk-zone-safety.test.js"
   },
   "keywords": [],
   "author": "Milena Ordoñez",

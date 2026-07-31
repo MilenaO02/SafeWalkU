@@ -14,13 +14,8 @@ npm run lint
 echo "[1.5/4] Preparando configuración pública de Google Maps..."
 GOOGLE_MAPS_KEY="${VITE_GOOGLE_MAPS_API_KEY:-}"
 GOOGLE_MAPS_MAP_ID="${VITE_GOOGLE_MAPS_MAP_ID:-DEMO_MAP_ID}"
-if [[ -z "$GOOGLE_MAPS_KEY" && -f .env.production ]]; then
-  GOOGLE_MAPS_KEY="$(sed -n 's/^VITE_GOOGLE_MAPS_API_KEY=//p' .env.production | tail -n 1 | tr -d '\r')"
-  MAP_ID_FROM_FILE="$(sed -n 's/^VITE_GOOGLE_MAPS_MAP_ID=//p' .env.production | tail -n 1 | tr -d '\r')"
-  [[ -n "$MAP_ID_FROM_FILE" ]] && GOOGLE_MAPS_MAP_ID="$MAP_ID_FROM_FILE"
-fi
 if [[ -z "$GOOGLE_MAPS_KEY" ]]; then
-  echo "ERROR: configura VITE_GOOGLE_MAPS_API_KEY en el entorno o en frontend/.env.production" >&2
+  echo "ERROR: configura VITE_GOOGLE_MAPS_API_KEY en el entorno de despliegue" >&2
   exit 1
 fi
 if [[ ! "$GOOGLE_MAPS_KEY" =~ ^[A-Za-z0-9_-]+$ || ! "$GOOGLE_MAPS_MAP_ID" =~ ^[A-Za-z0-9_-]+$ ]]; then

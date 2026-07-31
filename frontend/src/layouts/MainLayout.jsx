@@ -16,7 +16,9 @@ const defaultMapConfig = {
   zoom: 17,
   markers: [],
   circle: null,
-  polygons: []
+  polygons: [],
+  polyline: null,
+  heatmapPoints: []
 };
 
 export default function MainLayout() {
@@ -33,6 +35,7 @@ export default function MainLayout() {
   const canSwitchRole = availableRoles.includes('ESTUDIANTE') && availableRoles.includes('ADMINISTRADOR');
 
   const handleLogout = () => {
+    setMapConfig(defaultMapConfig);
     logout();
     showToast('Sesión cerrada');
     navigate('/login');
@@ -254,7 +257,7 @@ export default function MainLayout() {
 
   return (
     <MapContext.Provider value={{ mapConfig, setMapConfig, defaultMapConfig, isDarkMode }}>
-      <div className="flex flex-col h-screen w-screen bg-slate-50 dark:bg-[#3C3C40] overflow-hidden antialiased font-sans transition-colors duration-500">
+      <div className="student-shell flex flex-col h-screen w-screen bg-slate-50 dark:bg-[#3C3C40] overflow-hidden antialiased font-sans transition-colors duration-500">
         
         {/* Cabecera Superior del Estudiante */}
         <header className="bg-white dark:bg-[#3C3C40] text-slate-800 dark:text-slate-200 border-b border-slate-200 dark:border-[#222226] shadow-sm flex justify-between items-center w-full px-4 md:px-6 h-16 md:h-20 z-50 flex-shrink-0 transition-colors duration-500">

@@ -92,6 +92,32 @@ export const login = (payload) =>
 export const register = (payload) =>
   request('/auth/register', { method: 'POST', body: JSON.stringify(payload) });
 
-export const checkHealth = () => request('/health', { method: 'GET' });
+export async function checkHealth() {
+  let response;
+
+  try {
+    response = await fetch(buildApiUrl('/health'), { method: 'GET' });
+  } catch {
+    return {
+      success: false,
+      api: 'offline',
+      database: 'disconnected',
+      message: 'No se pudo conectar con la API.'
+    };
+  }
+
+  const contentType = response.headers.get('content-type') || '';
+  const payload = contentType.includes('application/json')
+    ? await response.json()
+    : {};
+
+  return {
+    success: response.ok && payload.success === true,
+    api: payload.api === 'online' ? 'online' : 'offline',
+    database: payload.database === 'connected' ? 'connected' : 'disconnected',
+    message: payload.message || (!response.ok ? `La verificación respondió HTTP ${response.status}.` : undefined),
+    checkedAt: payload.checkedAt
+  };
+}
 
 export { API_BASE_URL };

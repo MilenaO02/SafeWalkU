@@ -19,6 +19,13 @@ backend/.env.*
 !backend/.env.example
 !.env.example
 
+# Configuración y credenciales de despliegue (nunca versionar)
+frontend/public/map-config.js
+frontend/dist/map-config.js
+*.pem
+*.p12
+*.key
+
 # Logs
 *.log
 npm-debug.log*

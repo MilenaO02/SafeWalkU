@@ -1,4 +1,4 @@
-import reportRepository, { ReportRow } from "../repositories/report.repository.js";
+import reportRepository, { ReportRegistryFilter, ReportRow } from "../repositories/report.repository.js";
 import evidenceRepository from "../repositories/evidencia.repository.js";
 
 type SessionUser = { id_usuario: number; rol: string };
@@ -11,9 +11,13 @@ export class ActiveSOSConflictError extends Error {
 }
 
 class ReportService {
-    async findAll(user: SessionUser) {
-        const reports = await reportRepository.findAll(user.rol === "ADMINISTRADOR" ? undefined : user.id_usuario);
-        const evidence = await evidenceRepository.findByReportIds(reports.map((report) => report.id_reporte));
+    async findAll(user: SessionUser, registryFilter: ReportRegistryFilter = "ACTIVOS") {
+        const effectiveFilter = user.rol === "ADMINISTRADOR" ? registryFilter : "ACTIVOS";
+        const reports = await reportRepository.findAll(user.rol === "ADMINISTRADOR" ? undefined : user.id_usuario, effectiveFilter);
+        const evidence = await evidenceRepository.findByReportIds(
+            reports.map((report) => report.id_reporte),
+            user.rol === "ADMINISTRADOR" && effectiveFilter !== "ACTIVOS"
+        );
         const evidenceByReport = new Map<number, typeof evidence>();
 
         for (const item of evidence) {
@@ -70,8 +74,19 @@ class ReportService {
 
     async delete(id: number) {
         await this.findById(id);
-        await reportRepository.delete(id);
-        return { success: true, message: "Reporte desactivado correctamente" };
+        const affected = await reportRepository.delete(id);
+        if (affected !== 1) throw new Error("No fue posible archivar el reporte");
+        return { success: true, message: "Reporte archivado correctamente" };
+    }
+
+    async restore(id: number) {
+        if (!Number.isInteger(id) || id < 1) throw new Error("ID de reporte invÃ¡lido");
+        const report = await reportRepository.findByIdIncludingArchived(id);
+        if (!report) throw new Error("Reporte no encontrado");
+        if (report.estado_registro === "ACTIVO") throw new Error("El reporte ya se encuentra activo");
+        const affected = await reportRepository.restore(id);
+        if (affected !== 1) throw new Error("No fue posible restaurar el reporte");
+        return { success: true, message: "Reporte restaurado correctamente" };
     }
 
     findRiskZonesByCity(ciudad: string) {

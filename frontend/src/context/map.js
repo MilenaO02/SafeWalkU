@@ -8,5 +8,7 @@ export const defaultMapConfig = {
   zoom: 17,
   markers: [],
   circle: null,
-  polygons: []
+  polygons: [],
+  polyline: null,
+  heatmapPoints: []
 };

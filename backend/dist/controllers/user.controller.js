@@ -132,6 +132,33 @@ class UserController {
             });
         }
     }
+    async updateAdministratorRole(req, res) {
+        try {
+            const id = Number(req.params.id);
+            if (!Number.isInteger(id) || id < 1) {
+                return res.status(400).json({ success: false, message: "ID de usuario inválido" });
+            }
+            const usuario = await service.updateAdministratorRole(id, req.body.rol, req.user.id_usuario);
+            return res.status(200).json({
+                success: true,
+                message: req.body.rol === "ADMINISTRADOR"
+                    ? "Usuario convertido en administrador correctamente"
+                    : "Privilegios de administrador retirados correctamente",
+                data: usuario
+            });
+        }
+        catch (error) {
+            const message = error.message || "No fue posible actualizar los privilegios";
+            const status = message === "Usuario activo no encontrado" ? 404
+                : [
+                    "El usuario ya es administrador",
+                    "El usuario no es administrador",
+                    "Debe existir al menos un administrador activo",
+                    "No puede retirar sus propios privilegios desde la sesión actual"
+                ].includes(message) ? 409 : 500;
+            return res.status(status).json({ success: false, message });
+        }
+    }
     async uploadFoto(req, res) {
         try {
             const id = Number(req.params.id);

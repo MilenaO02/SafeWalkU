@@ -3,7 +3,7 @@ import controller from "../controllers/user.controller.js";
 import auth from "../middleware/auth.js";
 import authorize from "../middleware/authorize.js";
 import validate from "../middleware/validate.js";
-import { updateOwnProfileSchema, updateUserSchema } from "../schemas/user.schema.js";
+import { administratorRoleSchema, updateOwnProfileSchema, updateUserSchema } from "../schemas/user.schema.js";
 import authorizeSelfOrAdmin from "../middleware/authorizeSelfOrAdmin.js";
 import upload from "../config/multer.js";
 const router = Router();
@@ -65,6 +65,7 @@ router.put("/:id", auth, authorize("ADMINISTRADOR"), validate(updateUserSchema),
  */
 router.delete("/:id", auth, authorize("ADMINISTRADOR"), controller.delete);
 router.patch("/:id/reactivate", auth, authorize("ADMINISTRADOR"), controller.reactivate);
+router.patch("/:id/administrator", auth, authorize("ADMINISTRADOR"), validate(administratorRoleSchema), controller.updateAdministratorRole);
 /**
  * @swagger
  * /users/{id}/foto:

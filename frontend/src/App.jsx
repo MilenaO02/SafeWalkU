@@ -40,9 +40,9 @@ function ToastHost() {
   if (!toast) return null;
 
   const colorMap = {
-    error: 'border-red-200 bg-red-50 text-red-900',
-    success: 'border-green-200 bg-green-50 text-green-900',
-    info: 'border-purple-200 bg-white text-purple-950',
+    error: 'border-red-200 bg-red-50 text-red-900 dark:border-red-900 dark:bg-red-950/90 dark:text-red-100',
+    success: 'border-green-200 bg-green-50 text-green-900 dark:border-emerald-900 dark:bg-emerald-950/90 dark:text-emerald-100',
+    info: 'border-purple-200 bg-white text-purple-950 dark:border-purple-900 dark:bg-[#242428] dark:text-purple-100',
   };
 
   return (
@@ -93,7 +93,7 @@ const PageFallback = (
   <div
     role="status"
     aria-label="Cargando página"
-    className="flex min-h-screen items-center justify-center bg-slate-50 text-sm font-bold text-purple-950"
+    className="flex min-h-screen items-center justify-center bg-slate-50 text-sm font-bold text-purple-950 dark:bg-[#3C3C40] dark:text-purple-100"
   >
     <span className="material-symbols-outlined animate-spin mr-2">progress_activity</span>
     Cargando SafeWalk U…

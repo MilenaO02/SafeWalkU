@@ -11,6 +11,7 @@ import lugarRepository from "../repositories/lugar.repository.js";
 import servicioRepository from "../repositories/servicio.repository.js";
 import riskZoneRepository from "../repositories/risk-zone.repository.js";
 import riskZoneSafetyService from "./risk-zone-safety.service.js";
+import { selectRouteAlternatives } from "./route-selection.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public input types
@@ -321,27 +322,10 @@ class RouteService {
                 buildAlternative(r, i === 0 ? "RUTA_A" : `RUTA_${String.fromCharCode(66 + i - 1)}`)
             );
 
-            // Sort: best safety score = recommended, lowest duration = fastest
-            const sorted = [...evaluated].sort((a, b) => b.safety.score - a.safety.score);
-            const recommended = sorted[0];
-            recommended.label = "RECOMENDADA";
-
-            let fastest: typeof recommended | null = null;
-            if (evaluated.length > 1) {
-                const sortedByTime = [...evaluated].sort((a, b) => a.duration_min - b.duration_min);
-                fastest = sortedByTime[0];
-                if (fastest === recommended) {
-                    fastest = sortedByTime[1] || null;
-                }
-                if (fastest) {
-                    fastest.label = "MAS_RAPIDA";
-                }
-            }
-
-            const alternatives = [recommended];
-            if (fastest && fastest !== recommended) {
-                alternatives.push(fastest);
-            }
+            // La recomendada prioriza seguridad. La más rápida siempre conserva
+            // la menor duración real devuelta por Google Routes; no se sustituye
+            // por la segunda alternativa solo para evitar una tarjeta duplicada.
+            const { recommended, alternatives, comparison } = selectRouteAlternatives(evaluated);
 
             const isSingleRoute = alternatives.length === 1;
 
@@ -351,6 +335,7 @@ class RouteService {
                     ? "Google Routes devolvió una única alternativa; esta es la más rápida y la mejor evaluada con los datos disponibles."
                     : null,
                 alternatives,
+                comparison,
                 // Legacy compat (first route)
                 ...this.legacyFields(recommended, originPoint, destName, locationId, destInfo),
             };

@@ -5,6 +5,16 @@ import { useMapConfig } from '../context/map';
 import { request } from '../services/api';
 import { getGeolocationError, requestCurrentPosition, withUserLocationMarker } from '../utils/geolocation';
 
+const coordinateDraft = /^-?(?:\d+)?(?:\.\d*)?$/;
+
+function normalizeCoordinateInput(value, min, max) {
+  const normalized = String(value ?? '').trim().replace(',', '.');
+  if (normalized === '' || normalized === '-' || normalized === '.' || normalized === '-.') return normalized;
+  if (!coordinateDraft.test(normalized)) return null;
+  const numberValue = Number(normalized);
+  return Number.isFinite(numberValue) && numberValue >= min && numberValue <= max ? normalized : null;
+}
+
 export default function StudentApp() {
   const navigate = useNavigate();
   const { setMapConfig } = useMapConfig();
@@ -20,6 +30,8 @@ export default function StudentApp() {
   const [routeSummary, setRouteSummary] = useState(null);
   const [routeStatus, setRouteStatus] = useState('idle');
   const [selectedAlt, setSelectedAlt] = useState(0);
+  const [selectedDestination, setSelectedDestination] = useState(null);
+  const [destinationResetKey, setDestinationResetKey] = useState(0);
   const [navigationDialog, setNavigationDialog] = useState(null);
   const gpsRequestInFlightRef = useRef(false);
   const requestGps = () => {
@@ -122,14 +134,18 @@ export default function StudentApp() {
     const lng = Number(destino.longitud);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
+    setSelectedDestination(destino);
+    setRouteSummary(null);
+    setSelectedAlt(0);
     setMapConfig((prev) => ({
       ...prev,
       centro: [lat, lng],
       zoom: 17,
       markers: [
-        ...prev.markers.filter((m) => m.title !== destino.nombre && m.title !== 'Tu ubicación'),
-        { position: [lat, lng], title: destino.nombre, desc: destino.direccion }
-      ]
+        ...prev.markers.filter((marker) => marker.kind === 'user'),
+        { position: [lat, lng], kind: 'destination', title: destino.nombre, desc: destino.direccion }
+      ],
+      polyline: null
     }));
   };
 
@@ -178,7 +194,8 @@ export default function StudentApp() {
       setRouteSummary(routeData);
       setSelectedAlt(0);
 
-      const polyline = json.data.coordenadas || json.data.coordinates || [];
+      const firstAlternative = routeData.alternatives?.[0] || routeData;
+      const polyline = firstAlternative.coordinates || firstAlternative.coordenadas || [];
       const destLat = Number(destino.latitud);
       const destLng = Number(destino.longitud);
       setMapConfig((prev) => ({
@@ -208,10 +225,48 @@ export default function StudentApp() {
   const handleLimpiarRuta = () => {
     setRouteSummary(null);
     setSelectedAlt(0);
+    setSelectedDestination(null);
+    setDestinationResetKey((value) => value + 1);
     setMapConfig((prev) => ({
       ...prev,
-      polyline: null
+      polyline: null,
+      markers: prev.markers.filter((marker) => marker.kind === 'user')
     }));
+  };
+
+  const handleDestinationClear = () => {
+    setSelectedDestination(null);
+    setRouteSummary(null);
+    setSelectedAlt(0);
+    setMapConfig((previous) => ({
+      ...previous,
+      polyline: null,
+      markers: previous.markers.filter((marker) => marker.kind === 'user')
+    }));
+  };
+
+  useEffect(() => () => {
+    setMapConfig((previous) => ({
+      ...previous,
+      polyline: null,
+      markers: previous.markers.filter((marker) => marker.kind === 'user')
+    }));
+  }, [setMapConfig]);
+
+  const updateManualCoordinate = (field, value) => {
+    const range = field === 'lat' ? [-90, 90] : [-180, 180];
+    const normalized = normalizeCoordinateInput(value, range[0], range[1]);
+    if (normalized === null) {
+      setGeoError(field === 'lat' ? 'La latitud solo permite un decimal entre -90 y 90.' : 'La longitud solo permite un decimal entre -180 y 180.');
+      return;
+    }
+    setGeoError(null);
+    setManualLocation((current) => ({ ...current, [field]: normalized }));
+  };
+
+  const preventInvalidCoordinateKey = (event) => {
+    if (event.ctrlKey || event.metaKey || ['Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    if (!/^[0-9.-]$/.test(event.key)) event.preventDefault();
   };
 
   const handleIniciarRuta = () => {
@@ -268,16 +323,18 @@ export default function StudentApp() {
               aria-label="Latitud manual"
               placeholder="Latitud"
               value={manualLocation.lat}
-              onChange={(event) => setManualLocation((current) => ({ ...current, lat: event.target.value }))}
-              className="min-h-11 rounded-xl border border-slate-200 px-3 text-xs dark:bg-[#2B2B2F]"
+              onKeyDown={preventInvalidCoordinateKey}
+              onChange={(event) => updateManualCoordinate('lat', event.target.value)}
+              className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-900 dark:border-[#4A4A50] dark:bg-[#2B2B2F] dark:text-slate-100 dark:placeholder:text-slate-400"
             />
             <input
               inputMode="decimal"
               aria-label="Longitud manual"
               placeholder="Longitud"
               value={manualLocation.lng}
-              onChange={(event) => setManualLocation((current) => ({ ...current, lng: event.target.value }))}
-              className="min-h-11 rounded-xl border border-slate-200 px-3 text-xs dark:bg-[#2B2B2F]"
+              onKeyDown={preventInvalidCoordinateKey}
+              onChange={(event) => updateManualCoordinate('lng', event.target.value)}
+              className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-900 dark:border-[#4A4A50] dark:bg-[#2B2B2F] dark:text-slate-100 dark:placeholder:text-slate-400"
             />
             <button type="button" onClick={applyManualLocation} className="min-h-11 rounded-xl border border-purple-300 px-3 text-xs font-bold text-purple-900 dark:text-purple-300">
               Usar manual
@@ -298,8 +355,11 @@ export default function StudentApp() {
         </div>
 
         <BuscadorPrincipal
+          key={destinationResetKey}
           onDestinoSelect={handleDestinoSelect}
+          onDestinationClear={handleDestinationClear}
           onTrazar={handleTrazarRuta}
+          selectedDestination={selectedDestination}
           tracing={routeStatus === 'loading'}
           originLabel={
             userPos
@@ -311,11 +371,11 @@ export default function StudentApp() {
         />
 
         {(permanentRiskZones.length > 0 || heatmapPoints.length > 0) && (
-          <div className="mt-3 rounded-xl border border-orange-200 bg-orange-50 p-3 text-xs text-orange-900">
+          <div className="mt-3 rounded-xl border border-orange-200 bg-orange-50 p-3 text-xs text-orange-900 dark:border-orange-900 dark:bg-orange-950/25 dark:text-orange-100">
             <p className="font-black">Zonas de riesgo visibles en el mapa</p>
             <div className="mt-2 flex flex-wrap gap-2">
               {['BAJO', 'MEDIO', 'ALTO', 'CRITICO'].map((level) => (
-                <label key={level} className="flex items-center gap-1 rounded-lg bg-white px-2 py-1 font-bold">
+                <label key={level} className="flex items-center gap-1 rounded-lg bg-white px-2 py-1 font-bold dark:bg-[#242428]">
                   <input type="checkbox" checked={visibleRiskLevels.includes(level)} onChange={() => setVisibleRiskLevels((current) => current.includes(level) ? current.filter((item) => item !== level) : [...current, level])} />
                   {level}
                 </label>
@@ -333,7 +393,8 @@ export default function StudentApp() {
               <div className="flex flex-col sm:flex-row gap-3">
                 {routeSummary.alternatives.map((alt, idx) => {
                   const isSelected = selectedAlt === idx;
-                  const isRecommended = alt.label === 'RECOMENDADA';
+                  const isRecommended = alt.label === 'RECOMENDADA' || alt.label === 'RECOMENDADA_MAS_RAPIDA';
+                  const isFastest = alt.label === 'MAS_RAPIDA' || alt.label === 'RECOMENDADA_MAS_RAPIDA';
                   return (
                     <button
                       key={`alt-${idx}`}
@@ -350,8 +411,8 @@ export default function StudentApp() {
                       className={`flex-1 p-3 rounded-2xl border text-left transition-all ${isSelected ? 'border-purple-600 bg-purple-50 dark:bg-purple-900/20 shadow-md ring-2 ring-purple-600/20' : 'border-slate-200 bg-white dark:bg-[#2B2B2F] dark:border-[#4A4A50] hover:border-purple-300'}`}
                     >
                       <div className="flex justify-between items-center mb-1">
-                        <span className={`text-[10px] font-black tracking-wider px-2 py-0.5 rounded-md ${isRecommended ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'}`}>
-                          {isRecommended ? 'RECOMENDADA' : 'MÁS RÁPIDA'}
+                        <span className={`text-[10px] font-black tracking-wider px-2 py-0.5 rounded-md ${isRecommended ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200' : 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200'}`}>
+                          {isRecommended && isFastest ? 'RECOMENDADA Y MÁS RÁPIDA' : isRecommended ? 'RECOMENDADA' : 'MÁS RÁPIDA'}
                         </span>
                         <span className={`text-xs font-bold ${isSelected ? 'text-purple-700 dark:text-purple-300' : 'text-slate-500'}`}>
                           {alt.safety.score}/100 pts
@@ -373,6 +434,7 @@ export default function StudentApp() {
             <div className="overflow-hidden rounded-2xl border border-purple-200 bg-white shadow-lg transition-all dark:border-[#4A4A50] dark:bg-[#242428]">
               {(() => {
                 const currentAlt = routeSummary.alternatives ? routeSummary.alternatives[selectedAlt] : routeSummary;
+                const comparison = routeSummary.comparison;
                 
                 return (
                   <>
@@ -418,6 +480,12 @@ export default function StudentApp() {
                     </div>
 
                     <div className="p-4 space-y-3">
+                      {comparison && !comparison.fastest_is_recommended && (
+                        <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-[11px] text-blue-900 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-100">
+                          <p className="font-black">Comparación con la alternativa más rápida</p>
+                          <p className="mt-1">La ruta recomendada toma {comparison.duration_difference_min} min más, recorre {comparison.distance_difference_m} m adicionales y mejora la seguridad en {comparison.safety_difference_points} puntos. Riesgos evitados: {comparison.risks_avoided}.</p>
+                        </div>
+                      )}
                       {currentAlt.walking_not_recommended && (
                         <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex gap-3 items-start">
                           <span className="material-symbols-outlined text-amber-600">info</span>

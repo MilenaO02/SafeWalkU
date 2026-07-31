@@ -60,6 +60,18 @@ class UserService {
     async updateFotoPerfil(id: number, foto_perfil: string): Promise<PublicUser | undefined> {
         return repository.updateFotoPerfil(id, foto_perfil);
     }
+
+    async updateAdministratorRole(
+        targetUserId: number,
+        requestedRole: UserRole,
+        currentUserId: number
+    ): Promise<PublicUser | undefined> {
+        if (requestedRole === "ESTUDIANTE" && targetUserId === currentUserId) {
+            throw new Error("No puede retirar sus propios privilegios desde la sesión actual");
+        }
+
+        return repository.setAdministratorRole(targetUserId, requestedRole === "ADMINISTRADOR");
+    }
 }
 
 export default new UserService();

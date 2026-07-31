@@ -1,0 +1,8 @@
+.env
+.env.*
+*.log
+src/
+tsconfig.json
+README.md
+*.map
+*.mcpb

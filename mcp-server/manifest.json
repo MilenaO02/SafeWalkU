@@ -1,0 +1,54 @@
+{
+  "$schema": "https://raw.githubusercontent.com/modelcontextprotocol/mcpb/main/schemas/mcpb-manifest-v0.3.schema.json",
+  "manifest_version": "0.3",
+  "name": "safewalk-u",
+  "display_name": "SafeWalk U",
+  "version": "1.0.0",
+  "description": "Consulta rutas, ubicaciones y reportes de SafeWalk U mediante la API segura.",
+  "author": {
+    "name": "SafeWalk U"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MilenaO02/SafeWalkU.git"
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "dist/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/dist/index.js"
+      ],
+      "env": {
+        "SAFEWALK_API_BASE_URL": "${user_config.api_base_url}",
+        "SAFEWALK_API_TOKEN": "${user_config.api_token}"
+      }
+    }
+  },
+  "user_config": {
+    "api_base_url": {
+      "type": "string",
+      "title": "URL de la API",
+      "description": "Dirección HTTPS de la API de SafeWalk U.",
+      "default": "https://safewalku.online/api",
+      "required": true
+    },
+    "api_token": {
+      "type": "string",
+      "title": "Token de acceso de prueba",
+      "description": "JWT de una cuenta de prueba. Se guarda de forma segura en Claude Desktop.",
+      "sensitive": true,
+      "required": false
+    }
+  },
+  "tools_generated": true,
+  "prompts_generated": true,
+  "keywords": ["safewalk", "rutas", "seguridad", "universidad"],
+  "compatibility": {
+    "platforms": ["win32"],
+    "runtimes": {
+      "node": ">=20.0.0"
+    }
+  }
+}

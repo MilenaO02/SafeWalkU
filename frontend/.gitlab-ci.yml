@@ -74,15 +74,18 @@ deploy_frontend:
       ssh safewalk-target "echo Conexion SSH correcta"
   script:
     - |
-      test -n "${VITE_GOOGLE_MAPS_API_KEY:-}" || { echo "ERROR: falta la variable protegida VITE_GOOGLE_MAPS_API_KEY" >&2; exit 1; }
+      if [ -n "${VITE_GOOGLE_MAPS_API_KEY:-}" ]; then
       GOOGLE_MAPS_MAP_ID="${VITE_GOOGLE_MAPS_MAP_ID:-DEMO_MAP_ID}"
       case "$VITE_GOOGLE_MAPS_API_KEY:$GOOGLE_MAPS_MAP_ID" in
         *[!A-Za-z0-9_:-]*) echo "ERROR: configuración de Google Maps inválida" >&2; exit 1 ;;
       esac
       printf "window.__SAFEWALK_CONFIG__ = Object.assign(window.__SAFEWALK_CONFIG__ || {}, { googleMapsApiKey: '%s', googleMapsMapId: '%s' });\\n" "$VITE_GOOGLE_MAPS_API_KEY" "$GOOGLE_MAPS_MAP_ID" > /tmp/safewalk-map-config.js
+      else
+        echo "ADVERTENCIA: VITE_GOOGLE_MAPS_API_KEY no está definida; se conservará la configuración pública ya instalada en EC2."
+      fi
       tar -czf /tmp/frontend.tar.gz -C frontend dist
     - scp /tmp/frontend.tar.gz safewalk-target:~/frontend.tar.gz
-    - scp /tmp/safewalk-map-config.js safewalk-target:~/safewalk-map-config.js
+    - if [ -f /tmp/safewalk-map-config.js ]; then scp /tmp/safewalk-map-config.js safewalk-target:~/safewalk-map-config.js; fi
     - scp safewalku.nginx safewalk-target:~/safewalku.nginx
     - |
       ssh safewalk-target '
@@ -100,7 +103,11 @@ deploy_frontend:
         sudo mkdir -p /var/www/safewalku/dist/assets
         sudo cp -a ~/frontend-release/dist/assets/. /var/www/safewalku/dist/assets/
         sudo find ~/frontend-release/dist -mindepth 1 -maxdepth 1 ! -name assets -exec cp -a {} /var/www/safewalku/dist/ \;
-        sudo install -o www-data -g www-data -m 644 ~/safewalk-map-config.js /var/www/safewalku/dist/map-config.js
+        if [ -f ~/safewalk-map-config.js ]; then
+          sudo install -o www-data -g www-data -m 644 ~/safewalk-map-config.js /var/www/safewalku/dist/map-config.js
+        elif [ ! -f /var/www/safewalku/dist/map-config.js ]; then
+          echo "ADVERTENCIA: no existe configuracion de Google Maps en EC2. Configure VITE_GOOGLE_MAPS_API_KEY como variable protegida para crearla."
+        fi
         sudo find /var/www/safewalku/dist/assets -type f -mtime +14 -delete
         sudo chown -R www-data:www-data /var/www/safewalku
         sudo cp ~/safewalku.nginx /etc/nginx/sites-available/safewalku

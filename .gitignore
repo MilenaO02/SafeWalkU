@@ -42,5 +42,9 @@ Thumbs.db
 
 # Ignorar carpeta docs y archivos markdown en la raíz (excepto MANUAL_USUARIO.md)
 docs/
+
+# Informe local de la actividad MCP: no se publica en ningún remoto.
+INFORME_TA_3_2_MCP.md
+
 /*.md
 !MANUAL_USUARIO.md

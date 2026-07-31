@@ -15,6 +15,7 @@ const common = {
     color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'El color debe ser hexadecimal, por ejemplo #f97316').default('#f97316'),
     opacidad: z.coerce.number().min(0.05).max(0.9).default(0.35),
     radio_proximidad_metros: z.coerce.number().int().min(10).max(1000).default(80),
+    estado: z.enum(['ACTIVA', 'INACTIVA']).default('ACTIVA'),
     polygon_json: polygon
 };
 

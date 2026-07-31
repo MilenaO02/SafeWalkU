@@ -91,7 +91,7 @@ export function createMcpServer(): Server {
           inputSchema: {
             type: 'object',
             properties: {
-              estado: { type: 'string', enum: ['PENDIENTE', 'VALIDADO', 'RECHAZADO', 'DUPLICADO', 'CANCELADO'] },
+              estado: { type: 'string', enum: ['PENDIENTE', 'VALIDADO', 'RECHAZADO', 'DUPLICADO'] },
               nivel_riesgo: { type: 'string', enum: ['BAJO', 'MEDIO', 'ALTO'] },
               tipo_reporte: { type: 'string', enum: ['INCIDENTE', 'SOS_PANICO'] },
               limit: { type: 'number', description: 'Límite de resultados (1-100).' }
@@ -159,7 +159,7 @@ export function createMcpServer(): Server {
             required: ['id_reporte', 'estado', 'confirmacion_explicita'],
             properties: {
               id_reporte: { type: 'number', description: 'ID numérico del reporte a actualizar.' },
-              estado: { type: 'string', enum: ['PENDIENTE', 'VALIDADO', 'RECHAZADO', 'DUPLICADO', 'CANCELADO'] },
+                estado: { type: 'string', enum: ['PENDIENTE', 'VALIDADO', 'RECHAZADO', 'DUPLICADO'] },
               descripcion: { type: 'string', description: 'Comentario o nota explicativa opcional.' },
               nivel_riesgo: { type: 'string', enum: ['BAJO', 'MEDIO', 'ALTO'] },
               confirmacion_explicita: { type: 'boolean', description: 'Debe ser true para confirmar el cambio de estado.' }

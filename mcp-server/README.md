@@ -1,99 +1,31 @@
-# SafeWalk U - Model Context Protocol (MCP) Server
+# SafeWalk U MCP Server
 
-Servidor **Model Context Protocol (MCP)** oficial para la plataforma **SafeWalk U**. Este servidor permite integrar asistentes de Inteligencia Artificial (como **Claude Desktop**) de forma segura con la arquitectura universitaria de SafeWalk U a través de su API REST HTTPS existente.
+Servidor MCP para Claude Desktop. Usa `stdio`: Claude Desktop inicia `node dist/index.js` como subproceso local; stdout se reserva para JSON-RPC y los diagnosticos se escriben solamente en stderr. El servidor no abre puertos ni se conecta directamente a MySQL.
 
----
-
-## 🏗️ Arquitectura de Comunicación
+## Arquitectura
 
 ```
-[Claude Desktop (AI Assistant)]
-       │
-       │  Transporte stdio (stdin / stdout)
-       ▼
-[Servidor MCP SafeWalk U (TypeScript / Node.js)]
-       │
-       │  HTTPS + Bearer JWT + Rate Limiting + Validaciones Zod
-       ▼
-[API REST HTTPS de SafeWalk U (https://safewalku.online/api)]
-       │
-       │  Pool de Conexiones MySQL + Seguridad backend
-       ▼
-[Base de Datos MySQL en AWS EC2]
+Claude Desktop -> MCP stdio -> SafeWalk MCP -> HTTPS API Express -> MySQL EC2
 ```
 
-> **Nota de Seguridad Crítica**: Claude Desktop **NUNCA** se conecta directamente a la base de datos MySQL ni ejecuta consultas SQL arbitrarias. Todas las interacciones pasan obligatoriamente por las reglas de negocio, validaciones y autorización por roles de la API REST de SafeWalk U.
+El MCP consume `https://safewalku.online/api`, por lo que conserva la autenticacion JWT, los roles, validaciones Zod, reglas de negocio y rate limiting del backend.
 
----
+## Instalacion
 
-## 🚀 Instalación y Compilación
+```powershell
+cd mcp-server
+npm install
+npm run lint
+npm run build
+npm start
+```
 
-1. **Instalar dependencias**:
-   ```bash
-   cd mcp-server
-   npm install
-   ```
+Copie `.env.example` a `.env` y establezca un JWT de una cuenta de demostracion con permisos minimos. `.env`, `dist` y `node_modules` estan ignorados por Git.
 
-2. **Compilar el proyecto TypeScript**:
-   ```bash
-   npm run build
-   ```
+## Claude Desktop en Windows
 
-3. **Verificar el compilado**:
-   Se creará la carpeta `dist/` conteniendo `dist/index.js` y `dist/server.js`.
+Edite `%APPDATA%\Claude\claude_desktop_config.json` y reinicie completamente Claude Desktop:
 
----
-
-## 🛠️ Herramientas Expuestas (Tools)
-
-### Herramientas de Solo Lectura (Estudiante / Administrador):
-1. **`safewalk_listar_ubicaciones`**: Lista ubicaciones universitarias registradas con filtros por texto `q` y límite `limit`.
-2. **`safewalk_consultar_ubicacion`**: Obtiene detalles de una ubicación por `id_ubicacion`.
-3. **`safewalk_listar_rutas`**: Consulta rutas peatonales seguras filtrables por `nivel_seguridad`.
-4. **`safewalk_consultar_ruta`**: Consulta la geometría y puntos de control de una ruta por `id_ruta`.
-5. **`safewalk_listar_reportes`**: Lista incidentes y alertas pánico filtrables por `estado` y `nivel_riesgo`.
-6. **`safewalk_consultar_reporte`**: Obtiene el detalle de un reporte por `id_reporte`.
-7. **`safewalk_listar_servicios_emergencia`**: Lista el directorio de servicios de emergencia (Policía, ECU911, Bomberos, Salud).
-8. **`safewalk_listar_lugares_seguros`**: Lista puntos de refugio y garitas de seguridad universitarias.
-
-### Herramientas de Escritura Controlada:
-9. **`safewalk_crear_reporte`**: Registra un reporte de incidente. Requiere `confirmacion_explicita: true`.
-10. **`safewalk_crear_contacto_emergencia`**: Agrega un contacto de apoyo. Requiere `confirmacion_explicita: true`.
-11. **`safewalk_actualizar_estado_reporte`**: Actualiza el estado de un reporte. **Requiere token con rol ADMINISTRADOR** y `confirmacion_explicita: true`.
-
----
-
-## 📦 Recursos (Resources)
-- **`safewalk://openapi`**: Especificación OpenAPI 3.0 completa y sanitizada de SafeWalk U.
-- **`safewalk://estado-api`**: Diagnóstico en tiempo real de la disponibilidad de la API REST de producción.
-- **`safewalk://catalogo-capacidades`**: Catálogo informativo de permisos, tools y restricciones de seguridad.
-
----
-
-## 💡 Prompts
-- **`analizar_seguridad_ruta`**: Plantilla interactiva para evaluar el riesgo de un trayecto combinando reportes, rutas y lugares seguros.
-
----
-
-## 🛡️ Medidas de Hardening y Seguridad
-
-1. **Principio de Mínimo Privilegio**: Exposición controlada de endpoints mediante la API REST sin acceso SQL directo.
-2. **Validación Estricta con Zod**: Verificación de rangos latitud (-90 a 90), longitud (-180 a 180), formato de teléfono y rechazo de campos desconocidos.
-3. **Confirmación Humana Obligatoria**: Las acciones de escritura (POST, PUT, DELETE) requieren explícitamente `confirmacion_explicita: true`.
-4. **Protección de Secretos**: Tokens y Authorization no se registran en los archivos de log. Los logs diagnósticos van únicamente a `stderr`.
-5. **Aislamiento Stdio**: Ningún puerto de red adicional es abierto por el servidor MCP en modo `stdio`.
-
----
-
-## ⚙️ Configuración en Claude Desktop (Windows)
-
-Edita o crea el archivo de configuración de Claude Desktop en Windows:
-
-**Ruta del archivo en Windows:**
-`%APPDATA%\Claude\claude_desktop_config.json`
-*(Ejemplo: `C:\Users\tu_usuario\AppData\Roaming\Claude\claude_desktop_config.json`)*
-
-**Contenido JSON:**
 ```json
 {
   "mcpServers": {
@@ -104,14 +36,46 @@ Edita o crea el archivo de configuración de Claude Desktop en Windows:
       ],
       "env": {
         "SAFEWALK_API_BASE_URL": "https://safewalku.online/api",
-        "SAFEWALK_API_TOKEN": "TU_TOKEN_JWT_DE_SAFEWALK_AQUI"
+        "SAFEWALK_API_TOKEN": "PEGAR_TOKEN_LOCALMENTE"
       }
     }
   }
 }
 ```
 
-> **Pasos para aplicar**:
-> 1. Reemplaza `TU_TOKEN_JWT_DE_SAFEWALK_AQUI` con tu JWT obtenido al iniciar sesión en SafeWalk U.
-> 2. Cierra completamente Claude Desktop (desde el Administrador de Tareas o icono en la barra de tareas).
-> 3. Vuelve a abrir Claude Desktop y verás el icono 🔨 indicando las herramientas activas de **safewalk-u**.
+No incluya un token real en archivos, commits, capturas ni documentacion.
+
+## Capacidades
+
+Tools de lectura:
+
+- `safewalk_listar_ubicaciones`, `safewalk_consultar_ubicacion`
+- `safewalk_listar_rutas`, `safewalk_consultar_ruta`
+- `safewalk_listar_reportes`, `safewalk_consultar_reporte`
+- `safewalk_listar_servicios_emergencia`, `safewalk_listar_lugares_seguros`
+
+Tools de escritura controlada:
+
+- `safewalk_crear_reporte`
+- `safewalk_crear_contacto_emergencia`
+- `safewalk_actualizar_estado_reporte` (solo JWT ADMINISTRADOR)
+
+Toda escritura requiere `confirmacion_explicita: true`. El MCP no expone operaciones masivas, usuarios, contrasenas, tokens, archivos arbitrarios ni SQL.
+
+Resources: `safewalk://openapi`, `safewalk://estado-api` y `safewalk://catalogo-capacidades`.
+
+Prompt: `analizar_seguridad_ruta`.
+
+## Controles de seguridad
+
+- Zod estricto, IDs positivos, limites de coordenadas y limite de resultados 1-100.
+- Telefono de diez digitos, igual al contrato del backend.
+- JWT unicamente por variable de entorno; los valores sensibles se censuran.
+- Timeout, limite de respuesta de 1 MB, maximo de 4 solicitudes concurrentes y 60 por minuto en el proceso MCP.
+- No se reintentan POST/PUT/PATCH/DELETE automaticamente.
+- Los reportes eliminan nombre, apellido, correo, telefono e identificador de usuario antes de enviarse a Claude.
+- Auditoria de nombre de tool, resultado y duracion en stderr, sin payloads ni tokens.
+
+## Evidencias TA-3.2
+
+Para la entrega capture: el arbol `mcp-server/src`, `npm run lint`, `npm run build`, Claude Desktop mostrando `safewalk-u`, la lista de tools, una lectura con JWT de prueba, un rechazo por entrada invalida y un rechazo 403 de la tool administrativa con JWT de estudiante. Oculte siempre el JWT.

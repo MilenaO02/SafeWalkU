@@ -185,10 +185,11 @@ export default function MapaInteractivo({
     const newPolygons = (Array.isArray(polygons) ? polygons : []).flatMap((zone) => {
       const path = pathFor(zone);
       if (path.length < 3 || !gmaps.Polygon) return [];
+      const isInactivePreview = Boolean(zone.previewInactive);
       const polygon = new gmaps.Polygon({
         paths: path, map, clickable: Boolean(zone.onClick),
-        strokeColor: zone.color || '#f97316', strokeOpacity: 0.95, strokeWeight: 2,
-        fillColor: zone.color || '#f97316', fillOpacity: Number(zone.opacidad ?? 0.35)
+        strokeColor: zone.color || '#f97316', strokeOpacity: isInactivePreview ? 0.4 : 0.95, strokeWeight: 2,
+        fillColor: zone.color || '#f97316', fillOpacity: isInactivePreview ? Math.min(Number(zone.opacidad ?? 0.35), 0.12) : Number(zone.opacidad ?? 0.35)
       });
       if (typeof zone.onClick === 'function') polygon.addListener('click', () => zone.onClick(zone));
       return [polygon];

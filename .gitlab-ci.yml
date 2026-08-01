@@ -9,7 +9,7 @@ frontend_pipeline:
     strategy: depend
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
-    - changes:
+      changes:
         - frontend/**/*
         - .gitlab-ci.yml
 
@@ -21,6 +21,6 @@ backend_pipeline:
     strategy: depend
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
-    - changes:
+      changes:
         - backend/**/*
         - .gitlab-ci.yml

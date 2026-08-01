@@ -159,7 +159,7 @@ deploy_backend:
     - ssh safewalk-target "cd ~/safewalku/backend && npm run backup:before-demo-cleanup"
 
     - echo "Aplicando migraciones..."
-    - ssh safewalk-target "cd ~/safewalku/backend && npm run migrate:routes"
+    - ssh safewalk-target "cd ~/safewalku/backend && SAFEWALK_SKIP_LEGACY_MIGRATIONS=1 npm run migrate:routes"
 
     - echo "Reiniciando backend con PM2..."
     - ssh safewalk-target "cd ~/safewalku/backend && pm2 startOrReload ecosystem.config.cjs --env production --update-env && pm2 save"

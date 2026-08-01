@@ -78,17 +78,25 @@ const connection = await mysql.createConnection({
     multipleStatements: true
 });
 
-try {
-    for (const migration of [
+const legacyMigrations = [
         "005_add_route_geometry.sql",
         "006_correct_verified_locations.sql",
         "007_remove_university_gate.sql",
         "008_reconcile_legacy_schema.sql",
         "009_remove_demo_data.sql",
         "010_authorize_dual_role_admin.sql",
-        "011_add_route_endpoint_metadata.sql",
-        "014_add_location_lifecycle.sql"
-    ]) {
+        "011_add_route_endpoint_metadata.sql"
+    ];
+
+// En despliegues normales se aplican exclusivamente migraciones nuevas e
+// idempotentes. Las migraciones de limpieza/autorizacion historicas se dejan
+// disponibles para una instalacion antigua que las necesite expresamente.
+const migrations = process.env.SAFEWALK_SKIP_LEGACY_MIGRATIONS === "1"
+    ? ["014_add_location_lifecycle.sql"]
+    : [...legacyMigrations, "014_add_location_lifecycle.sql"];
+
+try {
+    for (const migration of migrations) {
         const sql = await readFile(resolve(import.meta.dirname, `../db/migrations/${migration}`), "utf8");
         const migrationSql = sql.replace(/^USE\s+`?safewalku`?;/im, "");
 

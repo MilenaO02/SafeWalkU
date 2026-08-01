@@ -4,6 +4,7 @@ import MapaInteractivo from '../components/MapaInteractivo';
 import { useAuth } from '../context/auth';
 import { riskZoneColor, riskZoneLegend } from '../utils/riskZonePalette';
 import { formatLabel } from '../utils/formatLabel';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 const emptyForm = { nombre: '', descripcion: '', observaciones: '', nivel_riesgo: 'MEDIO', tipo_riesgo: 'OTRO', estado: 'ACTIVA', color: riskZoneColor('MEDIO'), opacidad: 0.35, radio_proximidad_metros: 80 };
 const levels = ['BAJO', 'MEDIO', 'ALTO', 'CRITICO'];
@@ -15,6 +16,7 @@ export default function AdminRiskZones({ embedded = false }) {
   const [statistics, setStatistics] = useState(null);
   const [draft, setDraft] = useState([]), [editing, setEditing] = useState(null), [query, setQuery] = useState(''), [statusFilter, setStatusFilter] = useState('TODAS');
   const [loading, setLoading] = useState(true), [saving, setSaving] = useState(false), [error, setError] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState(null), [deleting, setDeleting] = useState(false), [deleteError, setDeleteError] = useState('');
   const load = async () => {
     setLoading(true); setError('');
     try {
@@ -53,7 +55,21 @@ export default function AdminRiskZones({ embedded = false }) {
       await load();
     } catch (requestError) { setError(requestError.message); }
   };
-  const remove = async (zone) => { if (!window.confirm(`Eliminar la zona "${zone.nombre}"? Esta accion no se puede deshacer.`)) return; try { await request(`/risk-zones/${zone.id_zona}`, { method: 'DELETE' }); if (editing?.id_zona === zone.id_zona) reset(); await load(); showToast('Zona de riesgo eliminada.'); } catch (requestError) { setError(requestError.message); } };
+  const requestDelete = (zone) => { setDeleteTarget(zone); setDeleteError(''); };
+  const remove = async (zone) => {
+    if (zone) { requestDelete(zone); return; }
+    if (!deleteTarget) return;
+    setDeleting(true); setDeleteError('');
+    try {
+      await request(`/risk-zones/${deleteTarget.id_zona}`, { method: 'DELETE' });
+      if (editing?.id_zona === deleteTarget.id_zona) reset();
+      setZones((items) => items.filter((zone) => zone.id_zona !== deleteTarget.id_zona));
+      setDeleteTarget(null);
+      showToast('Zona de riesgo eliminada.');
+      await load();
+    } catch (requestError) { setDeleteError(requestError.message || 'No se pudo eliminar la zona de riesgo.'); }
+    finally { setDeleting(false); }
+  };
   const approve = async (candidate) => { setDraft(candidate.polygon_json); setForm({ ...emptyForm, nombre: candidate.nombre, descripcion: candidate.descripcion, nivel_riesgo: candidate.nivel_riesgo, tipo_riesgo: candidate.tipo_riesgo, color: riskZoneColor(candidate.nivel_riesgo), radio_proximidad_metros: candidate.radio_proximidad_metros }); setEditing({ candidate_key: candidate.candidate_key, dynamic: true }); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   const saveDynamic = async (event) => { if (!editing?.dynamic) return save(event); event.preventDefault(); setSaving(true); try { await request('/risk-zones/dynamic/approve', { method: 'POST', body: JSON.stringify({ candidate_key: editing.candidate_key, ...form, polygon_json: draft, opacidad: Number(form.opacidad), radio_proximidad_metros: Number(form.radio_proximidad_metros) }) }); showToast('Zona dinamica aprobada y persistida.'); reset(); await load(); } catch (requestError) { setError(requestError.message); } finally { setSaving(false); } };
   return <div className="space-y-5">
@@ -79,5 +95,16 @@ export default function AdminRiskZones({ embedded = false }) {
       {loading ? <p className="mt-4 text-sm text-slate-500">Cargando zonas...</p> : <div className="mt-4 space-y-2">{visible.map((zone) => <article key={zone.id_zona} className="flex flex-col gap-3 rounded-xl border border-slate-200 p-3 md:flex-row md:items-center md:justify-between dark:border-[#4A4A50]"><div><p className="font-bold">{zone.nombre} <span className="ml-1 rounded-full px-2 py-0.5 text-[10px]" style={{ background: `${zone.color}22`, color: zone.color }}>{formatLabel(zone.nivel_riesgo)}</span></p><p className="text-xs text-slate-500 dark:text-slate-300">{formatLabel(zone.tipo_riesgo)} · {formatLabel(zone.estado)} · {zone.polygon_json?.length || 0} vértices</p></div><div className="flex gap-2"><button onClick={() => startEdit(zone)} className="min-h-10 rounded-xl border border-purple-200 px-3 text-xs font-bold text-purple-800">Editar</button><button onClick={() => toggle(zone)} className="min-h-10 rounded-xl border border-amber-200 px-3 text-xs font-bold text-amber-800">{zone.estado === 'ACTIVA' ? 'Desactivar' : 'Activar'}</button><button onClick={() => remove(zone)} className="min-h-10 rounded-xl border border-red-200 px-3 text-xs font-bold text-red-700">Eliminar</button></div></article>)}{!visible.length && <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500 dark:bg-[#242428]">No hay zonas que coincidan con el filtro.</p>}</div>}</section>
     <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-[#4A4A50] dark:bg-[#2B2B2F]"><h3 className="font-black">Candidatos dinamicos</h3><p className="mt-1 text-xs text-slate-500 dark:text-slate-300">Se calculan en memoria a partir de reportes recientes y alertas SOS; no se guardan hasta su aprobacion.</p><div className="mt-3 space-y-2">{dynamic.map((candidate) => <article key={candidate.candidate_key} className="flex items-center justify-between gap-3 rounded-xl border border-orange-200 bg-orange-50 p-3"><div><p className="text-sm font-bold">{candidate.nombre} · {candidate.nivel_riesgo}</p><p className="text-xs text-slate-600">{candidate.evidence.reportes} reportes y {candidate.evidence.sos} SOS</p></div><button onClick={() => approve(candidate)} className="min-h-10 rounded-xl bg-purple-900 px-3 text-xs font-bold text-white">Revisar / aprobar</button></article>)}{!dynamic.length && <p className="rounded-xl bg-slate-50 p-3 text-xs text-slate-500 dark:bg-[#242428]">No existen candidatos dinamicos vigentes.</p>}</div></section>
     {statistics && <section className="grid gap-3 md:grid-cols-3"><article className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-[#4A4A50] dark:bg-[#2B2B2F]"><p className="text-xs font-bold text-slate-500">SOS registrados</p><p className="mt-2 text-3xl font-black text-red-600">{statistics.total_sos}</p></article><article className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-[#4A4A50] dark:bg-[#2B2B2F]"><p className="text-xs font-bold text-slate-500">Sector con mas incidentes</p><p className="mt-2 text-sm font-black">{statistics.sectores_mas_peligrosos?.[0]?.sector || 'Sin datos'}</p><p className="text-xs text-slate-500">{statistics.sectores_mas_peligrosos?.[0]?.incidentes || 0} incidente(s)</p></article><article className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-[#4A4A50] dark:bg-[#2B2B2F]"><p className="text-xs font-bold text-slate-500">Ultimo periodo con datos</p><p className="mt-2 text-sm font-black">{statistics.incidentes_por_mes?.[0]?.periodo || 'Sin datos'}</p><p className="text-xs text-slate-500">{statistics.incidentes_por_mes?.[0]?.incidentes || 0} incidente(s)</p></article></section>}
+    <ConfirmDialog
+      open={Boolean(deleteTarget)}
+      title="Eliminar zona de riesgo"
+      message={deleteTarget ? <span>Eliminarás permanentemente <strong>{deleteTarget.nombre}</strong> ({formatLabel(deleteTarget.nivel_riesgo)}). Esta acción no se puede deshacer.</span> : ''}
+      confirmText="Eliminar zona"
+      busy={deleting}
+      danger
+      error={deleteError}
+      onClose={() => { if (!deleting) { setDeleteTarget(null); setDeleteError(''); } }}
+      onConfirm={() => remove()}
+    />
   </div>;
 }

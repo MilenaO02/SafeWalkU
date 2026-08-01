@@ -44,7 +44,7 @@ export default function MainLayout() {
   const handleSwitchRole = () => {
     if (!canSwitchRole) return;
     // Solo cambia de vista: el rol guardado y el JWT permanecen intactos.
-    navigate(user?.rol === 'ADMINISTRADOR' ? '/app' : '/admin');
+    navigate(isAdminRoute ? '/app' : '/admin');
   };
 
   // ----------------------------------------------------

@@ -26,6 +26,7 @@ class UbicacionRepository {
             LEFT JOIN coordenada c ON c.id_ubicacion = u.id_ubicacion
             LEFT JOIN lugarseguro l ON l.id_ubicacion = u.id_ubicacion
             LEFT JOIN servicioemergencia s ON s.id_ubicacion = u.id_ubicacion
+            WHERE u.estado_registro = 'ACTIVO'
             GROUP BY u.id_ubicacion, u.nombre, u.direccion, u.ciudad, u.radio_metros, u.tipo_zona,
                      c.id_coordenada, c.latitud, c.longitud, c.verificada, c.fuente
             ORDER BY u.nombre
@@ -46,7 +47,8 @@ class UbicacionRepository {
              INNER JOIN coordenada c ON c.id_ubicacion = u.id_ubicacion
              LEFT JOIN lugarseguro l ON l.id_ubicacion = u.id_ubicacion
              LEFT JOIN servicioemergencia s ON s.id_ubicacion = u.id_ubicacion
-             WHERE (l.id_lugar_seguro IS NOT NULL OR s.id_servicio IS NOT NULL)
+             WHERE u.estado_registro = 'ACTIVO'
+               AND (l.id_lugar_seguro IS NOT NULL OR s.id_servicio IS NOT NULL)
                AND c.verificada = 1
                AND (u.nombre LIKE ? OR u.direccion LIKE ? OR l.nombre LIKE ? OR s.nombre LIKE ?)
              GROUP BY u.id_ubicacion, c.latitud, c.longitud, c.verificada, c.fuente
@@ -114,6 +116,39 @@ class UbicacionRepository {
             );
             await connection.commit();
             return newId;
+        } catch (error) {
+            await connection.rollback();
+            throw error;
+        } finally {
+            connection.release();
+        }
+    }
+
+    async getDeleteImpact(id: number): Promise<RowDataPacket & { estado_registro: string; relaciones: RowDataPacket }> {
+        const [locations] = await pool.query<RowDataPacket[]>("SELECT id_ubicacion, nombre, tipo_zona, estado_registro FROM ubicacion WHERE id_ubicacion = ?", [id]);
+        if (!locations[0]) throw new Error("Ubicacion no encontrada");
+        const [counts] = await pool.query<RowDataPacket[]>(`
+            SELECT
+              (SELECT COUNT(*) FROM coordenada WHERE id_ubicacion = ?) AS coordenadas,
+              (SELECT COUNT(*) FROM reporte WHERE id_ubicacion = ?) AS reportes,
+              (SELECT COUNT(*) FROM ruta_ubicacion WHERE id_ubicacion = ?) AS rutas,
+              (SELECT COUNT(*) FROM lugarseguro WHERE id_ubicacion = ?) AS lugares_seguros,
+              (SELECT COUNT(*) FROM servicioemergencia WHERE id_ubicacion = ?) AS servicios_emergencia,
+              (SELECT COUNT(*) FROM auditoria_coordenada WHERE id_ubicacion = ?) AS auditorias
+        `, [id, id, id, id, id, id]);
+        return { ...(locations[0] as RowDataPacket), estado_registro: String(locations[0].estado_registro), relaciones: counts[0] };
+    }
+
+    async deactivate(id: number) {
+        const connection = await pool.getConnection();
+        try {
+            await connection.beginTransaction();
+            const impact = await this.getDeleteImpact(id);
+            if (impact.estado_registro === "INACTIVO") throw new Error("Ubicacion no encontrada");
+            const [result] = await connection.query<ResultSetHeader>("UPDATE ubicacion SET estado_registro = 'INACTIVO' WHERE id_ubicacion = ? AND estado_registro = 'ACTIVO'", [id]);
+            if (!result.affectedRows) throw new Error("Ubicacion no encontrada");
+            await connection.commit();
+            return impact;
         } catch (error) {
             await connection.rollback();
             throw error;

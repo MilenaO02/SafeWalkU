@@ -16,6 +16,10 @@ export default function EditorUbicaciones() {
   const [searchQuery, setSearchQuery] = useState('');
   const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteImpact, setDeleteImpact] = useState(null);
+  const [deleteError, setDeleteError] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -189,10 +193,46 @@ export default function EditorUbicaciones() {
     }
   };
 
+  const requestDelete = async (location) => {
+    setDeleteTarget(location);
+    setDeleteImpact(null);
+    setDeleteError('');
+    try {
+      const response = await request(`/ubicaciones/${location.id_ubicacion}/dependencias`);
+      setDeleteImpact(response.data || null);
+    } catch (error) {
+      setDeleteError(error.message || 'No se pudieron revisar las relaciones de la ubicación.');
+    }
+  };
+
+  const remove = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      await request(`/ubicaciones/${deleteTarget.id_ubicacion}`, { method: 'DELETE' });
+      setLocations((items) => items.filter((item) => item.id_ubicacion !== deleteTarget.id_ubicacion));
+      setDeleteTarget(null);
+      setDeleteImpact(null);
+      showToast('Ubicación desactivada. Se conserva su historial relacionado.');
+    } catch (error) {
+      setDeleteError(error.message || 'No fue posible desactivar la ubicación.');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const currentLat = Number(form.latitud);
   const currentLng = Number(form.longitud);
   const hasValidPoint = Number.isFinite(currentLat) && Number.isFinite(currentLng);
   const currentPoint = hasValidPoint ? [currentLat, currentLng] : fallbackCenter;
+  const deleteMessage = deleteTarget ? (
+    <span>
+      La ubicación <strong>{deleteTarget.nombre}</strong> ({formatLabel(deleteTarget.tipo_zona || deleteTarget.tipo || 'GENERAL')}) dejará de mostrarse en los listados activos.
+      {!deleteImpact && !deleteError && <span className="mt-2 block">Revisando sus relaciones antes de permitir la desactivación…</span>}
+      {deleteImpact && <span className="mt-2 block">Relaciones preservadas: {Object.entries(deleteImpact.relaciones || {}).filter(([, value]) => Number(value) > 0).map(([key, value]) => `${key}: ${value}`).join(' · ') || 'ninguna'}.</span>}
+    </span>
+  ) : '';
 
   return (
     <div className="space-y-5">
@@ -392,7 +432,7 @@ export default function EditorUbicaciones() {
                 <td className="p-3 text-slate-600">{item.direccion}</td>
                 <td className="p-3 font-mono text-slate-500">{item.latitud ?? '—'}</td>
                 <td className="p-3 font-mono text-slate-500">{item.longitud ?? '—'}</td>
-                <td className="p-3 text-right">
+                <td className="p-3 text-right"><div className="flex justify-end gap-2">
                   <button
                     type="button"
                     onClick={() => openEdit(item)}
@@ -400,7 +440,8 @@ export default function EditorUbicaciones() {
                   >
                     Editar ubicación
                   </button>
-                </td>
+                  <button type="button" onClick={() => requestDelete(item)} className="rounded-xl border border-red-200 px-3 py-1.5 text-xs font-bold text-red-700 hover:bg-red-50">Eliminar</button>
+                </div></td>
               </tr>
             ))}
           </tbody>
@@ -415,6 +456,18 @@ export default function EditorUbicaciones() {
         busy={saving}
         onClose={() => setConfirmOpen(false)}
         onConfirm={save}
+      />
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Eliminar ubicación"
+        message={deleteMessage}
+        confirmText="Eliminar ubicación"
+        busy={deleting}
+        confirmDisabled={!deleteImpact || Boolean(deleteError)}
+        danger
+        error={deleteError}
+        onClose={() => { if (!deleting) { setDeleteTarget(null); setDeleteImpact(null); setDeleteError(''); } }}
+        onConfirm={remove}
       />
     </div>
   );

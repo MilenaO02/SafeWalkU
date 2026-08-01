@@ -8,7 +8,9 @@ export default function ConfirmDialog({
   confirmText = 'Aceptar',
   cancelText = 'Cancelar',
   busy = false,
+  confirmDisabled = false,
   danger = false,
+  error = '',
   onConfirm,
   onClose
 }) {
@@ -30,6 +32,7 @@ export default function ConfirmDialog({
         <DialogContentText id="confirm-dialog-description" className="dark:text-slate-300">
           {message}
         </DialogContentText>
+        {error && <p role="alert" className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">{error}</p>}
       </DialogContent>
       <DialogActions sx={{ padding: '12px 24px 20px', gap: 1 }}>
         <Button onClick={onClose} disabled={busy} color="inherit" sx={{ minHeight: 44, fontWeight: 700 }}>
@@ -37,7 +40,7 @@ export default function ConfirmDialog({
         </Button>
         <Button
           onClick={onConfirm}
-          disabled={busy}
+          disabled={busy || confirmDisabled}
           variant="contained"
           color={danger ? 'error' : 'secondary'}
           sx={{ minHeight: 44, fontWeight: 800 }}

@@ -86,7 +86,8 @@ try {
         "008_reconcile_legacy_schema.sql",
         "009_remove_demo_data.sql",
         "010_authorize_dual_role_admin.sql",
-        "011_add_route_endpoint_metadata.sql"
+        "011_add_route_endpoint_metadata.sql",
+        "014_add_location_lifecycle.sql"
     ]) {
         const sql = await readFile(resolve(import.meta.dirname, `../db/migrations/${migration}`), "utf8");
         const migrationSql = sql.replace(/^USE\s+`?safewalku`?;/im, "");

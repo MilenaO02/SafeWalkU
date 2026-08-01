@@ -9,7 +9,9 @@ const router = Router();
 
 router.get("/", auth, ubicacionController.getAll);
 router.get("/buscar", auth, ubicacionController.search);
+router.get("/:id/dependencias", auth, authorize("ADMINISTRADOR"), ubicacionController.getDependencies);
 router.post("/", auth, authorize("ADMINISTRADOR"), validate(createLocationSchema), ubicacionController.create);
 router.put("/:id/coordenadas", auth, authorize("ADMINISTRADOR"), validate(updateLocationSchema), ubicacionController.updateCoordinates);
+router.delete("/:id", auth, authorize("ADMINISTRADOR"), ubicacionController.remove);
 
 export default router;

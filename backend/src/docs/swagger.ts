@@ -350,6 +350,8 @@ const swaggerSpec = {
         },
         "/ubicaciones": { get: locationGet },
         "/ubicaciones/buscar": { get: locationSearch },
+        "/ubicaciones/{id}/dependencias": { get: operation("Revisar relaciones antes de desactivar ubicacion", { tags: ["Ubicaciones"], roles: ["ADMINISTRADOR"], parameters: idParameter, responses: { 200: response("Relaciones de la ubicacion"), ...errors(400, 401, 403, 404, 500) } }) },
+        "/ubicaciones/{id}": { delete: operation("Desactivar ubicacion sin borrar su historial", { tags: ["Ubicaciones"], roles: ["ADMINISTRADOR"], parameters: idParameter, responses: { 200: response("Ubicacion desactivada"), ...errors(400, 401, 403, 404, 500) } }) },
         "/ubicaciones/{id}/coordenadas": { put: operation("Corregir ubicacion y coordenadas", { tags: ["Ubicaciones"], roles: ["ADMINISTRADOR"], parameters: idParameter, requestBody: jsonBody({ $ref: "#/components/schemas/LocationUpdateRequest" }), responses: { 200: response("Ubicacion actualizada"), ...errors(400, 401, 403, 404, 422, 500) } }) },
         "/locations": { get: locationGet },
         "/locations/buscar": { get: locationSearch },

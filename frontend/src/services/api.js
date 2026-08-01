@@ -79,9 +79,12 @@ export async function request(path, options = {}) {
 }
 
 export function buildAssetUrl(path) {
-  if (!path) return '';
-  if (path.startsWith('http://') || path.startsWith('https://')) return path;
-  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  if (typeof path !== 'string' || !path.trim()) return '';
+  const assetPath = path.trim();
+  if (/^https?:\/\//i.test(assetPath)) return assetPath;
+  if (/^[a-z]:[\\/]|^\/(home|var|private)\//i.test(assetPath)) return '';
+  const withoutApiPrefix = assetPath.replace(/^\/?api\//i, '');
+  const normalizedPath = withoutApiPrefix.startsWith('/') ? withoutApiPrefix : `/${withoutApiPrefix}`;
   const serverBase = API_BASE_URL.replace(/\/api$/, '');
   return `${serverBase}${normalizedPath}`;
 }

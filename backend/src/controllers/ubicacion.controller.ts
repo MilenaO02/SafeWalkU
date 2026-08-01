@@ -42,8 +42,8 @@ class UbicacionController {
 
     async getDependencies(req: Request, res: Response) {
         try {
-            const impact = await ubicacionService.getDeleteImpact(Number(req.params.id));
-            return res.json({ success: true, data: impact });
+            await ubicacionService.getDeleteImpact(Number(req.params.id));
+            return res.json({ success: true, data: { canDeactivate: true } });
         } catch (error) {
             const message = error instanceof Error ? error.message : "Error al revisar relaciones";
             return res.status(message === "Ubicacion no encontrada" ? 404 : 400).json({ success: false, message });
@@ -52,8 +52,8 @@ class UbicacionController {
 
     async remove(req: Request, res: Response) {
         try {
-            const result = await ubicacionService.remove(Number(req.params.id));
-            return res.json({ success: true, message: "Ubicacion desactivada correctamente", data: result });
+            await ubicacionService.remove(Number(req.params.id));
+            return res.json({ success: true, message: "Ubicacion desactivada correctamente" });
         } catch (error) {
             const message = error instanceof Error ? error.message : "Error al desactivar ubicacion";
             return res.status(message === "Ubicacion no encontrada" ? 404 : 400).json({ success: false, message });

@@ -13,6 +13,7 @@ export default function NotificationHistory() {
   const [error, setError] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const [selectedMedia, setSelectedMedia] = useState(null);
+  const [unavailableEvidence, setUnavailableEvidence] = useState(() => new Set());
   const [registryFilter, setRegistryFilter] = useState('ACTIVOS');
   const [pendingArchive, setPendingArchive] = useState(null);
 
@@ -92,15 +93,19 @@ export default function NotificationHistory() {
           <div className="flex flex-wrap gap-2">
             {report.evidencias.map((ev) => {
               const fullUrl = buildAssetUrl(ev.url_archivo);
+              const evidenceUnavailable = !fullUrl || unavailableEvidence.has(ev.id_evidencia);
               return (
                 <button
                   type="button"
                   key={ev.id_evidencia}
-                  onClick={() => setSelectedMedia({ url: fullUrl, type: ev.tipo_archivo })}
-                  className="group relative h-20 w-20 cursor-pointer overflow-hidden rounded-xl border border-slate-300/80 bg-black/5 shadow-sm transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-purple-600"
+                  onClick={() => { if (!evidenceUnavailable) setSelectedMedia({ id: ev.id_evidencia, url: fullUrl, type: ev.tipo_archivo }); }}
+                  disabled={evidenceUnavailable}
+                  className="group relative h-20 w-20 overflow-hidden rounded-xl border border-slate-300/80 bg-black/5 shadow-sm transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-purple-600 disabled:cursor-default disabled:hover:scale-100"
                 >
-                  {ev.tipo_archivo === 'IMAGEN' ? (
-                    <img src={fullUrl} alt="Evidencia" className="h-full w-full object-cover" />
+                  {evidenceUnavailable ? (
+                    <span className="flex h-full w-full items-center justify-center px-2 text-center text-[10px] font-bold text-slate-500 dark:text-slate-300">Evidencia no disponible</span>
+                  ) : ev.tipo_archivo === 'IMAGEN' ? (
+                    <img src={fullUrl} alt="Evidencia" onError={() => setUnavailableEvidence((current) => new Set(current).add(ev.id_evidencia))} className="h-full w-full object-cover" />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center bg-slate-900 text-white">
                       <span className="material-symbols-outlined text-2xl">play_circle</span>
@@ -150,9 +155,9 @@ export default function NotificationHistory() {
             <span className="material-symbols-outlined text-xl">close</span>
           </button>
           {selectedMedia.type === 'IMAGEN' ? (
-            <img src={selectedMedia.url} alt="Evidencia en tamaño real" className="max-h-[80vh] max-w-full rounded-xl object-contain" />
+            <img src={selectedMedia.url} alt="Evidencia en tamaño real" onError={() => { setUnavailableEvidence((current) => new Set(current).add(selectedMedia.id)); setSelectedMedia(null); }} className="max-h-[80vh] max-w-full rounded-xl object-contain" />
           ) : (
-            <video src={selectedMedia.url} controls autoPlay className="max-h-[80vh] max-w-full rounded-xl" />
+            <video src={selectedMedia.url} controls autoPlay onError={() => { setUnavailableEvidence((current) => new Set(current).add(selectedMedia.id)); setSelectedMedia(null); }} className="max-h-[80vh] max-w-full rounded-xl" />
           )}
         </div>
       </div>

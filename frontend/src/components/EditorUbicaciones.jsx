@@ -200,8 +200,8 @@ export default function EditorUbicaciones() {
     try {
       const response = await request(`/ubicaciones/${location.id_ubicacion}/dependencias`);
       setDeleteImpact(response.data || null);
-    } catch (error) {
-      setDeleteError(error.message || 'No se pudieron revisar las relaciones de la ubicación.');
+    } catch {
+      setDeleteError('No se pudo comprobar si esta ubicación puede eliminarse. Inténtalo nuevamente.');
     }
   };
 
@@ -215,8 +215,8 @@ export default function EditorUbicaciones() {
       setDeleteTarget(null);
       setDeleteImpact(null);
       showToast('Ubicación desactivada. Se conserva su historial relacionado.');
-    } catch (error) {
-      setDeleteError(error.message || 'No fue posible desactivar la ubicación.');
+    } catch {
+      setDeleteError('No se puede eliminar esta ubicación en este momento. Inténtalo nuevamente.');
     } finally {
       setDeleting(false);
     }
@@ -228,9 +228,8 @@ export default function EditorUbicaciones() {
   const currentPoint = hasValidPoint ? [currentLat, currentLng] : fallbackCenter;
   const deleteMessage = deleteTarget ? (
     <span>
-      La ubicación <strong>{deleteTarget.nombre}</strong> ({formatLabel(deleteTarget.tipo_zona || deleteTarget.tipo || 'GENERAL')}) dejará de mostrarse en los listados activos.
-      {!deleteImpact && !deleteError && <span className="mt-2 block">Revisando sus relaciones antes de permitir la desactivación…</span>}
-      {deleteImpact && <span className="mt-2 block">Relaciones preservadas: {Object.entries(deleteImpact.relaciones || {}).filter(([, value]) => Number(value) > 0).map(([key, value]) => `${key}: ${value}`).join(' · ') || 'ninguna'}.</span>}
+      La ubicación <strong>{deleteTarget.nombre}</strong> dejará de mostrarse en los listados activos.
+      <span className="mt-2 block">Los datos relacionados se conservarán para mantener el historial del sistema.</span>
     </span>
   ) : '';
 

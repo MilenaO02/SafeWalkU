@@ -24,6 +24,8 @@ if [[ ! "$GOOGLE_MAPS_KEY" =~ ^[A-Za-z0-9_-]+$ || ! "$GOOGLE_MAPS_MAP_ID" =~ ^[A
 fi
 npm run build
 printf "window.__SAFEWALK_CONFIG__ = Object.assign(window.__SAFEWALK_CONFIG__ || {}, { googleMapsApiKey: '%s', googleMapsMapId: '%s' });\\n" "$GOOGLE_MAPS_KEY" "$GOOGLE_MAPS_MAP_ID" > dist/map-config.js
+node --check dist/map-config.js
+grep -q "googleMapsApiKey" dist/map-config.js
 
 echo "[2/4] Publicando archivos compilados..."
 sudo mkdir -p "$TARGET_DIR/assets"

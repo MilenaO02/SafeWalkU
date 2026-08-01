@@ -20,7 +20,9 @@ backend/.env.*
 !.env.example
 
 # Configuración y credenciales de despliegue (nunca versionar)
-frontend/public/map-config.js
+# El archivo base no contiene secretos y evita que Nginx devuelva index.html
+# cuando todavía no se ha inyectado la configuración de producción.
+!frontend/public/map-config.js
 frontend/dist/map-config.js
 *.pem
 *.p12

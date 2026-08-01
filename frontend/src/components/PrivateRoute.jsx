@@ -35,7 +35,13 @@ export default function PrivateRoute({ children, requiredRole = null }) {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
-  if (requiredRole && !hasRole(requiredRole)) {
+  // Administrators may use the student-facing views without changing their
+  // session or JWT. Administrative paths keep their separate guard below.
+  const hasRequiredRole = requiredRole === 'ESTUDIANTE'
+    ? hasRole('ESTUDIANTE') || isAdmin
+    : !requiredRole || hasRole(requiredRole);
+
+  if (!hasRequiredRole) {
     return <Navigate to="/403" replace state={{ from: location }} />;
   }
 

@@ -57,16 +57,13 @@ export default function GestionUsuarios() {
     setError(null);
 
     try {
-      let nextUser = item;
       let message;
 
       if (action === 'reactivate') {
         await request(`/users/${item.id_usuario}/reactivate`, { method: 'PATCH' });
-        nextUser = { ...item, estado: 'ACTIVO' };
         message = 'Usuario reactivado correctamente.';
       } else if (action === 'deactivate') {
         await request(`/users/${item.id_usuario}`, { method: 'DELETE' });
-        nextUser = { ...item, estado: 'INACTIVO' };
         message = 'Usuario desactivado correctamente.';
       } else {
         const requestedRole = action === 'grant-admin' ? 'ADMINISTRADOR' : 'ESTUDIANTE';
@@ -74,15 +71,14 @@ export default function GestionUsuarios() {
           method: 'PATCH',
           body: JSON.stringify({ rol: requestedRole })
         });
-        nextUser = { ...item, ...(response.data || {}), rol: requestedRole };
         message = response.message || (requestedRole === 'ADMINISTRADOR'
           ? 'Usuario convertido en administrador correctamente.'
           : 'Privilegios de administrador retirados correctamente.');
       }
 
-      setUsers((items) => items.map((candidate) => (
-        candidate.id_usuario === item.id_usuario ? nextUser : candidate
-      )));
+      // Refresca la lista desde la API para mostrar el valor que realmente
+      // quedó persistido en MySQL, sin depender de estado optimista local.
+      await loadUsers();
       showToast(message);
     } catch (actionError) {
       setError(actionError.message);

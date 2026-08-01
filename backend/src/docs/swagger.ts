@@ -216,15 +216,29 @@ const swaggerSpec = {
                     observacion: { type: "string", maxLength: 255 }
                 }
             },
+            RouteEndpoint: {
+                type: "object", additionalProperties: false,
+                required: ["nombre", "latitud", "longitud", "fuente"],
+                properties: {
+                    nombre: { type: "string", minLength: 1, maxLength: 150 },
+                    direccion: { type: "string", maxLength: 255 },
+                    latitud: { type: "number", minimum: -90, maximum: 90 },
+                    longitud: { type: "number", minimum: -180, maximum: 180 },
+                    place_id: { type: "string", maxLength: 255 },
+                    fuente: { type: "string", enum: ["GOOGLE_PLACES", "GPS", "MAP_CLICK"] }
+                }
+            },
             RouteRequest: {
                 type: "object", additionalProperties: false,
-                required: ["nombre_ruta", "nivel_seguridad", "tiempo_estimado", "ubicaciones", "puntos"],
+                required: ["nombre_ruta", "nivel_seguridad", "tiempo_estimado", "puntos"],
                 properties: {
                     nombre_ruta: { type: "string", minLength: 3, maxLength: 100 }, descripcion: { type: "string", maxLength: 255 },
                     nivel_seguridad: { type: "string", enum: ["BAJO", "MEDIO", "ALTO"] },
                     tiempo_estimado: { type: "integer", minimum: 1, maximum: 1440 },
                     ubicaciones: { type: "array", minItems: 2, maxItems: 50, uniqueItems: true, items: { type: "integer", minimum: 1 } },
-                    puntos: { type: "array", minItems: 2, maxItems: 500, items: { $ref: "#/components/schemas/RoutePoint" } }
+                    puntos: { type: "array", minItems: 2, maxItems: 500, items: { $ref: "#/components/schemas/RoutePoint" } },
+                    origen: { $ref: "#/components/schemas/RouteEndpoint" }, destino: { $ref: "#/components/schemas/RouteEndpoint" },
+                    fuente_trazado: { type: "string", enum: ["GOOGLE_ROUTES"] }, distancia_m: { type: "integer", minimum: 1 }, duracion_segundos: { type: "integer", minimum: 1 }
                 }
             },
             RouteUpdateRequest: {
@@ -234,7 +248,9 @@ const swaggerSpec = {
                     nivel_seguridad: { type: "string", enum: ["BAJO", "MEDIO", "ALTO"] },
                     tiempo_estimado: { type: "integer", minimum: 1, maximum: 1440 },
                     ubicaciones: { type: "array", minItems: 2, maxItems: 50, uniqueItems: true, items: { type: "integer", minimum: 1 } },
-                    puntos: { type: "array", minItems: 2, maxItems: 500, items: { $ref: "#/components/schemas/RoutePoint" } }
+                    puntos: { type: "array", minItems: 2, maxItems: 500, items: { $ref: "#/components/schemas/RoutePoint" } },
+                    origen: { $ref: "#/components/schemas/RouteEndpoint" }, destino: { $ref: "#/components/schemas/RouteEndpoint" },
+                    fuente_trazado: { type: "string", enum: ["GOOGLE_ROUTES"] }, distancia_m: { type: "integer", minimum: 1 }, duracion_segundos: { type: "integer", minimum: 1 }
                 }
             },
             LocationUpdateRequest: {

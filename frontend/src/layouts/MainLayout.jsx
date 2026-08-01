@@ -25,11 +25,11 @@ export default function MainLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const isAdminRoute = location.pathname.startsWith('/admin');
-  const { user, logout, switchRole, showToast } = useAuth();
+  const { user, logout, showToast } = useAuth();
 
   const [mapConfig, setMapConfig] = useState(defaultMapConfig);
   const { isDarkMode, toggle: toggleDarkMode } = useDarkMode();
-  const [isSwitchingRole, setIsSwitchingRole] = useState(false);
+  const isSwitchingRole = false;
 
   const availableRoles = user?.roles || [user?.rol].filter(Boolean);
   const canSwitchRole = availableRoles.includes('ESTUDIANTE') && availableRoles.includes('ADMINISTRADOR');
@@ -41,21 +41,10 @@ export default function MainLayout() {
     navigate('/login');
   };
 
-  const handleSwitchRole = async () => {
-    if (!canSwitchRole || isSwitchingRole) return;
-
-    const targetRole = user?.rol === 'ADMINISTRADOR' ? 'ESTUDIANTE' : 'ADMINISTRADOR';
-    setIsSwitchingRole(true);
-    try {
-      await switchRole(targetRole);
-      // La recarga inicia AuthContext desde el JWT recién almacenado y evita
-      // que las guardas evalúen el rol nuevo contra la ruta anterior.
-      window.location.replace(targetRole === 'ADMINISTRADOR' ? '/admin' : '/app');
-    } catch (error) {
-      showToast(error.message || 'No fue posible cambiar el modo de acceso', 'error');
-    } finally {
-      setIsSwitchingRole(false);
-    }
+  const handleSwitchRole = () => {
+    if (!canSwitchRole) return;
+    // Solo cambia de vista: el rol guardado y el JWT permanecen intactos.
+    navigate(user?.rol === 'ADMINISTRADOR' ? '/app' : '/admin');
   };
 
   // ----------------------------------------------------

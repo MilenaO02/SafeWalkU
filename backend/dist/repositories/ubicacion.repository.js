@@ -10,7 +10,7 @@ class UbicacionRepository {
         const [rows] = await pool.query(`
             SELECT u.*, c.latitud, c.longitud, c.verificada, c.fuente,
                    CASE
-                       WHEN COUNT(DISTINCT l.id_lugar_seguro) > 0 THEN 'LUGAR_SEGURO'
+                       WHEN u.tipo_zona = 'LUGAR_SEGURO' AND COUNT(DISTINCT l.id_lugar_seguro) > 0 THEN 'LUGAR_SEGURO'
                        WHEN COUNT(DISTINCT s.id_servicio) > 0 THEN 'SERVICIO_EMERGENCIA'
                        ELSE 'UBICACION_REGISTRADA'
                    END AS categoria,
@@ -31,17 +31,17 @@ class UbicacionRepository {
     async findByQuery(query) {
         const [rows] = await pool.query(`SELECT u.*, c.latitud, c.longitud, c.verificada, c.fuente,
                     CASE
-                        WHEN COUNT(DISTINCT l.id_lugar_seguro) > 0 THEN 'LUGAR_SEGURO'
+                        WHEN u.tipo_zona = 'LUGAR_SEGURO' AND COUNT(DISTINCT l.id_lugar_seguro) > 0 THEN 'LUGAR_SEGURO'
                         ELSE 'SERVICIO_EMERGENCIA'
                     END AS categoria_segura,
-                    COALESCE(MAX(l.descripcion), MAX(s.tipo)) AS detalle_seguridad,
+                    COALESCE(MAX(CASE WHEN u.tipo_zona = 'LUGAR_SEGURO' THEN l.descripcion END), MAX(s.tipo)) AS detalle_seguridad,
                     MAX(s.telefono) AS telefono
              FROM ubicacion u
              INNER JOIN coordenada c ON c.id_ubicacion = u.id_ubicacion
              LEFT JOIN lugarseguro l ON l.id_ubicacion = u.id_ubicacion
              LEFT JOIN servicioemergencia s ON s.id_ubicacion = u.id_ubicacion
              WHERE u.estado_registro = 'ACTIVO'
-               AND (l.id_lugar_seguro IS NOT NULL OR s.id_servicio IS NOT NULL)
+               AND ((u.tipo_zona = 'LUGAR_SEGURO' AND l.id_lugar_seguro IS NOT NULL) OR s.id_servicio IS NOT NULL)
                AND c.verificada = 1
                AND (u.nombre LIKE ? OR u.direccion LIKE ? OR l.nombre LIKE ? OR s.nombre LIKE ?)
              GROUP BY u.id_ubicacion, c.latitud, c.longitud, c.verificada, c.fuente

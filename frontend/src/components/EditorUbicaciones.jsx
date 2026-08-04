@@ -6,6 +6,8 @@ import ConfirmDialog from './ConfirmDialog';
 import { formatLabel } from '../utils/formatLabel';
 
 const fallbackCenter = [-3.97245, -79.19933];
+const parseCoordinate = (value) => Number(String(value ?? '').trim().replace(',', '.'));
+const newSessionToken = () => window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 export default function EditorUbicaciones() {
   const { showToast } = useAuth();
@@ -14,6 +16,10 @@ export default function EditorUbicaciones() {
   const [selectedId, setSelectedId] = useState('');
   const [form, setForm] = useState({ nombre: '', direccion: '', latitud: '', longitud: '', tipo: 'GENERAL' });
   const [searchQuery, setSearchQuery] = useState('');
+  const [placeSuggestions, setPlaceSuggestions] = useState([]);
+  const [placeSearching, setPlaceSearching] = useState(false);
+  const [placeError, setPlaceError] = useState('');
+  const [placeSessionToken, setPlaceSessionToken] = useState(newSessionToken);
   const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -38,6 +44,8 @@ export default function EditorUbicaciones() {
     setSelectedId('new');
     setForm({ nombre: '', direccion: '', latitud: '-3.97245000', longitud: '-79.19933000', tipo: 'CALLE' });
     setSearchQuery('');
+    setPlaceSuggestions([]);
+    setPlaceError('');
     setIsModalOpen(true);
   };
 
@@ -51,6 +59,8 @@ export default function EditorUbicaciones() {
       tipo: location.tipo_zona || location.tipo || 'GENERAL'
     });
     setSearchQuery('');
+    setPlaceSuggestions([]);
+    setPlaceError('');
     setIsModalOpen(true);
   };
 
@@ -105,39 +115,72 @@ export default function EditorUbicaciones() {
     );
   };
 
-  const handleSearchAddress = async (e) => {
-    e.preventDefault();
-    if (!searchQuery.trim()) return;
-    if (window.google?.maps?.Geocoder) {
+  useEffect(() => {
+    const input = searchQuery.trim();
+    if (input.length < 2) {
+      setPlaceSuggestions([]);
+      setPlaceError('');
+      return undefined;
+    }
+    const timer = setTimeout(async () => {
+      setPlaceSearching(true);
+      setPlaceError('');
       try {
-        const geocoder = new window.google.maps.Geocoder();
-        const response = await geocoder.geocode({ address: searchQuery.trim() + ', Loja, Ecuador' });
-        if (response.results?.[0]) {
-          const loc = response.results[0].geometry.location;
-          const lat = loc.lat();
-          const lng = loc.lng();
-          const address = response.results[0].formatted_address;
-          setForm((prev) => ({
-            ...prev,
-            direccion: address,
-            latitud: lat.toFixed(8),
-            longitud: lng.toFixed(8)
-          }));
-          showToast('Ubicación encontrada en el mapa.');
-        } else {
-          showToast('No se encontraron resultados para esa dirección.');
-        }
+        const response = await request('/maps/places/autocomplete', {
+          method: 'POST',
+          body: JSON.stringify({
+            input,
+            includedRegionCodes: ['ec'],
+            languageCode: 'es',
+            regionCode: 'EC',
+            sessionToken: placeSessionToken,
+            locationBias: { circle: { center: { latitude: fallbackCenter[0], longitude: fallbackCenter[1] }, radius: 30000 } }
+          })
+        });
+        setPlaceSuggestions((response.data?.suggestions || []).map((item) => item.placePrediction).filter(Boolean));
       } catch {
-        showToast('Error al buscar en Google Places/Geocoder.');
+        setPlaceSuggestions([]);
+        setPlaceError('No fue posible consultar lugares en este momento. Inténtalo nuevamente.');
+      } finally {
+        setPlaceSearching(false);
       }
-    } else {
-      showToast('API de Google Maps no lista para realizar búsqueda.');
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchQuery, placeSessionToken]);
+
+  const selectPlace = async (prediction) => {
+    setPlaceSearching(true);
+    setPlaceError('');
+    try {
+      const response = await request('/maps/places/details', {
+        method: 'POST',
+        body: JSON.stringify({ place: prediction.place, sessionToken: placeSessionToken, languageCode: 'es' })
+      });
+      const place = response.data;
+      const lat = Number(place?.location?.latitude);
+      const lng = Number(place?.location?.longitude);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) throw new Error('invalid_location');
+      const name = place.displayName?.text || prediction.structuredFormat?.mainText?.text || prediction.text?.text || '';
+      setForm((current) => ({ ...current, nombre: current.nombre || name, direccion: place.formattedAddress || current.direccion, latitud: lat.toFixed(8), longitud: lng.toFixed(8) }));
+      setSearchQuery(name);
+      setPlaceSuggestions([]);
+      setPlaceSessionToken(newSessionToken());
+      showToast('Ubicación encontrada en Google Places.');
+    } catch {
+      setPlaceError('No fue posible consultar lugares en este momento. Inténtalo nuevamente.');
+    } finally {
+      setPlaceSearching(false);
     }
   };
 
+  const handleSearchAddress = (event) => {
+    event.preventDefault();
+    if (placeSuggestions[0]) selectPlace(placeSuggestions[0]);
+  };
+
   const validate = () => {
-    const lat = Number(form.latitud);
-    const lng = Number(form.longitud);
+    const lat = parseCoordinate(form.latitud);
+    const lng = parseCoordinate(form.longitud);
     if (!Number.isFinite(lat) || lat < -90 || lat > 90) return 'La latitud debe estar entre -90 y 90.';
     if (!Number.isFinite(lng) || lng < -180 || lng > 180) return 'La longitud debe estar entre -180 y 180.';
     if (form.nombre.trim().length < 3) return 'El nombre debe tener al menos 3 caracteres.';
@@ -157,8 +200,8 @@ export default function EditorUbicaciones() {
 
   const save = async () => {
     setSaving(true);
-    const latNum = Number(form.latitud);
-    const lngNum = Number(form.longitud);
+    const latNum = parseCoordinate(form.latitud);
+    const lngNum = parseCoordinate(form.longitud);
 
     try {
       if (selectedId === 'new') {
@@ -266,7 +309,7 @@ export default function EditorUbicaciones() {
                   {/* Google Places Search */}
                   <form onSubmit={handleSearchAddress} className="rounded-2xl border border-slate-200 bg-white p-3">
                     <label className="block text-xs font-bold text-slate-700">Buscar dirección (Google Places)</label>
-                    <div className="mt-1.5 flex gap-2">
+                    <div className="relative mt-1.5 flex gap-2">
                       <input
                         type="text"
                         placeholder="Ej. Av. Universitaria..."
@@ -274,10 +317,12 @@ export default function EditorUbicaciones() {
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="min-h-10 w-full rounded-xl border border-slate-200 px-3 text-xs"
                       />
-                      <button type="submit" className="rounded-xl bg-purple-900 px-3 text-xs font-bold text-white">
-                        Buscar
+                      <button type="submit" disabled={placeSearching || placeSuggestions.length === 0} className="rounded-xl bg-purple-900 px-3 text-xs font-bold text-white disabled:opacity-50">
+                        {placeSearching ? 'Buscando…' : 'Usar'}
                       </button>
+                      {placeSuggestions.length > 0 && <ul className="absolute left-0 top-full z-30 mt-1 max-h-48 w-[calc(100%-4.5rem)] overflow-auto rounded-xl border border-slate-200 bg-white shadow-xl">{placeSuggestions.map((item) => <li key={item.placeId}><button type="button" onClick={() => selectPlace(item)} className="w-full border-b border-slate-100 px-3 py-2 text-left text-xs hover:bg-purple-50"><strong>{item.structuredFormat?.mainText?.text || item.text?.text}</strong><span className="block text-slate-500">{item.structuredFormat?.secondaryText?.text || ''}</span></button></li>)}</ul>}
                     </div>
+                    {placeError && <p role="alert" className="mt-2 text-xs font-semibold text-red-700">{placeError}</p>}
                   </form>
 
                   <form onSubmit={requestSave} className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-5">
@@ -325,12 +370,10 @@ export default function EditorUbicaciones() {
                         Latitud
                         <input
                           required
-                          type="number"
-                          step="any"
-                          min="-90"
-                          max="90"
+                          type="text"
+                          inputMode="decimal"
                           value={form.latitud}
-                          onChange={(e) => setForm((v) => ({ ...v, latitud: e.target.value }))}
+                          onChange={(e) => { const value = e.target.value.replace(',', '.'); if (/^-?\d*(\.\d*)?$/.test(value)) setForm((v) => ({ ...v, latitud: value })); }}
                           className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-2 text-xs"
                         />
                       </label>
@@ -338,12 +381,10 @@ export default function EditorUbicaciones() {
                         Longitud
                         <input
                           required
-                          type="number"
-                          step="any"
-                          min="-180"
-                          max="180"
+                          type="text"
+                          inputMode="decimal"
                           value={form.longitud}
-                          onChange={(e) => setForm((v) => ({ ...v, longitud: e.target.value }))}
+                          onChange={(e) => { const value = e.target.value.replace(',', '.'); if (/^-?\d*(\.\d*)?$/.test(value)) setForm((v) => ({ ...v, longitud: value })); }}
                           className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-2 text-xs"
                         />
                       </label>

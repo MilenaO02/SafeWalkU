@@ -58,7 +58,7 @@ class UbicacionRepository {
         return rows;
     }
 
-    async updateCoordinates(id: number, data: { nombre: string; direccion: string; latitud: number; longitud: number }, adminUserId: number) {
+    async updateCoordinates(id: number, data: { nombre: string; direccion: string; latitud: number; longitud: number; tipo?: string }, adminUserId: number) {
         const connection = await pool.getConnection();
         try {
             await connection.beginTransaction();
@@ -67,8 +67,8 @@ class UbicacionRepository {
                 [id]
             );
             const [result] = await connection.query<ResultSetHeader>(
-                "UPDATE ubicacion SET nombre = ?, direccion = ? WHERE id_ubicacion = ?",
-                [data.nombre, data.direccion, id]
+                "UPDATE ubicacion SET nombre = ?, direccion = ?, tipo_zona = COALESCE(?, tipo_zona) WHERE id_ubicacion = ?",
+                [data.nombre, data.direccion, data.tipo ?? null, id]
             );
             if (!result.affectedRows) throw new Error("Ubicacion no encontrada");
             await connection.query(`

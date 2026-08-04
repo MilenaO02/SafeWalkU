@@ -257,7 +257,8 @@ const swaggerSpec = {
                 type: "object", additionalProperties: false, required: ["nombre", "direccion", "latitud", "longitud"],
                 properties: {
                     nombre: { type: "string", minLength: 3, maxLength: 100 }, direccion: { type: "string", minLength: 3, maxLength: 255 },
-                    latitud: { type: "number", minimum: -90, maximum: 90 }, longitud: { type: "number", minimum: -180, maximum: 180 }
+                    latitud: { type: "number", minimum: -90, maximum: 90 }, longitud: { type: "number", minimum: -180, maximum: 180 },
+                    tipo: { type: "string", enum: ["GENERAL", "UNIVERSIDAD", "CALLE", "PARQUE", "BARRIO", "PARADERO", "LUGAR_SEGURO", "SERVICIO_EMERGENCIA"] }
                 }
             },
             AdministratorRoleRequest: {

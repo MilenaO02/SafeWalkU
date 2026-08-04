@@ -13,7 +13,7 @@ class UbicacionService {
         return ubicacionRepository.findByQuery(normalized);
     }
 
-    async updateCoordinates(id: number, data: { nombre: string; direccion: string; latitud: number; longitud: number }, adminUserId: number) {
+    async updateCoordinates(id: number, data: { nombre: string; direccion: string; latitud: number; longitud: number; tipo?: string }, adminUserId: number) {
         if (!Number.isInteger(id) || id < 1) throw new Error("ID de ubicacion invalido");
         if (!Number.isInteger(adminUserId) || adminUserId < 1) throw new Error("Administrador inválido");
         await ubicacionRepository.updateCoordinates(id, data, adminUserId);

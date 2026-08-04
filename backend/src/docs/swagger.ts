@@ -216,6 +216,17 @@ const swaggerSpec = {
                     observacion: { type: "string", maxLength: 255 }
                 }
             },
+            PasswordResetRequest: {
+                type: "object", additionalProperties: false, required: ["correo"],
+                properties: { correo: { type: "string", format: "email", pattern: "@uide\\.edu\\.ec$" } }
+            },
+            PasswordResetConfirm: {
+                type: "object", additionalProperties: false, required: ["token", "contrasena"],
+                properties: {
+                    token: { type: "string", description: "Token de un solo uso recibido por correo" },
+                    contrasena: { type: "string", format: "password", minLength: 8, maxLength: 72, description: "Debe incluir minuscula, mayuscula y numero" }
+                }
+            },
             RouteEndpoint: {
                 type: "object", additionalProperties: false,
                 required: ["nombre", "latitud", "longitud", "fuente"],
@@ -289,6 +300,8 @@ const swaggerSpec = {
         "/health": { get: operation("Comprobar API y MySQL", { tags: ["Salud"], public: true, responses: { 200: response("API en linea y estado de MySQL"), 503: response("MySQL no disponible"), ...errors(500) } }) },
         "/auth/register": { post: operation("Registrar estudiante institucional", { tags: ["Autenticacion"], public: true, requestBody: jsonBody({ $ref: "#/components/schemas/RegisterRequest" }), responses: { 201: response("Usuario registrado"), ...errors(400, 409, 422, 429, 500) } }) },
         "/auth/login": { post: operation("Iniciar sesion", { tags: ["Autenticacion"], public: true, requestBody: jsonBody({ $ref: "#/components/schemas/LoginRequest" }), responses: { 200: response("Sesion iniciada", { $ref: "#/components/schemas/AuthResponse" }), ...errors(400, 401, 422, 429, 500) } }) },
+        "/auth/password-reset/request": { post: operation("Solicitar enlace de recuperacion", { tags: ["Autenticacion"], public: true, requestBody: jsonBody({ $ref: "#/components/schemas/PasswordResetRequest" }), responses: { 200: response("Solicitud procesada"), ...errors(422, 429, 503, 500) } }) },
+        "/auth/password-reset/confirm": { post: operation("Restablecer contrasena con token", { tags: ["Autenticacion"], public: true, requestBody: jsonBody({ $ref: "#/components/schemas/PasswordResetConfirm" }), responses: { 200: response("Contrasena actualizada"), ...errors(400, 422, 429, 500) } }) },
         "/auth/switch-role": { post: operation("Cambiar el modo activo de una cuenta con acceso dual", { tags: ["Autenticacion"], roles: ["ESTUDIANTE", "ADMINISTRADOR"], requestBody: jsonBody({ $ref: "#/components/schemas/SwitchRoleRequest" }), responses: { 200: response("Modo cambiado y JWT renovado", { $ref: "#/components/schemas/AuthResponse" }), ...errors(401, 403, 422, 500) } }) },
         "/users": { get: operation("Listar usuarios activos y desactivados", { tags: ["Usuarios"], roles: ["ADMINISTRADOR"], responses: { 200: response("Usuarios"), ...errors(401, 403, 500) } }) },
         "/users/me": {

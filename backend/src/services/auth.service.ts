@@ -4,6 +4,9 @@ import repository from "../repositories/user.repository.js";
 import type { UserRole } from "../repositories/user.repository.js";
 import { isValidUideEmail } from "../middleware/validateDomain.js";
 import { getJwtSecret } from "../config/security.js";
+import { createHash, randomBytes } from "node:crypto";
+import passwordResetRepository from "../repositories/password-reset.repository.js";
+import emailService from "./email.service.js";
 
 export class InvalidCredentialsError extends Error {
     constructor() {
@@ -23,6 +26,20 @@ export class RoleNotAllowedError extends Error {
     constructor() {
         super("El modo solicitado no está autorizado para esta cuenta");
         this.name = "RoleNotAllowedError";
+    }
+}
+
+export class PasswordResetUnavailableError extends Error {
+    constructor() {
+        super("El servicio de recuperacion no esta disponible. Contacta a Soporte TI.");
+        this.name = "PasswordResetUnavailableError";
+    }
+}
+
+export class InvalidPasswordResetTokenError extends Error {
+    constructor() {
+        super("El enlace de recuperacion es invalido o ya vencio");
+        this.name = "InvalidPasswordResetTokenError";
     }
 }
 
@@ -131,6 +148,41 @@ class AuthService {
             token: this.createToken(usuario, requestedRole),
             usuario: this.withoutPassword(usuario, requestedRole, roles)
         };
+    }
+
+    async requestPasswordReset(correo: string) {
+        if (!emailService.isConfigured()) {
+            throw new PasswordResetUnavailableError();
+        }
+
+        const normalizedCorreo = correo.trim().toLowerCase();
+        const usuario = await repository.findByEmail(normalizedCorreo);
+        if (!usuario || usuario.estado !== "ACTIVO") {
+            return;
+        }
+
+        const token = randomBytes(32).toString("hex");
+        const tokenHash = createHash("sha256").update(token).digest("hex");
+        const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+        await passwordResetRepository.create(usuario.id_usuario, tokenHash, expiresAt);
+
+        const appUrl = (process.env.APP_URL || "https://safewalku.online").replace(/\/$/, "");
+        const resetUrl = `${appUrl}/login?reset_token=${token}`;
+        try {
+            await emailService.sendPasswordResetEmail(usuario.correo, resetUrl);
+        } catch (error) {
+            await passwordResetRepository.revoke(tokenHash);
+            throw new PasswordResetUnavailableError();
+        }
+    }
+
+    async confirmPasswordReset(token: string, contrasena: string) {
+        const tokenHash = createHash("sha256").update(token).digest("hex");
+        const passwordHash = await bcrypt.hash(contrasena, 12);
+        const updated = await passwordResetRepository.consumeAndUpdatePassword(tokenHash, passwordHash);
+        if (!updated) {
+            throw new InvalidPasswordResetTokenError();
+        }
     }
 }
 

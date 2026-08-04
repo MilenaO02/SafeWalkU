@@ -10,6 +10,8 @@ import auth from "../middleware/auth.js";
 import {
     registerSchema,
     loginSchema,
+    passwordResetConfirmSchema,
+    passwordResetRequestSchema,
     switchRoleSchema
 } from "../schemas/auth.schema.js";
 
@@ -59,6 +61,9 @@ validateDomain,
 controller.login
 
 );
+
+router.post("/password-reset/request", authRateLimiter, validate(passwordResetRequestSchema), controller.requestPasswordReset);
+router.post("/password-reset/confirm", authRateLimiter, validate(passwordResetConfirmSchema), controller.confirmPasswordReset);
 
 /**
  * @swagger

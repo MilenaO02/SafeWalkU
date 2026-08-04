@@ -1,16 +1,21 @@
 let googleMapsPromise = null;
 
+function getRuntimeConfig() {
+  if (typeof window === 'undefined') return {};
+  return window.__SAFEWALK_CONFIG__ || window.SAFEWALK_CONFIG || {};
+}
+
 export function getGoogleMapsApiKey() {
   if (typeof window === 'undefined') return '';
   // La configuración se crea durante el despliegue desde variables de
   // entorno. No se usa import.meta.env para evitar que Vite incruste una
   // clave en los artefactos que puedan quedar versionados.
-  return window.__SAFEWALK_CONFIG__?.googleMapsApiKey || '';
+  return getRuntimeConfig().googleMapsApiKey || '';
 }
 
 export function getGoogleMapsMapId() {
   if (typeof window === 'undefined') return 'DEMO_MAP_ID';
-  return window.__SAFEWALK_CONFIG__?.googleMapsMapId || 'DEMO_MAP_ID';
+  return getRuntimeConfig().googleMapsMapId || 'DEMO_MAP_ID';
 }
 
 async function loadLibraries() {

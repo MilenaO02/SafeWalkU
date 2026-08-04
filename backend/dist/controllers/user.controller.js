@@ -194,5 +194,26 @@ class UserController {
             res.status(500).json({ success: false, message: error.message });
         }
     }
+    async deleteFoto(req, res) {
+        try {
+            const id = Number(req.params.id);
+            if (!Number.isInteger(id) || id < 1) {
+                return res.status(400).json({ success: false, message: "ID de usuario inválido" });
+            }
+            const currentUser = await service.getById(id);
+            if (!currentUser) {
+                return res.status(404).json({ success: false, message: "Usuario no encontrado" });
+            }
+            const usuario = await service.updateFotoPerfil(id, null);
+            if (currentUser.foto_perfil?.startsWith("/uploads/perfil-")) {
+                const previousPath = currentUser.foto_perfil.replace(/^\/uploads\//, "");
+                await fs.promises.unlink(`uploads/${previousPath}`).catch(() => undefined);
+            }
+            return res.status(200).json({ success: true, message: "Foto de perfil eliminada.", data: usuario });
+        }
+        catch (error) {
+            return res.status(500).json({ success: false, message: error.message || "No fue posible eliminar la foto de perfil." });
+        }
+    }
 }
 export default new UserController();

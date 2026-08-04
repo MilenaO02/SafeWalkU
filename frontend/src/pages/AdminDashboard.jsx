@@ -41,17 +41,17 @@ export default function AdminDashboardContent() {
   };
 
   const cards = [
-    ['description', 'Reportes activos', metrics.totalReportes, 'bg-purple-50 text-purple-900'],
-    ['emergency', 'SOS pendientes', metrics.sosActivos, 'bg-red-50 text-red-700'],
-    ['route', 'Rutas de riesgo', metrics.rutasRiesgo, 'bg-amber-50 text-amber-800'],
-    ['group', 'Usuarios activos', metrics.usuariosRegistrados, 'bg-blue-50 text-blue-800'],
+    ['description', 'Reportes activos', metrics.totalReportes, 'bg-gradient-to-br from-purple-600 to-fuchsia-500 text-white shadow-purple-500/25'],
+    ['emergency', 'SOS pendientes', metrics.sosActivos, 'bg-gradient-to-br from-rose-600 to-orange-500 text-white shadow-rose-500/25'],
+    ['route', 'Rutas de riesgo', metrics.rutasRiesgo, 'bg-gradient-to-br from-amber-500 to-lime-500 text-white shadow-amber-500/25'],
+    ['group', 'Usuarios activos', metrics.usuariosRegistrados, 'bg-gradient-to-br from-cyan-600 to-blue-600 text-white shadow-cyan-500/25'],
   ];
 
   return <div className="space-y-6">
-    <div><h2 className="text-xl font-black text-purple-950 dark:text-purple-100 md:text-2xl">Dashboard de seguridad</h2><p className="mt-1 text-sm text-slate-500 dark:text-slate-300">Sesión de {user?.nombre} {user?.apellido}. Datos actuales de SafeWalk U.</p></div>
+    <div className="rounded-3xl border border-white/70 bg-white/70 p-5 shadow-sm shadow-cyan-950/5 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/30"><p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-700 dark:text-cyan-200">Centro de control</p><h2 className="mt-1 text-xl font-black text-purple-950 dark:text-purple-100 md:text-2xl">Dashboard de seguridad</h2><p className="mt-1 text-sm text-slate-500 dark:text-slate-300">Sesion de {user?.nombre} {user?.apellido}. Datos actuales de SafeWalk U.</p></div>
     {status === 'loading' && <p className="rounded-2xl bg-white p-5 text-sm text-slate-500 dark:bg-[#2B2B2F]">Cargando indicadores…</p>}
     {error && <div role="alert" className="flex items-center justify-between gap-3 rounded-2xl bg-red-50 p-4 text-sm text-red-700"><span>{error}</span><button onClick={load} className="min-h-11 rounded-xl border border-red-200 px-4 font-bold">Reintentar</button></div>}
-    <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">{cards.map(([icon, label, value, color]) => <article key={label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-[#4A4A50] dark:bg-[#2B2B2F]"><span className={`material-symbols-outlined rounded-xl p-2 ${color}`}>{icon}</span><p className="mt-3 text-2xl font-black text-slate-900 dark:text-white">{value}</p><p className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-300">{label}</p></article>)}</section>
+    <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">{cards.map(([icon, label, value, color]) => <article key={label} className="rounded-3xl border border-white/70 bg-white/80 p-4 shadow-sm shadow-cyan-950/5 backdrop-blur-xl transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-cyan-950/10 dark:border-white/10 dark:bg-slate-950/35"><span className={`material-symbols-outlined rounded-2xl p-2 shadow-lg ${color}`}>{icon}</span><p className="mt-3 text-2xl font-black text-slate-900 dark:text-white">{value}</p><p className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-300">{label}</p></article>)}</section>
     <section className="grid gap-4 lg:grid-cols-2">
       <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-[#4A4A50] dark:bg-[#2B2B2F]"><h3 className="text-sm font-black text-slate-900 dark:text-white">Alertas SOS pendientes ({activeSos.length})</h3><div className="mt-4 space-y-3">
         {activeSos.map((report) => {

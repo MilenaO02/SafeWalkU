@@ -124,11 +124,19 @@ export default function MapaInteractivo({
         gmpClickable: Boolean(item.desc || item.title),
         gmpDraggable: Boolean(item.draggable)
       };
-      if (gmaps.marker.PinElement && (item.kind === 'user' || item.kind === 'editable')) {
+      if (gmaps.marker.PinElement && ['user', 'editable', 'safe', 'support', 'selected-safe-place'].includes(item.kind)) {
+        const pinColor = item.kind === 'editable'
+          ? '#7e22ce'
+          : item.kind === 'user'
+            ? '#2563eb'
+            : item.kind === 'support'
+              ? '#dc2626'
+              : '#10b981';
         options.content = new gmaps.marker.PinElement({
-          background: item.kind === 'editable' ? '#7e22ce' : '#2563eb',
+          background: pinColor,
           borderColor: '#ffffff',
-          glyphColor: '#ffffff'
+          glyphColor: '#ffffff',
+          glyph: item.kind === 'selected-safe-place' ? 'S' : undefined
         });
       }
       const marker = new AdvancedMarkerElement(options);

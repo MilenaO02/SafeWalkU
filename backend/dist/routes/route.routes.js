@@ -11,7 +11,7 @@ const router = Router();
  *   name: Rutas
  *   description: Gestión de rutas seguras
  */
-router.get("/trazar", auth, controller.trazarRuta);
+router.get("/trazar", controller.trazarRuta);
 router.get("/", auth, authorize("ESTUDIANTE", "ADMINISTRADOR"), controller.getAll);
 router.get("/:id", auth, authorize("ESTUDIANTE", "ADMINISTRADOR"), controller.getById);
 router.post("/", auth, authorize("ADMINISTRADOR"), validate(createRouteSchema), controller.create);

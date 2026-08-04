@@ -4,7 +4,7 @@ import validate from "../middleware/validate.js";
 import validateDomain from "../middleware/validateDomain.js";
 import authRateLimiter from "../middleware/authRateLimiter.js";
 import auth from "../middleware/auth.js";
-import { registerSchema, loginSchema, switchRoleSchema } from "../schemas/auth.schema.js";
+import { registerSchema, loginSchema, passwordResetConfirmSchema, passwordResetRequestSchema, switchRoleSchema } from "../schemas/auth.schema.js";
 const router = Router();
 /**
  * @swagger
@@ -28,6 +28,8 @@ router.post("/register", authRateLimiter, validate(registerSchema), validateDoma
  *     tags: [Auth]
  */
 router.post("/login", authRateLimiter, validate(loginSchema), validateDomain, controller.login);
+router.post("/password-reset/request", authRateLimiter, validate(passwordResetRequestSchema), controller.requestPasswordReset);
+router.post("/password-reset/confirm", authRateLimiter, validate(passwordResetConfirmSchema), controller.confirmPasswordReset);
 /**
  * @swagger
  * /auth/switch-role:

@@ -281,13 +281,13 @@ export default function EditorUbicaciones() {
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-black text-purple-950 md:text-2xl">Editor de ubicaciones</h2>
-          <p className="mt-1 text-sm text-slate-500">Administra lugares seguros, servicios de emergencia y puntos clave del mapa.</p>
+          <p className="mt-1 text-sm text-slate-500">Define que lugares son seguros y administra servicios de emergencia y puntos clave del mapa.</p>
         </div>
         <button
           onClick={openNew}
           className="whitespace-nowrap rounded-xl bg-purple-900 px-5 py-2.5 text-sm font-bold text-white shadow hover:bg-purple-950"
         >
-          + Nueva ubicación
+          + Nuevo lugar
         </button>
       </header>
 
@@ -349,20 +349,21 @@ export default function EditorUbicaciones() {
                     </label>
 
                     <label className="block text-xs font-bold text-slate-700">
-                      Tipo de Ubicación
+                      Clasificacion del lugar
                       <select
                         value={form.tipo}
                         onChange={(e) => setForm((v) => ({ ...v, tipo: e.target.value }))}
                         className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 text-sm"
                       >
+                        <option value="LUGAR_SEGURO">Lugar Seguro</option>
                         <option value="CALLE">General / Calle</option>
                         <option value="UNIVERSIDAD">Universidad</option>
                         <option value="PARQUE">Parque</option>
                         <option value="BARRIO">Barrio</option>
                         <option value="PARADERO">Paradero</option>
-                        <option value="LUGAR_SEGURO">Lugar Seguro</option>
                         <option value="SERVICIO_EMERGENCIA">Servicio de Emergencia</option>
                       </select>
+                      {form.tipo === 'LUGAR_SEGURO' && <span className="mt-2 flex items-start gap-2 rounded-xl bg-emerald-50 p-3 text-[11px] font-semibold leading-relaxed text-emerald-800"><span className="material-symbols-outlined text-[16px]">verified_user</span>Este lugar se mostrara en Contactos de apoyo y podra marcarse en el mapa.</span>}
                     </label>
 
                     <div className="grid grid-cols-2 gap-2">

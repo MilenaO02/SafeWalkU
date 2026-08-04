@@ -20,23 +20,56 @@ const tracedPoints = z.array(routePoint)
         }
     }
 });
+const routeEndpoint = z.object({
+    nombre: z.string().trim().min(1).max(150),
+    direccion: z.string().trim().max(255).optional().default(""),
+    latitud: z.number().min(-90).max(90),
+    longitud: z.number().min(-180).max(180),
+    place_id: z.string().trim().max(255).optional(),
+    fuente: z.enum(["GOOGLE_PLACES", "GPS", "MAP_CLICK"])
+}).strict();
 const routeFields = {
     nombre_ruta: z.string().trim().min(3).max(100),
     descripcion: z.string().trim().max(255).optional(),
     nivel_seguridad: z.enum(["BAJO", "MEDIO", "ALTO"]),
     tiempo_estimado: z.number().int().positive().max(1440),
-    ubicaciones: orderedLocations,
-    puntos: tracedPoints
+    ubicaciones: orderedLocations.optional(),
+    puntos: tracedPoints,
+    origen: routeEndpoint.optional(),
+    destino: routeEndpoint.optional(),
+    fuente_trazado: z.literal("GOOGLE_ROUTES").optional(),
+    distancia_m: z.number().int().positive().max(2000000).optional(),
+    duracion_segundos: z.number().int().positive().max(172800).optional()
 };
-export const createRouteSchema = z.object(routeFields).strict();
+export const createRouteSchema = z.object(routeFields).strict().superRefine((data, context) => {
+    const externalEndpoints = Boolean(data.origen || data.destino);
+    if (externalEndpoints && (!data.origen || !data.destino)) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: "Debe indicar origen y destino completos.", path: ["origen"] });
+    }
+    if (!externalEndpoints && !data.ubicaciones?.length) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: "Debe indicar origen y destino de la ruta." });
+    }
+});
 export const updateRouteSchema = z.object({
     nombre_ruta: routeFields.nombre_ruta.optional(),
     descripcion: routeFields.descripcion,
     nivel_seguridad: routeFields.nivel_seguridad.optional(),
     tiempo_estimado: routeFields.tiempo_estimado.optional(),
     ubicaciones: routeFields.ubicaciones.optional(),
-    puntos: routeFields.puntos.optional()
-}).strict().refine((data) => Object.keys(data).length > 0, "Debe enviar al menos un campo");
+    puntos: routeFields.puntos.optional(),
+    origen: routeFields.origen,
+    destino: routeFields.destino,
+    fuente_trazado: routeFields.fuente_trazado,
+    distancia_m: routeFields.distancia_m,
+    duracion_segundos: routeFields.duracion_segundos
+}).strict().superRefine((data, context) => {
+    if ((data.origen && !data.destino) || (!data.origen && data.destino)) {
+        context.addIssue({ code: z.ZodIssueCode.custom, path: ["origen"], message: "Debe indicar origen y destino completos." });
+    }
+    if (Object.keys(data).length === 0) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: "Debe enviar al menos un campo" });
+    }
+});
 // ─────────────────────────────────────────────────────────────────────────────
 // traceRouteQuerySchema
 //

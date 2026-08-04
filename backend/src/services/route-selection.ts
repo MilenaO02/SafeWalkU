@@ -3,19 +3,22 @@ export type RouteCandidate = {
     duration_min: number;
     duration_seconds?: number;
     distance_m: number;
-    safety: { score: number; crossed_risk_zones: number };
+    safety: { score: number; crossed_risk_zones: number; blocked_by_risk_zone?: boolean };
 };
 
 export function selectRouteAlternatives<T extends RouteCandidate>(evaluated: T[]) {
     if (!evaluated.length) throw new Error('No existen alternativas de ruta para seleccionar');
-    const sortedBySafety = [...evaluated].sort((a, b) => b.safety.score - a.safety.score || a.duration_min - b.duration_min);
+    const allowed = evaluated.filter((route) => !route.safety.blocked_by_risk_zone);
+    const hasAllowedRecommendation = allowed.length > 0;
+    const recommendationPool = hasAllowedRecommendation ? allowed : evaluated;
+    const sortedBySafety = [...recommendationPool].sort((a, b) => b.safety.score - a.safety.score || a.duration_min - b.duration_min);
     const secondsOf = (route: RouteCandidate) => route.duration_seconds ?? route.duration_min * 60;
     const sortedByTime = [...evaluated].sort((a, b) => secondsOf(a) - secondsOf(b) || a.distance_m - b.distance_m);
     const recommended = sortedBySafety[0];
     const fastest = sortedByTime[0];
     const sameRoute = fastest === recommended;
 
-    recommended.label = sameRoute ? 'RECOMENDADA_MAS_RAPIDA' : 'RECOMENDADA';
+    recommended.label = hasAllowedRecommendation ? (sameRoute ? 'RECOMENDADA_MAS_RAPIDA' : 'RECOMENDADA') : 'NO_RECOMENDADA';
     if (!sameRoute) fastest.label = 'MAS_RAPIDA';
 
     return {

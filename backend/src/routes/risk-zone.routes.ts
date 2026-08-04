@@ -8,10 +8,10 @@ import { approveDynamicRiskZoneSchema, createRiskZoneSchema, updateRiskZoneSchem
 
 const router = Router();
 const writeLimit = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: 'draft-7', legacyHeaders: false });
-router.get('/', auth, controller.list);
+router.get('/', controller.list);
 router.get('/dynamic', auth, authorize('ADMINISTRADOR'), controller.dynamic);
 router.get('/statistics', auth, authorize('ADMINISTRADOR'), controller.statistics);
-router.get('/heatmap', auth, controller.heatmap);
+router.get('/heatmap', controller.heatmap);
 router.post('/dynamic/approve', auth, authorize('ADMINISTRADOR'), writeLimit, validate(approveDynamicRiskZoneSchema), controller.approve);
 router.get('/:id', auth, controller.get);
 router.post('/', auth, authorize('ADMINISTRADOR'), writeLimit, validate(createRiskZoneSchema), controller.create);

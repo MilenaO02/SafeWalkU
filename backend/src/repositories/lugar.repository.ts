@@ -7,7 +7,8 @@ class LugarRepository {
              FROM lugarseguro l
              LEFT JOIN ubicacion u ON l.id_ubicacion = u.id_ubicacion
              LEFT JOIN coordenada c ON c.id_ubicacion = u.id_ubicacion
-             ORDER BY l.id_lugar_seguro DESC`
+             WHERE u.estado_registro = 'ACTIVO' AND u.tipo_zona = 'LUGAR_SEGURO'
+             ORDER BY u.nombre ASC`
         );
         return rows;
     }

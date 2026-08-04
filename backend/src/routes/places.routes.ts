@@ -1,6 +1,5 @@
 import { Router } from "express";
 import controller from "../controllers/places.controller.js";
-import auth from "../middleware/auth.js";
 import rateLimit from "express-rate-limit";
 
 /**
@@ -17,8 +16,8 @@ const placesLimiter = rateLimit({
 
 const router = Router();
 
-// All routes require authentication so anonymous users can't use the proxy
-router.post("/autocomplete", auth, placesLimiter, controller.autocomplete);
-router.post("/details", auth, placesLimiter, controller.details);
+// Public autocomplete/details keep the API key server-side and are protected by rate limit.
+router.post("/autocomplete", placesLimiter, controller.autocomplete);
+router.post("/details", placesLimiter, controller.details);
 
 export default router;

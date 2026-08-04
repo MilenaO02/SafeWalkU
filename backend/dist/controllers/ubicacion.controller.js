@@ -38,5 +38,25 @@ class UbicacionController {
             return res.status(400).json({ success: false, message });
         }
     }
+    async getDependencies(req, res) {
+        try {
+            await ubicacionService.getDeleteImpact(Number(req.params.id));
+            return res.json({ success: true, data: { canDeactivate: true } });
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : "Error al revisar relaciones";
+            return res.status(message === "Ubicacion no encontrada" ? 404 : 400).json({ success: false, message });
+        }
+    }
+    async remove(req, res) {
+        try {
+            await ubicacionService.remove(Number(req.params.id));
+            return res.json({ success: true, message: "Ubicacion desactivada correctamente" });
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : "Error al desactivar ubicacion";
+            return res.status(message === "Ubicacion no encontrada" ? 404 : 400).json({ success: false, message });
+        }
+    }
 }
 export default new UbicacionController();

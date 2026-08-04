@@ -164,26 +164,7 @@ INSERT INTO servicioemergencia (id_servicio, nombre, tipo, telefono, id_ubicacio
 (21,'Punto ECU 911 Loja','POLICIA','911',14),
 (22,'Cruz Roja Loja','HOSPITAL','131',14);
 
-INSERT INTO lugarseguro (id_lugar_seguro, nombre, descripcion, id_ubicacion) VALUES
-(2,'Biblioteca UIDE','Espacio seguro dentro del campus',4),
-(3,'UPC Jipiro','Unidad policial cercana',8),
-(4,'Hospital Isidro Ayora','Atención médica cercana',9),
-(5,'Bomberos Norte','Apoyo en emergencias',10),
-(6,'Parque Jipiro iluminado','Zona pública con presencia ciudadana',7),
-(7,'Entrada principal UIDE','Punto de control institucional',2),
-(8,'Parque Central','Zona con alta circulación',14),
-(9,'Terminal Terrestre','Lugar con vigilancia y transporte',15),
-(10,'Centro Médico Loja','Servicio médico cercano',19),
-(11,'UPC Sauces Norte','Unidad policial del sector',12),
-(12,'UPC Motupe','Unidad policial del sector',13),
-(14,'Zona comercial centro','Área con presencia de personas',16),
-(15,'Centro de Salud Norte','Servicio de apoyo médico',22),
-(16,'Bomberos Jipiro','Punto de ayuda inmediata',7),
-(18,'Hospital del Día','Servicio de emergencia cercano',21),
-(19,'Paradero iluminado','Zona de espera con iluminación',6),
-(20,'Acceso biblioteca','Punto interno seguro',4),
-(21,'UPC Las Pitas','Punto de apoyo policial',11),
-(22,'Punto seguro entrada campus','Zona vigilada en la entrada',2);
+-- Los lugares seguros se asignan desde el administrador. No se cargan lugares seguros estaticos.
 
 -- Verificación de cantidad de registros principales
 SELECT 'usuario' AS tabla, COUNT(*) AS total FROM usuario

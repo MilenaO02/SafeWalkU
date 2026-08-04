@@ -151,11 +151,12 @@ class RiskZoneSafetyService {
         return hits;
     }
 
-    merge(base: SafetyEvaluationResult, route: Coordinate[], zones: PolygonRiskZone[]): SafetyEvaluationResult & { polygon_risks: unknown[] } {
+    merge(base: SafetyEvaluationResult, route: Coordinate[], zones: PolygonRiskZone[]): SafetyEvaluationResult & { blocked_by_risk_zone: boolean; polygon_risks: unknown[] } {
         const hits = this.evaluate(route, zones);
+        const crossingHits = hits.filter((item) => item.crosses);
         const penalty = hits.reduce((total, item) => total + riskScoringConfig.polygonPenalty[item.zone.nivel_riesgo], 0);
-        const score = Math.max(0, base.score - penalty);
-        const classification = score >= 75 ? 'SEGURA' : score >= 45 ? 'PRECAUCION' : 'NO_RECOMENDADA';
+        const score = crossingHits.length ? 0 : Math.max(0, base.score - penalty);
+        const classification = crossingHits.length ? 'NO_RECOMENDADA' : score >= 75 ? 'SEGURA' : score >= 45 ? 'PRECAUCION' : 'NO_RECOMENDADA';
         const risk_level = classification === 'SEGURA' ? 'BAJO' : classification === 'PRECAUCION' ? 'MEDIO' : 'ALTO';
         const reasons = hits.length
             ? [...base.reasons, ...hits.map((item) => {
@@ -173,6 +174,7 @@ class RiskZoneSafetyService {
             risk_level,
             crossed_risk_zones: base.crossed_risk_zones + hits.length,
             reasons,
+            blocked_by_risk_zone: crossingHits.length > 0,
             polygon_risks: hits.map((item) => ({
                 id_zona: item.zone.id_zona,
                 nombre: item.zone.nombre,

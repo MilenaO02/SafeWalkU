@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { checkHealth, confirmPasswordReset, login as loginRequest, requestPasswordReset } from '../services/api';
 import { useAuth } from '../context/auth';
 import logoClaro from '../assets/icon_modoclaro.png';
@@ -30,6 +30,7 @@ function Alert({ children, type = 'error' }) {
 
 export default function LoginEstudiante() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login: saveSession, showToast } = useAuth();
   const resetToken = new URLSearchParams(window.location.search).get('reset_token');
   const [mode, setMode] = useState(() => resetToken ? 'confirm' : 'login');
@@ -77,7 +78,7 @@ export default function LoginEstudiante() {
       const usuario = data.usuario ?? {};
       saveSession({ id_usuario: usuario.id_usuario, nombre: usuario.nombre, apellido: usuario.apellido, correo: usuario.correo ?? correo, rol: usuario.rol ?? 'ESTUDIANTE', roles: usuario.roles ?? [usuario.rol ?? 'ESTUDIANTE'], foto_perfil: usuario.foto_perfil ?? null }, data.token, formData.remember ? 'localStorage' : 'sessionStorage');
       showToast('Sesion iniciada correctamente', 'success');
-      navigate(usuario.rol === 'ADMINISTRADOR' ? '/admin' : '/app');
+      navigate(location.state?.from?.pathname || (usuario.rol === 'ADMINISTRADOR' ? '/admin' : '/app'), { replace: true });
     } catch (error) {
       setErrorAlert(error.message || 'No fue posible iniciar sesion.');
     } finally {

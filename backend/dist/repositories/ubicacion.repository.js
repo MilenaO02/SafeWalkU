@@ -1,5 +1,11 @@
 import pool from "../config/database.js";
 class UbicacionRepository {
+    async syncSafePlace(connection, id, data) {
+        await connection.query("DELETE FROM lugarseguro WHERE id_ubicacion = ?", [id]);
+        if (data.tipo === "LUGAR_SEGURO") {
+            await connection.query("INSERT INTO lugarseguro (nombre, descripcion, id_ubicacion) VALUES (?, ?, ?)", [data.nombre, data.direccion, id]);
+        }
+    }
     async findAll() {
         const [rows] = await pool.query(`
             SELECT u.*, c.latitud, c.longitud, c.verificada, c.fuente,
@@ -15,6 +21,7 @@ class UbicacionRepository {
             LEFT JOIN coordenada c ON c.id_ubicacion = u.id_ubicacion
             LEFT JOIN lugarseguro l ON l.id_ubicacion = u.id_ubicacion
             LEFT JOIN servicioemergencia s ON s.id_ubicacion = u.id_ubicacion
+            WHERE u.estado_registro = 'ACTIVO'
             GROUP BY u.id_ubicacion, u.nombre, u.direccion, u.ciudad, u.radio_metros, u.tipo_zona,
                      c.id_coordenada, c.latitud, c.longitud, c.verificada, c.fuente
             ORDER BY u.nombre
@@ -33,7 +40,8 @@ class UbicacionRepository {
              INNER JOIN coordenada c ON c.id_ubicacion = u.id_ubicacion
              LEFT JOIN lugarseguro l ON l.id_ubicacion = u.id_ubicacion
              LEFT JOIN servicioemergencia s ON s.id_ubicacion = u.id_ubicacion
-             WHERE (l.id_lugar_seguro IS NOT NULL OR s.id_servicio IS NOT NULL)
+             WHERE u.estado_registro = 'ACTIVO'
+               AND (l.id_lugar_seguro IS NOT NULL OR s.id_servicio IS NOT NULL)
                AND c.verificada = 1
                AND (u.nombre LIKE ? OR u.direccion LIKE ? OR l.nombre LIKE ? OR s.nombre LIKE ?)
              GROUP BY u.id_ubicacion, c.latitud, c.longitud, c.verificada, c.fuente
@@ -45,7 +53,7 @@ class UbicacionRepository {
         try {
             await connection.beginTransaction();
             const [previousRows] = await connection.query("SELECT latitud, longitud FROM coordenada WHERE id_ubicacion = ? FOR UPDATE", [id]);
-            const [result] = await connection.query("UPDATE ubicacion SET nombre = ?, direccion = ? WHERE id_ubicacion = ?", [data.nombre, data.direccion, id]);
+            const [result] = await connection.query("UPDATE ubicacion SET nombre = ?, direccion = ?, tipo_zona = COALESCE(?, tipo_zona) WHERE id_ubicacion = ?", [data.nombre, data.direccion, data.tipo ?? null, id]);
             if (!result.affectedRows)
                 throw new Error("Ubicacion no encontrada");
             await connection.query(`
@@ -66,6 +74,7 @@ class UbicacionRepository {
                 data.latitud,
                 data.longitud
             ]);
+            await this.syncSafePlace(connection, id, data);
             await connection.commit();
         }
         catch (error) {
@@ -85,8 +94,45 @@ class UbicacionRepository {
             const [result] = await connection.query("INSERT INTO ubicacion (nombre, direccion, ciudad, radio_metros, tipo_zona) VALUES (?, ?, 'Loja', ?, ?)", [data.nombre, data.direccion, data.radio_metros || 50, safeTipoZona]);
             const newId = result.insertId;
             await connection.query(`INSERT INTO coordenada (latitud, longitud, id_ubicacion, verificada, fuente) VALUES (?, ?, ?, 1, 'Editor administrativo SafeWalk U')`, [data.latitud, data.longitud, newId]);
+            await this.syncSafePlace(connection, newId, { ...data, tipo: safeTipoZona });
             await connection.commit();
             return newId;
+        }
+        catch (error) {
+            await connection.rollback();
+            throw error;
+        }
+        finally {
+            connection.release();
+        }
+    }
+    async getDeleteImpact(id) {
+        const [locations] = await pool.query("SELECT id_ubicacion, nombre, tipo_zona, estado_registro FROM ubicacion WHERE id_ubicacion = ?", [id]);
+        if (!locations[0])
+            throw new Error("Ubicacion no encontrada");
+        const [counts] = await pool.query(`
+            SELECT
+              (SELECT COUNT(*) FROM coordenada WHERE id_ubicacion = ?) AS coordenadas,
+              (SELECT COUNT(*) FROM reporte WHERE id_ubicacion = ?) AS reportes,
+              (SELECT COUNT(*) FROM ruta_ubicacion WHERE id_ubicacion = ?) AS rutas,
+              (SELECT COUNT(*) FROM lugarseguro WHERE id_ubicacion = ?) AS lugares_seguros,
+              (SELECT COUNT(*) FROM servicioemergencia WHERE id_ubicacion = ?) AS servicios_emergencia,
+              (SELECT COUNT(*) FROM auditoria_coordenada WHERE id_ubicacion = ?) AS auditorias
+        `, [id, id, id, id, id, id]);
+        return { ...locations[0], estado_registro: String(locations[0].estado_registro), relaciones: counts[0] };
+    }
+    async deactivate(id) {
+        const connection = await pool.getConnection();
+        try {
+            await connection.beginTransaction();
+            const impact = await this.getDeleteImpact(id);
+            if (impact.estado_registro === "INACTIVO")
+                throw new Error("Ubicacion no encontrada");
+            const [result] = await connection.query("UPDATE ubicacion SET estado_registro = 'INACTIVO' WHERE id_ubicacion = ? AND estado_registro = 'ACTIVO'", [id]);
+            if (!result.affectedRows)
+                throw new Error("Ubicacion no encontrada");
+            await connection.commit();
+            return impact;
         }
         catch (error) {
             await connection.rollback();

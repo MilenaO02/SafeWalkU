@@ -76,4 +76,5 @@ router.patch("/:id/administrator", auth, authorize("ADMINISTRADOR"), validate(ad
  *       - bearerAuth: []
  */
 router.put("/:id/foto", auth, authorizeSelfOrAdmin, upload.single("imagen"), controller.uploadFoto);
+router.delete("/:id/foto", auth, authorizeSelfOrAdmin, controller.deleteFoto);
 export default router;

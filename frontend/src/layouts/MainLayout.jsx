@@ -5,8 +5,21 @@ import MapaInteractivo from '../components/MapaInteractivo';
 import { useAuth } from '../context/auth';
 import { MapContext } from '../context/map';
 import { useDarkMode } from '../hooks/useDarkMode';
-import logoClaro from '../assets/icon_modoclaro.png';
-import logoOscuro from '../assets/icon_modooscuro.png';
+function SecurityLogo({ compact = false }) {
+  return (
+    <div className={`flex items-center gap-3 ${compact ? '' : 'justify-center'}`}>
+      <span className={`${compact ? 'h-11 w-11' : 'h-16 w-16'} flex items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 via-cyan-500 to-purple-700 text-white shadow-lg shadow-cyan-900/20 ring-1 ring-white/40 material-symbols-outlined`}>
+        gpp_good
+      </span>
+      {!compact && (
+        <div className="leading-tight">
+          <p className="text-sm font-black text-slate-950 dark:text-white">SafeWalk U</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-cyan-700 dark:text-cyan-200">Admin seguro</p>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // Contexto para sincronizar el Mapa Interactivo en las vistas del estudiante
 
@@ -25,7 +38,7 @@ export default function MainLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const isAdminRoute = location.pathname.startsWith('/admin');
-  const { user, logout, showToast } = useAuth();
+  const { user, logout, showToast, isAuthenticated } = useAuth();
 
   const [mapConfig, setMapConfig] = useState(defaultMapConfig);
   const { isDarkMode, toggle: toggleDarkMode } = useDarkMode();
@@ -51,8 +64,8 @@ export default function MainLayout() {
   // VISTA ADMINISTRADOR
   // ----------------------------------------------------
   if (isAdminRoute) {
-    const activeClass = "bg-purple-100 text-purple-950 border-l-4 border-purple-900 font-bold dark:bg-purple-500/20 dark:text-purple-200 dark:border-purple-400";
-    const inactiveClass = "text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white";
+    const activeClass = "bg-white/85 text-purple-950 ring-1 ring-white/70 shadow-sm font-black dark:bg-white/15 dark:text-white dark:ring-white/10";
+    const inactiveClass = "text-slate-600 hover:bg-white/65 hover:text-purple-950 font-semibold dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white";
 
     const getAdminTitle = () => {
       switch (location.pathname) {
@@ -74,17 +87,11 @@ export default function MainLayout() {
     };
 
     return (
-      <div className="admin-shell flex min-h-screen bg-slate-50 text-slate-800 antialiased font-sans transition-colors dark:bg-[#1A1A1C] dark:text-slate-200">
+      <div className="admin-shell flex min-h-screen bg-[linear-gradient(135deg,#f8fafc_0%,#ecfeff_38%,#f5f3ff_72%,#fff7ed_100%)] text-slate-800 antialiased font-sans transition-colors dark:bg-[linear-gradient(135deg,#111827_0%,#164e63_45%,#312e81_100%)] dark:text-slate-200">
         
         {/* Barra lateral de Administración */}
-        <aside className="fixed left-0 top-0 hidden h-full w-64 bg-white border-r border-slate-200 md:flex flex-col py-6 z-30 shadow-sm transition-all duration-300 dark:bg-[#2B2B2F] dark:border-[#4A4A50]">
-          <div className="px-6 mb-8 flex items-center justify-center">
-            <img 
-              src={isDarkMode ? logoOscuro : logoClaro}
-              alt="SafeWalk Admin Logo" 
-              className="h-24 w-auto object-contain scale-125 drop-shadow-sm transition-all duration-300 mt-4"
-            />
-          </div>
+        <aside className="fixed left-0 top-0 hidden h-full w-64 border-r border-white/60 bg-white/80 backdrop-blur-xl md:flex flex-col py-6 z-30 shadow-xl shadow-cyan-950/10 transition-all duration-300 dark:border-white/10 dark:bg-slate-950/55">
+          <div className="px-6 mb-8 mt-2"><SecurityLogo /></div>
 
           <nav className="flex-1 px-3 space-y-1">
             <Link
@@ -160,7 +167,7 @@ export default function MainLayout() {
         {/* Contenedor de contenido de Administración */}
         <div className="md:ml-64 flex-1 flex flex-col min-h-screen min-w-0">
           {/* Header Superior Administrativo */}
-          <header className="flex justify-between items-center w-full px-4 md:px-8 min-h-16 bg-white border-b border-slate-200 shadow-sm sticky top-0 z-20 dark:bg-[#2B2B2F] dark:border-[#4A4A50]">
+          <header className="flex justify-between items-center w-full px-4 md:px-8 min-h-16 border-b border-white/60 bg-white/75 shadow-sm shadow-cyan-950/5 backdrop-blur-xl sticky top-0 z-20 dark:border-white/10 dark:bg-slate-950/45">
             <h2 className="text-base md:text-xl font-bold text-purple-950 tracking-tight dark:text-purple-200">
               {getAdminTitle()}
             </h2>
@@ -252,11 +259,7 @@ export default function MainLayout() {
         <header className="bg-white dark:bg-[#3C3C40] text-slate-800 dark:text-slate-200 border-b border-slate-200 dark:border-[#222226] shadow-sm flex justify-between items-center w-full px-4 md:px-6 h-16 md:h-20 z-50 flex-shrink-0 transition-colors duration-500">
           <div className="flex items-center">
             <Link to="/app" className="flex items-center hover:opacity-90 mt-1 md:mt-2 ml-1 md:ml-2">
-              <img 
-                src={isDarkMode ? logoOscuro : logoClaro} 
-                alt="SafeWalk U Logo" 
-                className="h-[50px] md:h-[75px] w-auto object-contain scale-110 md:scale-150 origin-left drop-shadow-sm transition-all duration-300"
-              />
+              <SecurityLogo compact />
             </Link>
           </div>
           
@@ -328,14 +331,24 @@ export default function MainLayout() {
             >
               {isDarkMode ? 'light_mode' : 'dark_mode'}
             </button>
-            <button 
-              onClick={handleLogout}
-              aria-label="Cerrar sesión"
-              className="min-h-11 min-w-11 text-xs font-bold text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 bg-red-50 dark:bg-red-500/10 hover:bg-red-100/80 dark:hover:bg-red-500/20 px-2 md:px-2.5 py-1.5 rounded-lg transition-colors flex items-center justify-center gap-1"
-            >
-              <span className="material-symbols-outlined text-[14px]">logout</span>
-              <span className="hidden sm:inline">Salir</span>
-            </button>
+            {isAuthenticated ? (
+              <button 
+                onClick={handleLogout}
+                aria-label="Cerrar sesión"
+                className="min-h-11 min-w-11 text-xs font-bold text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 bg-red-50 dark:bg-red-500/10 hover:bg-red-100/80 dark:hover:bg-red-500/20 px-2 md:px-2.5 py-1.5 rounded-lg transition-colors flex items-center justify-center gap-1"
+              >
+                <span className="material-symbols-outlined text-[14px]">logout</span>
+                <span className="hidden sm:inline">Salir</span>
+              </button>
+            ) : (
+              <Link
+                to="/login"
+                className="min-h-11 min-w-11 text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10 hover:bg-emerald-100/80 dark:hover:bg-emerald-500/20 px-2 md:px-3 py-1.5 rounded-lg transition-colors flex items-center justify-center gap-1"
+              >
+                <span className="material-symbols-outlined text-[16px]">login</span>
+                <span className="hidden sm:inline">Ingresar</span>
+              </Link>
+            )}
           </div>
         </header>
 

@@ -11,6 +11,15 @@ export interface UbicacionRow extends RowDataPacket {
 }
 
 class UbicacionRepository {
+    private async syncSafePlace(connection: any, id: number, data: { nombre: string; direccion: string; tipo?: string }) {
+        await connection.query("DELETE FROM lugarseguro WHERE id_ubicacion = ?", [id]);
+        if (data.tipo === "LUGAR_SEGURO") {
+            await connection.query(
+                "INSERT INTO lugarseguro (nombre, descripcion, id_ubicacion) VALUES (?, ?, ?)",
+                [data.nombre, data.direccion, id]
+            );
+        }
+    }
     async findAll(): Promise<UbicacionRow[]> {
         const [rows] = await pool.query<UbicacionRow[]>(`
             SELECT u.*, c.latitud, c.longitud, c.verificada, c.fuente,
@@ -89,6 +98,7 @@ class UbicacionRepository {
                 data.latitud,
                 data.longitud
             ]);
+            await this.syncSafePlace(connection, id, data);
             await connection.commit();
         } catch (error) {
             await connection.rollback();
@@ -114,6 +124,7 @@ class UbicacionRepository {
                 `INSERT INTO coordenada (latitud, longitud, id_ubicacion, verificada, fuente) VALUES (?, ?, ?, 1, 'Editor administrativo SafeWalk U')`,
                 [data.latitud, data.longitud, newId]
             );
+            await this.syncSafePlace(connection, newId, { ...data, tipo: safeTipoZona });
             await connection.commit();
             return newId;
         } catch (error) {

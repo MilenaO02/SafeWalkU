@@ -22,5 +22,18 @@ class UbicacionService {
         const id = await ubicacionRepository.create(data);
         return (await ubicacionRepository.findAll()).find((location) => location.id_ubicacion === id);
     }
+    async getDeleteImpact(id) {
+        if (!Number.isInteger(id) || id < 1)
+            throw new Error("ID de ubicacion invalido");
+        return ubicacionRepository.getDeleteImpact(id);
+    }
+    async remove(id) {
+        if (!Number.isInteger(id) || id < 1)
+            throw new Error("ID de ubicacion invalido");
+        const impact = await ubicacionRepository.deactivate(id);
+        if (!impact)
+            throw new Error("Ubicacion no encontrada");
+        return impact;
+    }
 }
 export default new UbicacionService();

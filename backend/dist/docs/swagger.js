@@ -196,15 +196,40 @@ const swaggerSpec = {
                     observacion: { type: "string", maxLength: 255 }
                 }
             },
+            PasswordResetRequest: {
+                type: "object", additionalProperties: false, required: ["correo"],
+                properties: { correo: { type: "string", format: "email", pattern: "@uide\\.edu\\.ec$" } }
+            },
+            PasswordResetConfirm: {
+                type: "object", additionalProperties: false, required: ["token", "contrasena"],
+                properties: {
+                    token: { type: "string", description: "Token de un solo uso recibido por correo" },
+                    contrasena: { type: "string", format: "password", minLength: 8, maxLength: 72, description: "Debe incluir minuscula, mayuscula y numero" }
+                }
+            },
+            RouteEndpoint: {
+                type: "object", additionalProperties: false,
+                required: ["nombre", "latitud", "longitud", "fuente"],
+                properties: {
+                    nombre: { type: "string", minLength: 1, maxLength: 150 },
+                    direccion: { type: "string", maxLength: 255 },
+                    latitud: { type: "number", minimum: -90, maximum: 90 },
+                    longitud: { type: "number", minimum: -180, maximum: 180 },
+                    place_id: { type: "string", maxLength: 255 },
+                    fuente: { type: "string", enum: ["GOOGLE_PLACES", "GPS", "MAP_CLICK"] }
+                }
+            },
             RouteRequest: {
                 type: "object", additionalProperties: false,
-                required: ["nombre_ruta", "nivel_seguridad", "tiempo_estimado", "ubicaciones", "puntos"],
+                required: ["nombre_ruta", "nivel_seguridad", "tiempo_estimado", "puntos"],
                 properties: {
                     nombre_ruta: { type: "string", minLength: 3, maxLength: 100 }, descripcion: { type: "string", maxLength: 255 },
                     nivel_seguridad: { type: "string", enum: ["BAJO", "MEDIO", "ALTO"] },
                     tiempo_estimado: { type: "integer", minimum: 1, maximum: 1440 },
                     ubicaciones: { type: "array", minItems: 2, maxItems: 50, uniqueItems: true, items: { type: "integer", minimum: 1 } },
-                    puntos: { type: "array", minItems: 2, maxItems: 500, items: { $ref: "#/components/schemas/RoutePoint" } }
+                    puntos: { type: "array", minItems: 2, maxItems: 500, items: { $ref: "#/components/schemas/RoutePoint" } },
+                    origen: { $ref: "#/components/schemas/RouteEndpoint" }, destino: { $ref: "#/components/schemas/RouteEndpoint" },
+                    fuente_trazado: { type: "string", enum: ["GOOGLE_ROUTES"] }, distancia_m: { type: "integer", minimum: 1 }, duracion_segundos: { type: "integer", minimum: 1 }
                 }
             },
             RouteUpdateRequest: {
@@ -214,14 +239,17 @@ const swaggerSpec = {
                     nivel_seguridad: { type: "string", enum: ["BAJO", "MEDIO", "ALTO"] },
                     tiempo_estimado: { type: "integer", minimum: 1, maximum: 1440 },
                     ubicaciones: { type: "array", minItems: 2, maxItems: 50, uniqueItems: true, items: { type: "integer", minimum: 1 } },
-                    puntos: { type: "array", minItems: 2, maxItems: 500, items: { $ref: "#/components/schemas/RoutePoint" } }
+                    puntos: { type: "array", minItems: 2, maxItems: 500, items: { $ref: "#/components/schemas/RoutePoint" } },
+                    origen: { $ref: "#/components/schemas/RouteEndpoint" }, destino: { $ref: "#/components/schemas/RouteEndpoint" },
+                    fuente_trazado: { type: "string", enum: ["GOOGLE_ROUTES"] }, distancia_m: { type: "integer", minimum: 1 }, duracion_segundos: { type: "integer", minimum: 1 }
                 }
             },
             LocationUpdateRequest: {
                 type: "object", additionalProperties: false, required: ["nombre", "direccion", "latitud", "longitud"],
                 properties: {
                     nombre: { type: "string", minLength: 3, maxLength: 100 }, direccion: { type: "string", minLength: 3, maxLength: 255 },
-                    latitud: { type: "number", minimum: -90, maximum: 90 }, longitud: { type: "number", minimum: -180, maximum: 180 }
+                    latitud: { type: "number", minimum: -90, maximum: 90 }, longitud: { type: "number", minimum: -180, maximum: 180 },
+                    tipo: { type: "string", enum: ["GENERAL", "UNIVERSIDAD", "CALLE", "PARQUE", "BARRIO", "PARADERO", "LUGAR_SEGURO", "SERVICIO_EMERGENCIA"] }
                 }
             },
             AdministratorRoleRequest: {
@@ -252,6 +280,8 @@ const swaggerSpec = {
         "/health": { get: operation("Comprobar API y MySQL", { tags: ["Salud"], public: true, responses: { 200: response("API en linea y estado de MySQL"), 503: response("MySQL no disponible"), ...errors(500) } }) },
         "/auth/register": { post: operation("Registrar estudiante institucional", { tags: ["Autenticacion"], public: true, requestBody: jsonBody({ $ref: "#/components/schemas/RegisterRequest" }), responses: { 201: response("Usuario registrado"), ...errors(400, 409, 422, 429, 500) } }) },
         "/auth/login": { post: operation("Iniciar sesion", { tags: ["Autenticacion"], public: true, requestBody: jsonBody({ $ref: "#/components/schemas/LoginRequest" }), responses: { 200: response("Sesion iniciada", { $ref: "#/components/schemas/AuthResponse" }), ...errors(400, 401, 422, 429, 500) } }) },
+        "/auth/password-reset/request": { post: operation("Solicitar enlace de recuperacion", { tags: ["Autenticacion"], public: true, requestBody: jsonBody({ $ref: "#/components/schemas/PasswordResetRequest" }), responses: { 200: response("Solicitud procesada"), ...errors(422, 429, 503, 500) } }) },
+        "/auth/password-reset/confirm": { post: operation("Restablecer contrasena con token", { tags: ["Autenticacion"], public: true, requestBody: jsonBody({ $ref: "#/components/schemas/PasswordResetConfirm" }), responses: { 200: response("Contrasena actualizada"), ...errors(400, 422, 429, 500) } }) },
         "/auth/switch-role": { post: operation("Cambiar el modo activo de una cuenta con acceso dual", { tags: ["Autenticacion"], roles: ["ESTUDIANTE", "ADMINISTRADOR"], requestBody: jsonBody({ $ref: "#/components/schemas/SwitchRoleRequest" }), responses: { 200: response("Modo cambiado y JWT renovado", { $ref: "#/components/schemas/AuthResponse" }), ...errors(401, 403, 422, 500) } }) },
         "/users": { get: operation("Listar usuarios activos y desactivados", { tags: ["Usuarios"], roles: ["ADMINISTRADOR"], responses: { 200: response("Usuarios"), ...errors(401, 403, 500) } }) },
         "/users/me": {
@@ -263,7 +293,10 @@ const swaggerSpec = {
             put: operation("Actualizar usuario", { tags: ["Usuarios"], roles: ["ADMINISTRADOR"], parameters: idParameter, requestBody: jsonBody({ $ref: "#/components/schemas/UserUpdateRequest" }), responses: { 200: response("Usuario actualizado"), ...errors(400, 401, 403, 404, 409, 422, 500) } }),
             delete: operation("Desactivar usuario mediante borrado logico", { tags: ["Usuarios"], roles: ["ADMINISTRADOR"], parameters: idParameter, responses: { 200: response("Usuario desactivado"), ...errors(400, 401, 403, 404, 409, 500) } })
         },
-        "/users/{id}/foto": { put: operation("Actualizar fotografia propia o de un usuario", { tags: ["Usuarios"], roles: ["ESTUDIANTE", "ADMINISTRADOR"], parameters: idParameter, requestBody: multipartBody({ type: "object", required: ["imagen"], properties: { imagen: { type: "string", format: "binary" } } }), responses: { 200: response("Fotografia actualizada"), ...errors(400, 401, 403, 404, 413, 500) } }) },
+        "/users/{id}/foto": {
+            put: operation("Actualizar fotografia propia o de un usuario", { tags: ["Usuarios"], roles: ["ESTUDIANTE", "ADMINISTRADOR"], parameters: idParameter, requestBody: multipartBody({ type: "object", required: ["imagen"], properties: { imagen: { type: "string", format: "binary" } } }), responses: { 200: response("Fotografia actualizada"), ...errors(400, 401, 403, 404, 413, 500) } }),
+            delete: operation("Eliminar la fotografia propia o de un usuario", { tags: ["Usuarios"], roles: ["ESTUDIANTE", "ADMINISTRADOR"], parameters: idParameter, responses: { 200: response("Fotografia eliminada"), ...errors(400, 401, 403, 404, 500) } })
+        },
         "/users/{id}/reactivate": { patch: operation("Reactivar usuario desactivado", { tags: ["Usuarios"], roles: ["ADMINISTRADOR"], parameters: idParameter, responses: { 200: response("Usuario reactivado"), ...errors(400, 401, 403, 404, 500) } }) },
         "/users/{id}/administrator": { patch: operation("Conceder o retirar privilegios de administrador", { tags: ["Usuarios"], roles: ["ADMINISTRADOR"], parameters: idParameter, requestBody: jsonBody({ $ref: "#/components/schemas/AdministratorRoleRequest" }), responses: { 200: response("Privilegios actualizados", { $ref: "#/components/schemas/User" }), ...errors(400, 401, 403, 404, 409, 422, 500) } }) },
         "/reports": {
@@ -314,6 +347,8 @@ const swaggerSpec = {
         },
         "/ubicaciones": { get: locationGet },
         "/ubicaciones/buscar": { get: locationSearch },
+        "/ubicaciones/{id}/dependencias": { get: operation("Revisar relaciones antes de desactivar ubicacion", { tags: ["Ubicaciones"], roles: ["ADMINISTRADOR"], parameters: idParameter, responses: { 200: response("Relaciones de la ubicacion"), ...errors(400, 401, 403, 404, 500) } }) },
+        "/ubicaciones/{id}": { delete: operation("Desactivar ubicacion sin borrar su historial", { tags: ["Ubicaciones"], roles: ["ADMINISTRADOR"], parameters: idParameter, responses: { 200: response("Ubicacion desactivada"), ...errors(400, 401, 403, 404, 500) } }) },
         "/ubicaciones/{id}/coordenadas": { put: operation("Corregir ubicacion y coordenadas", { tags: ["Ubicaciones"], roles: ["ADMINISTRADOR"], parameters: idParameter, requestBody: jsonBody({ $ref: "#/components/schemas/LocationUpdateRequest" }), responses: { 200: response("Ubicacion actualizada"), ...errors(400, 401, 403, 404, 422, 500) } }) },
         "/locations": { get: locationGet },
         "/locations/buscar": { get: locationSearch },

@@ -132,6 +132,7 @@ class RouteController {
             return res.status(200).json({ success: true, data: result });
         }
         catch (error) {
+            console.error("Error al trazar ruta", { message: error instanceof Error ? error.message : "unknown" });
             const status = error.message === "Destino no encontrado"
                 ? 404
                 : error.message?.includes("no está configurado")
@@ -139,7 +140,10 @@ class RouteController {
                     : error.message?.includes("Google Routes")
                         ? 502
                         : 500;
-            return res.status(status).json({ success: false, message: error.message });
+            const message = status === 404
+                ? "El destino solicitado no existe."
+                : "No fue posible calcular la ruta en este momento.";
+            return res.status(status).json({ success: false, message });
         }
     }
 }

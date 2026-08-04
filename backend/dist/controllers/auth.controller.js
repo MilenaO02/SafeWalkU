@@ -1,4 +1,4 @@
-import service, { InvalidCredentialsError, InvalidSessionError, RoleNotAllowedError } from "../services/auth.service.js";
+import service, { InvalidCredentialsError, InvalidSessionError, RoleNotAllowedError, PasswordResetUnavailableError, InvalidPasswordResetTokenError } from "../services/auth.service.js";
 class AuthController {
     async register(req, res) {
         try {
@@ -72,6 +72,35 @@ class AuthController {
                 success: false,
                 message: "No fue posible cambiar el modo de acceso"
             });
+        }
+    }
+    async requestPasswordReset(req, res) {
+        try {
+            await service.requestPasswordReset(req.body.correo);
+            return res.status(200).json({
+                success: true,
+                message: "Si la cuenta existe, recibiras un enlace de recuperacion en tu correo institucional."
+            });
+        }
+        catch (error) {
+            if (error instanceof PasswordResetUnavailableError) {
+                return res.status(503).json({ success: false, message: error.message });
+            }
+            console.error("Error al solicitar recuperacion de contrasena:", error);
+            return res.status(500).json({ success: false, message: "No fue posible procesar la solicitud" });
+        }
+    }
+    async confirmPasswordReset(req, res) {
+        try {
+            await service.confirmPasswordReset(req.body.token, req.body.contrasena);
+            return res.status(200).json({ success: true, message: "Contrasena actualizada correctamente. Ya puedes iniciar sesion." });
+        }
+        catch (error) {
+            if (error instanceof InvalidPasswordResetTokenError) {
+                return res.status(400).json({ success: false, message: error.message });
+            }
+            console.error("Error al restablecer contrasena:", error);
+            return res.status(500).json({ success: false, message: "No fue posible actualizar la contrasena" });
         }
     }
 }

@@ -79,13 +79,42 @@ class RouteService {
             throw new Error("Ruta no encontrada");
         return route;
     }
+    async calculatePersistedRoute(data) {
+        if (!data.origen || !data.destino) {
+            throw new Error("El origen y destino son obligatorios para guardar una ruta peatonal.");
+        }
+        const alternatives = await pedestrianRoutingService.calculateAll([data.origen.latitud, data.origen.longitud], [data.destino.latitud, data.destino.longitud]);
+        const validRoutes = alternatives.filter((route) => route.coordinates.length >= 2
+            && Number.isFinite(route.distanceMeters) && route.distanceMeters > 0
+            && Number.isFinite(route.durationSeconds) && route.durationSeconds > 0);
+        if (!validRoutes.length) {
+            throw new Error("Google Routes no devolvió un trazado peatonal válido. No se guardó la ruta.");
+        }
+        const fastest = validRoutes.reduce((best, route) => route.durationSeconds < best.durationSeconds ? route : best);
+        return {
+            ...data,
+            tiempo_estimado: fastest.durationMinutes,
+            distancia_m: Math.round(fastest.distanceMeters),
+            duracion_segundos: Math.round(fastest.durationSeconds),
+            fuente_trazado: "GOOGLE_ROUTES",
+            puntos: fastest.coordinates.map(([latitud, longitud], index) => ({
+                latitud,
+                longitud,
+                tipo: index === 0 ? "INICIO" : index === fastest.coordinates.length - 1 ? "DESTINO" : "INTERMEDIO"
+            }))
+        };
+    }
     async create(data) {
-        const id = await routeRepository.create(data);
+        const persistedRoute = await this.calculatePersistedRoute(data);
+        const id = await routeRepository.create(persistedRoute);
         return this.findById(id);
     }
     async update(id, data) {
         await this.findById(id);
-        await routeRepository.update(id, data);
+        const persistedRoute = data.origen || data.destino
+            ? await this.calculatePersistedRoute(data)
+            : data;
+        await routeRepository.update(id, persistedRoute);
         return this.findById(id);
     }
     async delete(id) {
@@ -217,6 +246,7 @@ class RouteService {
                 destino: destInfo,
                 origin: { lat: origin.lat, lng: origin.lng },
                 distance_m: route.distanceMeters,
+                duration_seconds: route.durationSeconds,
                 duration_min: route.durationMinutes,
                 encoded_polyline: route.encodedPolyline ?? "",
                 coordinates: route.coordinates,

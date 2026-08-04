@@ -110,15 +110,18 @@ function AppRoutes() {
       <Router>
         <React.Suspense fallback={PageFallback}>
           <Routes>
-            {/* Public routes */}
             <Route element={<AuthLayout />}>
-              <Route path="/"        element={<LoginEstudiante />} />
-              <Route path="/login"   element={<LoginEstudiante />} />
+              <Route path="/login" element={<LoginEstudiante />} />
               <Route path="/registro" element={<Registro />} />
-              <Route path="/403"     element={<Unauthorized />} />
+              <Route path="/403" element={<Unauthorized />} />
             </Route>
 
-            {/* Protected routes — single PrivateRoute wraps the layout shell */}
+            <Route element={<MainLayout />}>
+              <Route path="/" element={<Navigate to="/app" replace />} />
+              <Route path="/app" element={<StudentApp />} />
+              <Route path="/contactos" element={<ListaContactosApoyo />} />
+            </Route>
+
             <Route
               element={
                 <PrivateRoute>
@@ -126,27 +129,22 @@ function AppRoutes() {
                 </PrivateRoute>
               }
             >
-              {/* Student routes */}
-              <Route path="/app"            element={<PrivateRoute requiredRole="ESTUDIANTE"><StudentApp /></PrivateRoute>} />
-              <Route path="/reportar"       element={<PrivateRoute requiredRole="ESTUDIANTE"><ReportarIncidente /></PrivateRoute>} />
+              <Route path="/reportar" element={<PrivateRoute requiredRole="ESTUDIANTE"><ReportarIncidente /></PrivateRoute>} />
               <Route path="/resumen-reporte" element={<PrivateRoute requiredRole="ESTUDIANTE"><ResumenReporte /></PrivateRoute>} />
-              <Route path="/sos"            element={<PrivateRoute requiredRole="ESTUDIANTE"><EmergenciaSos /></PrivateRoute>} />
-              <Route path="/contactos"      element={<PrivateRoute requiredRole="ESTUDIANTE"><ListaContactosApoyo /></PrivateRoute>} />
-              <Route path="/perfil"         element={<PrivateRoute requiredRole="ESTUDIANTE"><PerfilEstudiante /></PrivateRoute>} />
-              <Route path="/detalle-zona"   element={<PrivateRoute requiredRole="ESTUDIANTE"><DetalleZonaRiesgo /></PrivateRoute>} />
+              <Route path="/sos" element={<PrivateRoute requiredRole="ESTUDIANTE"><EmergenciaSos /></PrivateRoute>} />
+              <Route path="/perfil" element={<PrivateRoute requiredRole="ESTUDIANTE"><PerfilEstudiante /></PrivateRoute>} />
+              <Route path="/detalle-zona" element={<PrivateRoute requiredRole="ESTUDIANTE"><DetalleZonaRiesgo /></PrivateRoute>} />
 
-              {/* Admin routes */}
-              <Route path="/admin"                   element={<PrivateRoute requiredRole="ADMINISTRADOR"><AdminDashboard /></PrivateRoute>} />
-              <Route path="/admin/usuarios"          element={<PrivateRoute requiredRole="ADMINISTRADOR"><GestionUsuarios /></PrivateRoute>} />
-              <Route path="/admin/notificaciones"    element={<PrivateRoute requiredRole="ADMINISTRADOR"><HistorialNotificaciones /></PrivateRoute>} />
-              <Route path="/admin/configuracion"     element={<PrivateRoute requiredRole="ADMINISTRADOR"><AdminSettings /></PrivateRoute>} />
-              <Route path="/admin/rutas"             element={<PrivateRoute requiredRole="ADMINISTRADOR"><EditorRutas /></PrivateRoute>} />
-              <Route path="/admin/ubicaciones"       element={<PrivateRoute requiredRole="ADMINISTRADOR"><EditorUbicaciones /></PrivateRoute>} />
-              <Route path="/admin/zonas-riesgo"      element={<PrivateRoute requiredRole="ADMINISTRADOR"><AdminRiskZones /></PrivateRoute>} />
+              <Route path="/admin" element={<PrivateRoute requiredRole="ADMINISTRADOR"><AdminDashboard /></PrivateRoute>} />
+              <Route path="/admin/usuarios" element={<PrivateRoute requiredRole="ADMINISTRADOR"><GestionUsuarios /></PrivateRoute>} />
+              <Route path="/admin/notificaciones" element={<PrivateRoute requiredRole="ADMINISTRADOR"><HistorialNotificaciones /></PrivateRoute>} />
+              <Route path="/admin/configuracion" element={<PrivateRoute requiredRole="ADMINISTRADOR"><AdminSettings /></PrivateRoute>} />
+              <Route path="/admin/rutas" element={<PrivateRoute requiredRole="ADMINISTRADOR"><EditorRutas /></PrivateRoute>} />
+              <Route path="/admin/ubicaciones" element={<PrivateRoute requiredRole="ADMINISTRADOR"><EditorUbicaciones /></PrivateRoute>} />
+              <Route path="/admin/zonas-riesgo" element={<PrivateRoute requiredRole="ADMINISTRADOR"><AdminRiskZones /></PrivateRoute>} />
             </Route>
 
-            {/* Catch-all */}
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<Navigate to="/app" replace />} />
           </Routes>
         </React.Suspense>
       </Router>
@@ -155,7 +153,6 @@ function AppRoutes() {
     </>
   );
 }
-
 export default function App() {
   return (
     <AuthProvider>

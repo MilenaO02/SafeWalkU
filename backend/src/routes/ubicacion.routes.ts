@@ -7,8 +7,8 @@ import { updateLocationSchema, createLocationSchema } from "../schemas/ubicacion
 
 const router = Router();
 
-router.get("/", auth, ubicacionController.getAll);
-router.get("/buscar", auth, ubicacionController.search);
+router.get("/", ubicacionController.getAll);
+router.get("/buscar", ubicacionController.search);
 router.get("/:id/dependencias", auth, authorize("ADMINISTRADOR"), ubicacionController.getDependencies);
 router.post("/", auth, authorize("ADMINISTRADOR"), validate(createLocationSchema), ubicacionController.create);
 router.put("/:id/coordenadas", auth, authorize("ADMINISTRADOR"), validate(updateLocationSchema), ubicacionController.updateCoordinates);

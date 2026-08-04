@@ -275,7 +275,7 @@ class UserRepository {
 
 }
 
-    async updateFotoPerfil(id: number, foto_perfil: string) {
+    async updateFotoPerfil(id: number, foto_perfil: string | null) {
 
         await pool.query(
 

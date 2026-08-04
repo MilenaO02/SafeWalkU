@@ -141,4 +141,11 @@ router.put(
     controller.uploadFoto
 );
 
+router.delete(
+    "/:id/foto",
+    auth,
+    authorizeSelfOrAdmin,
+    controller.deleteFoto
+);
+
 export default router;

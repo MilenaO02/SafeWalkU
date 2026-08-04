@@ -92,8 +92,8 @@ const legacyMigrations = [
 // idempotentes. Las migraciones de limpieza/autorizacion historicas se dejan
 // disponibles para una instalacion antigua que las necesite expresamente.
 const migrations = process.env.SAFEWALK_SKIP_LEGACY_MIGRATIONS === "1"
-    ? ["014_add_location_lifecycle.sql", "015_add_password_reset_tokens.sql"]
-    : [...legacyMigrations, "014_add_location_lifecycle.sql", "015_add_password_reset_tokens.sql"];
+    ? ["014_add_location_lifecycle.sql", "015_add_password_reset_tokens.sql", "016_normalize_loja_emergency_services.sql"]
+    : [...legacyMigrations, "014_add_location_lifecycle.sql", "015_add_password_reset_tokens.sql", "016_normalize_loja_emergency_services.sql"];
 
 try {
     for (const migration of migrations) {

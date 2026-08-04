@@ -17,6 +17,7 @@ export default function PerfilEstudiante() {
   const [editing, setEditing] = useState(false);
   const [status, setStatus] = useState('loading');
   const [error, setError] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
 
   // Load fresh profile data from the server on mount
   useEffect(() => {
@@ -92,6 +93,8 @@ export default function PerfilEstudiante() {
 
     setStatus('saving');
     setError(null);
+    const temporaryPreview = URL.createObjectURL(file);
+    setPreviewUrl(temporaryPreview);
     const body = new FormData();
     body.append('imagen', file);
 
@@ -108,11 +111,31 @@ export default function PerfilEstudiante() {
       setError(uploadError.message);
       setStatus('error');
     } finally {
+      URL.revokeObjectURL(temporaryPreview);
+      setPreviewUrl(null);
       event.target.value = '';
     }
   };
 
-  const photoSrc = profile?.foto_perfil ? buildAssetUrl(profile.foto_perfil) : null;
+  const handlePhotoDelete = async () => {
+    if (!profile?.foto_perfil || !user?.id_usuario) return;
+    setStatus('saving');
+    setError(null);
+    try {
+      const response = await request(`/users/${user.id_usuario}/foto`, { method: 'DELETE' });
+      setProfile(response.data);
+      updateUser(response.data);
+      showToast('Foto de perfil eliminada.', 'success');
+      setStatus('ready');
+    } catch (deleteError) {
+      setError(deleteError.message);
+      setStatus('error');
+    } finally {
+      setPreviewUrl(null);
+    }
+  };
+
+  const photoSrc = previewUrl || (profile?.foto_perfil ? buildAssetUrl(profile.foto_perfil) : null);
 
   return (
     <div className="mx-auto max-w-2xl space-y-5 py-4">
@@ -160,6 +183,17 @@ export default function PerfilEstudiante() {
             onChange={handlePhotoUpload}
             aria-hidden="true"
           />
+
+          {profile?.foto_perfil && (
+            <button
+              type="button"
+              onClick={handlePhotoDelete}
+              disabled={status === 'saving'}
+              className="min-h-11 rounded-xl border border-red-200 px-4 text-xs font-bold text-red-700 hover:bg-red-50 disabled:opacity-60"
+            >
+              Eliminar foto
+            </button>
+          )}
 
           {/* Name / role summary */}
           <div className="flex-1 text-center sm:text-left">

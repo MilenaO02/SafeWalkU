@@ -57,7 +57,7 @@ class UserService {
         return repository.reactivate(id);
     }
 
-    async updateFotoPerfil(id: number, foto_perfil: string): Promise<PublicUser | undefined> {
+    async updateFotoPerfil(id: number, foto_perfil: string | null): Promise<PublicUser | undefined> {
         return repository.updateFotoPerfil(id, foto_perfil);
     }
 

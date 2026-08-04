@@ -313,7 +313,10 @@ const swaggerSpec = {
             put: operation("Actualizar usuario", { tags: ["Usuarios"], roles: ["ADMINISTRADOR"], parameters: idParameter, requestBody: jsonBody({ $ref: "#/components/schemas/UserUpdateRequest" }), responses: { 200: response("Usuario actualizado"), ...errors(400, 401, 403, 404, 409, 422, 500) } }),
             delete: operation("Desactivar usuario mediante borrado logico", { tags: ["Usuarios"], roles: ["ADMINISTRADOR"], parameters: idParameter, responses: { 200: response("Usuario desactivado"), ...errors(400, 401, 403, 404, 409, 500) } })
         },
-        "/users/{id}/foto": { put: operation("Actualizar fotografia propia o de un usuario", { tags: ["Usuarios"], roles: ["ESTUDIANTE", "ADMINISTRADOR"], parameters: idParameter, requestBody: multipartBody({ type: "object", required: ["imagen"], properties: { imagen: { type: "string", format: "binary" } } }), responses: { 200: response("Fotografia actualizada"), ...errors(400, 401, 403, 404, 413, 500) } }) },
+        "/users/{id}/foto": {
+            put: operation("Actualizar fotografia propia o de un usuario", { tags: ["Usuarios"], roles: ["ESTUDIANTE", "ADMINISTRADOR"], parameters: idParameter, requestBody: multipartBody({ type: "object", required: ["imagen"], properties: { imagen: { type: "string", format: "binary" } } }), responses: { 200: response("Fotografia actualizada"), ...errors(400, 401, 403, 404, 413, 500) } }),
+            delete: operation("Eliminar la fotografia propia o de un usuario", { tags: ["Usuarios"], roles: ["ESTUDIANTE", "ADMINISTRADOR"], parameters: idParameter, responses: { 200: response("Fotografia eliminada"), ...errors(400, 401, 403, 404, 500) } })
+        },
         "/users/{id}/reactivate": { patch: operation("Reactivar usuario desactivado", { tags: ["Usuarios"], roles: ["ADMINISTRADOR"], parameters: idParameter, responses: { 200: response("Usuario reactivado"), ...errors(400, 401, 403, 404, 500) } }) },
         "/users/{id}/administrator": { patch: operation("Conceder o retirar privilegios de administrador", { tags: ["Usuarios"], roles: ["ADMINISTRADOR"], parameters: idParameter, requestBody: jsonBody({ $ref: "#/components/schemas/AdministratorRoleRequest" }), responses: { 200: response("Privilegios actualizados", { $ref: "#/components/schemas/User" }), ...errors(400, 401, 403, 404, 409, 422, 500) } }) },
         "/reports": {
